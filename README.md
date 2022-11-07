@@ -2,7 +2,7 @@
 
 ![Apron](https://github.com/cleancoders/c3kit/blob/master/img/apron_200.png?raw=true)
 
-A Clojure library component of [c3kit - Clean Coders Clojure Kit](https://github.com/cleancoders/c3kit).
+A library component of [c3kit - Clean Coders Clojure Kit](https://github.com/cleancoders/c3kit).
 
 _"Where is thy leather apron and thy rule?"_ - Shakespeare
 
