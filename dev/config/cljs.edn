@@ -1,13 +1,13 @@
 {
  ; :env-keys ["property.name" "ENV_NAME"] ; default: ["c3.env" "C3_ENV"]
- :run-cmd "phantomjs dev/specs/speclj.js"
+ :run-cmd     "node dev/specs/speclj.js"
  :development {:cache-analysis true
                :optimizations  :none
                :output-dir     "target/cljs/"
                :output-to      "target/cljs/c3kit_apron_dev.js"
                :pretty-print   true
                :source-map     true
-               :sources        ["spec/cljc" "spec/cljs" "src/cljc" "src/cljs"]
+               :sources        ["spec/cljc" "src/cljc"]
                :specs          true
                :verbose        false
                :watch-fn       c3kit.apron.cljs/on-dev-compiled
@@ -21,7 +21,7 @@
                :pretty-print   false
                ;:pretty-print   true
                ;:pseudo-names   true
-               :sources        ["src/cljc" "src/cljs"]
+               :sources        ["src/cljc"]
                :specs          false
                :verbose        false
                }
@@ -33,7 +33,7 @@
                :output-to      "target/cljs/c3kit_apron.js"
                :pretty-print   true
                :pseudo-names   true
-               :sources        ["src/cljc" "src/cljs"]
+               :sources        ["src/cljc"]
                :specs          false
                :verbose        false
                }

@@ -1,5 +1,5 @@
 {
- :paths   ["src/clj" "src/cljc" "src/cljs"]
+ :paths   ["src/clj" "src/cljc"]
  :deps    {
            com.andrewmcveigh/cljs-time {:mvn/version "0.5.2"}
            com.cognitect/transit-clj   {:mvn/version "1.0.329"}
@@ -14,7 +14,7 @@
                                   org.clojure/clojurescript      {:mvn/version "1.10.764"}
                                   speclj/speclj                  {:mvn/version "3.4.1"}
                                   }
-                  :extra-paths   ["dev" "spec/clj" "spec/cljc" "spec/cljs"]}
+                  :extra-paths   ["dev" "spec/clj" "spec/cljc"]}
            :spec {:main-opts ["-m" "speclj.main" "-c"]}
            :cljs {:main-opts ["-m" "c3kit.apron.cljs"]}
            }
