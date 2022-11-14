@@ -3,11 +3,11 @@
             [java.util Date]
             [java.text SimpleDateFormat]))
   (:require
-    [c3kit.apron.time :as time :refer [now local before? after? between? year month day hour minute sec
+    [c3kit.apron.time :as sut :refer [now local before? after? between? year month day hour minute sec
                                        parse unparse years months days hours minutes seconds before after
                                        ago from-now formatter ->utc utc-offset utc millis-since-epoch
                                        earlier? later? earlier later]]
-    [speclj.core #?(:clj :refer :cljs :refer-macros) [describe it should should= should-not]]))
+    [speclj.core #?(:clj :refer :cljs :refer-macros) [describe it should should= should-not focus-it]]))
 
 (describe "Time"
 
@@ -43,7 +43,7 @@
 
   (it "creating from epoch"
     ;January 1, 1970, 00:00:00 GMT.
-    (let [epoch (->utc (time/from-epoch 0))]
+    (let [epoch (->utc (sut/from-epoch 0))]
       (should= 1970 (year epoch))
       (should= 1 (month epoch))
       (should= 1 (day epoch))
@@ -51,10 +51,25 @@
       (should= 0 (minute epoch))
       (should= 0 (sec epoch))))
 
-  ;; Wont pass in other time zones
-  ;(it "utc offset AZ"
-  ;  (should= (* -1 (-> 7 hours)) (utc-offset))
-  ;  (should= (* -1 (-> 7 hours)) (utc-offset (now))))
+  ; Only run in AZ timezone
+  #_(it "utc offset AZ"
+    (should= (* -1 (-> 7 hours)) (utc-offset))
+    (should= (* -1 (-> 7 hours)) (utc-offset (now))))
+
+  ; Only run in Central timezone
+  #_(it "utc offset in Central TZ"
+    (should= (* -1 (-> 5 hours)) (utc-offset (parse :dense "20221105000000")))
+    (should= (* -1 (-> 5 hours)) (utc-offset (parse :dense "20221106000000")))
+    (should= (* -1 (-> 6 hours)) (utc-offset (parse :dense "20221106070000")))
+    (should= (* -1 (-> 6 hours)) (utc-offset (parse :dense "20221107000000"))))
+
+  ; Only run in Central timezone
+  #_(it "creates dates relative to now in day increments - across timezone"
+    (let [start (local 2022 11 05)] ;; 1 day1 before DSL begins
+      (should= (parse :dense "20221105050000") start)
+      (should= (parse :dense "20221106050000") (after start (-> 1 days)))
+      (should= (parse :dense "20221107060000") (after start (-> 2 days)))
+      (should= (parse :dense "20221108060000") (after start (-> 3 days)))))
 
   (it "local vs utc after DST"
     (let [local-time (local 2020 1 1 1 1 1)
@@ -124,6 +139,27 @@
     (should= before earlier)
     (should= after later))
 
+  (it "leap-year?"
+    (should= false (sut/leap-year? 2011))
+    (should= true  (sut/leap-year? 2012))
+    (should= false (sut/leap-year? 2100))
+    (should= true  (sut/leap-year? 2400)))
+
+  (it "days in month"
+    (should= 31 (sut/days-in-month 2000 0))
+    (should= 29 (sut/days-in-month 2000 1))
+    (should= 28 (sut/days-in-month 2001 1))
+    (should= 31 (sut/days-in-month 2001 2))
+    (should= 30 (sut/days-in-month 2001 3))
+    (should= 31 (sut/days-in-month 2001 4))
+    (should= 30 (sut/days-in-month 2001 5))
+    (should= 31 (sut/days-in-month 2001 6))
+    (should= 31 (sut/days-in-month 2001 7))
+    (should= 30 (sut/days-in-month 2001 8))
+    (should= 31 (sut/days-in-month 2001 9))
+    (should= 30 (sut/days-in-month 2001 10))
+    (should= 31 (sut/days-in-month 2001 11)))
+
   (it "rolling over a month with not enough days"
     (should= "20110228" (unparse :ymd (after (local 2011 1 31) (months 1)))))
 
@@ -166,7 +202,7 @@
 
   (it "parses and formats :webform datas"
     (let [date (parse :webform "2020-03-31")
-          utc  (time/->utc date)]
+          utc  (sut/->utc date)]
       (should= 2020 (year utc))
       (should= 3 (month utc))
       (should= 31 (day utc))
@@ -176,14 +212,14 @@
       (should= "2020-03-31" (unparse :webform date))))
 
   (it "time range"
-    (let [time1 (time/local 1939 9 1)
-          time2 (time/local 1945 9 2)
-          ww2   (time/bounds time1 time2)]
-      (should (time/bounds? ww2))
-      (should= time1 (time/start-of ww2))
-      (should= time2 (time/end-of ww2))
-      (should-not (time/during? ww2 (time/local 1920 1 1)))
-      (should (time/during? ww2 (time/local 1941 1 1)))
-      (should-not (time/during? ww2 (time/local 1950 1 1)))))
+    (let [time1 (sut/local 1939 9 1)
+          time2 (sut/local 1945 9 2)
+          ww2   (sut/bounds time1 time2)]
+      (should (sut/bounds? ww2))
+      (should= time1 (sut/start-of ww2))
+      (should= time2 (sut/end-of ww2))
+      (should-not (sut/during? ww2 (sut/local 1920 1 1)))
+      (should (sut/during? ww2 (sut/local 1941 1 1)))
+      (should-not (sut/during? ww2 (sut/local 1950 1 1)))))
 
   )
