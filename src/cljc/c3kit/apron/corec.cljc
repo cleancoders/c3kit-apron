@@ -3,32 +3,35 @@
   Clients should be able to safely :refer :all from this namespace."
   #?(:clj (:import (java.util UUID)))
   #?(:cljs (:require-macros [c3kit.apron.corec :refer [for-all nand nor xor]]))
-  #?(:cljs (:require
-    ;#?(:clj [hashids.core :as hashid])
-    ;#?(:cljs [cljsjs.hashids])
-    [goog.string :as gstring]
-    [goog.string.format]
-    )))
+  #?(:cljs (:require [goog.string :as gstring]
+                     [goog.string.format])))
 
 #?(:clj (defmacro for-all [bindings body]
           `(doall (for ~bindings ~body))))
+
+(def map-all
+  "Like for-all, but with map"
+  (comp doall map))
+
 #?(:clj
    (defmacro nand
      "Same as (not (and ...))"
      ([] false)
      ([x & next] `(if-not ~x true (nand ~@next)))))
+
 #?(:clj
    (defmacro nor
      "Same as (not (or ...))"
      ([] true)
      ([x & next] `(if ~x false (nor ~@next)))))
+
 #?(:clj
    (defmacro xor
-    "Evaluates expressions one at a time, from left to right.
-     If a second form evaluates to logical true, xor returns nil
-     and doesn't evaluate any of the other expressions, otherwise
-     it returns the value of the first logical true expression.
-     If there are no truthy expressions, xor returns nil."
+     "Evaluates expressions one at a time, from left to right.
+      If a second form evaluates to logical true, xor returns nil
+      and doesn't evaluate any of the other expressions, otherwise
+      it returns the value of the first logical true expression.
+      If there are no truthy expressions, xor returns nil."
      ([] nil)
      ([x] `(or ~x nil))
      ([x y & next]
@@ -94,6 +97,35 @@
   "Same as sort-by, but reversed"
   ([keyfn coll] (rsort-by keyfn compare coll))
   ([keyfn comp coll] (sort-by keyfn (fn [x y] (comp y x)) coll)))
+
+(defn- greatest-v
+  ([_] nil)
+  ([greater? init & vals]
+   (reduce #(if (greater? (compare %1 %2)) %1 %2) init vals)))
+
+(def max-v
+  "Like max, but works with non-numeric values"
+  (partial greatest-v pos?))
+
+(def min-v
+  "Like min, but works with non-numeric values"
+  (partial greatest-v neg?))
+
+(defn- greatest-m [greater? k comp x y]
+  (if (greater? (comp (get x k) (get y k))) x y))
+
+(defn- greatest-by
+  ([pos-neg? k coll] (greatest-by pos-neg? k compare coll))
+  ([pos-neg? k comp [first & rest]]
+   (reduce #(greatest-m pos-neg? k comp %1 %2) first rest)))
+
+(def max-by
+  "Like max-key, but works with non-numeric values."
+  (partial greatest-by pos?))
+
+(def min-by
+  "Like min-key, but works with non-numeric values."
+  (partial greatest-by neg?))
 
 (defn ->inspect
   "Insert in threading macro to print the value."

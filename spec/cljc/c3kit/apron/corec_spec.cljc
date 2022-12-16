@@ -1,6 +1,7 @@
 (ns c3kit.apron.corec-spec
   (:require
     [c3kit.apron.corec :as ccc]
+    [c3kit.apron.time :as time]
     [speclj.core #?(:clj :refer :cljs :refer-macros) [context describe it should= should-be-nil]]))
 
 (describe "Core Common"
@@ -167,10 +168,95 @@
       (let [coll [{:x 4} {:x 5} {:x 1} {:x 3} {:x 2}]]
         (should= (reverse (sort-by :x coll)) (ccc/rsort-by :x coll))))
     (it "by custom compare function"
-      (let [coll [{:a [5 1]} {:a [4 2]} {:a [3 3]} {:a [2 4]} {:a [1 5]}]
+      (let [coll       [{:a [5 1]} {:a [4 2]} {:a [3 3]} {:a [2 4]} {:a [1 5]}]
             compare-fn (fn [x y] (compare (second x) (second y)))]
         (should= (reverse (sort-by :a compare-fn coll))
                  (ccc/rsort-by :a compare-fn coll)))))
+
+
+  (it "max-v"
+    (should-be-nil (ccc/max-v))
+    (should-be-nil (ccc/max-v nil))
+    (should= 0 (ccc/max-v 0))
+    (should= 1 (ccc/max-v nil 1))
+    (should= 1 (ccc/max-v 1 nil))
+    (should= 1 (ccc/max-v 0 1))
+    (should= 1 (ccc/max-v 1 0))
+    (should= "ABC" (ccc/max-v "ABB" "ABC")))
+
+  (it "min-v"
+    (should-be-nil (ccc/min-v))
+    (should-be-nil (ccc/min-v nil))
+    (should= 0 (ccc/min-v 0))
+    (should-be-nil (ccc/min-v nil 1))
+    (should-be-nil (ccc/min-v 1 nil))
+    (should= 0 (ccc/min-v 0 1))
+    (should= 0 (ccc/min-v 1 0))
+    (should= "ABB" (ccc/min-v "ABB" "ABC")))
+
+  (context "max-k"
+    (it "empty collection" (should-be-nil (ccc/max-by :a [])))
+    (it "one item"
+      (should= {:a 1} (ccc/max-by :a [{:a 1}]))
+      (should= {:a 1} (ccc/max-by :b [{:a 1}])))
+    (it "two items"
+      (should= {:b 2} (ccc/max-by :b [{:a 1} {:b 2}]))
+      (should= {:b 2} (ccc/max-by :b [{:b 1} {:b 2}]))
+      (should= {:b 3} (ccc/max-by :b [{:b 3} {:b 2}])))
+    (it "three items"
+      (should= {:b 5} (ccc/max-by :b [{:a 1} {:b 2} {:b 5}]))
+      (should= {:b 3} (ccc/max-by :b [{:b 3} {:b 2} {:b 1}]))
+      (should= {:b 1} (ccc/max-by :b [{:a 3} {:a 2} {:b 1}])))
+    (it "non-keyword key"
+      (should= {"b" 2} (ccc/max-by "b" [{"b" 1} {"b" 2}]))
+      (should= [5 4 3] (ccc/max-by 0 [[5 4 3] [3 4 5]]))
+      (should= [3 4 5] (ccc/max-by 2 [[5 4 3] [3 4 5]])))
+    (it "compares instant"
+      (let [now      (time/now)
+            after-5  (time/after now (time/minutes 5))
+            before-5 (time/before now (time/minutes 5))]
+        (should= {:time after-5} (ccc/max-by :time [{:time now} {:time after-5} {:time before-5}]))))
+    (it "with comparer"
+      (let [comparer #(cond (and (even? %1) (even? %2)) 0
+                            (even? %1) 1
+                            :else -1)]
+        (should= {:a 4} (ccc/max-by :a comparer [{:a 4} {:a 3} {:a 5}])))))
+
+  (context "min-k"
+    (it "empty collection"
+      (should-be-nil (ccc/min-by :a [])))
+
+    (it "one item"
+      (should= {:a 1} (ccc/min-by :a [{:a 1}]))
+      (should= {:a 1} (ccc/min-by :b [{:a 1}])))
+
+    (it "two items"
+      (should= {:a 1} (ccc/min-by :b [{:a 1} {:b 2}]))
+      (should= {:b 1} (ccc/min-by :b [{:b 1} {:b 2}]))
+      (should= {:b 2} (ccc/min-by :b [{:b 3} {:b 2}])))
+
+    (it "three items"
+      (should= {:a 1} (ccc/min-by :b [{:a 1} {:b 2} {:b 5}]))
+      (should= {:b 1} (ccc/min-by :b [{:b 3} {:b 2} {:b 1}]))
+      (should= {:a 3} (ccc/min-by :b [{:a 3} {:a 2 :b 2} {:b 1}])))
+
+    (it "non-keyword key"
+      (should= {"b" 1} (ccc/min-by "b" [{"b" 1} {"b" 2}]))
+      (should= [3 4 5] (ccc/min-by 0 [[5 4 3] [3 4 5]]))
+      (should= [5 4 3] (ccc/min-by 2 [[5 4 3] [3 4 5]])))
+
+    (it "compares instant"
+      (let [now      (time/now)
+            after-5  (time/after now (time/minutes 5))
+            before-5 (time/before now (time/minutes 5))]
+        (should= {:time before-5} (ccc/min-by :time [{:time now} {:time after-5} {:time before-5}]))))
+
+    (it "with comparer"
+      (let [comparer #(cond (odd? %1) -1 (odd? %2) 1 :else 0)
+            things   [{:a 2} {:a 3} {:a 6}]]
+        (should= {:a 3} (ccc/min-by :a comparer things))
+        (should= {:a 6} (ccc/min-by :a (comparator >) things))
+        (should= {:a 2} (ccc/min-by :a (comparator <) things)))))
 
   (it "formats"
     (should= "Number 9" (ccc/formats "Number %s" 9)))
