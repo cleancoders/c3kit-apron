@@ -35,6 +35,11 @@
   "Converts a number into a format that the Calendar object understands to be an amount of years"
   [n] [:years (if (float? n) (Math/round n) n)])
 
+(defn millis->seconds
+  "Converts milliseconds to seconds"
+  [millis]
+  (long (/ millis 1000)))
+
 (defn now
   "Returns a java.util.Date or js/Date object that represents the current date and time in UTC"
   []
@@ -57,6 +62,7 @@
 
 (defn instant? [thing] (instance? #?(:clj Date :cljs js/Date) thing))
 (defn millis-since-epoch [date] (.getTime date))
+(def seconds-since-epoch (comp millis->seconds millis-since-epoch))
 
 (defn millis-between
   "Milliseconds that separate the two times.  Negative if b is after a."

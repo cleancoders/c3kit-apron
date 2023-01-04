@@ -4,10 +4,10 @@
             [java.text SimpleDateFormat]))
   (:require
     [c3kit.apron.time :as sut :refer [now local before? after? between? year month day hour minute sec
-                                       parse unparse years months days hours minutes seconds before after
-                                       ago from-now formatter ->utc utc-offset utc millis-since-epoch
-                                       earlier? later? earlier later]]
-    [speclj.core #?(:clj :refer :cljs :refer-macros) [describe it should should= should-not focus-it]]))
+                                      parse unparse years months days hours minutes seconds before after
+                                      ago from-now formatter ->utc utc-offset utc millis-since-epoch
+                                      earlier? later? earlier later]]
+    [speclj.core #?(:clj :refer :cljs :refer-macros) [describe it should should= should-not]]))
 
 (describe "Time"
 
@@ -17,6 +17,18 @@
          :cljs (should= true (instance? js/Date now)))
       #?(:clj  (should (> 100 (- (System/currentTimeMillis) (.getTime now))))
          :cljs (should (> 100 (- (. (js/Date.) (getTime)) (.getTime now)))))))
+
+  (it "millis->seconds"
+    (should= 0 (sut/millis->seconds 0))
+    (should= 0 (sut/millis->seconds 999))
+    (should= 1 (sut/millis->seconds 1000))
+    (should= 1 (sut/millis->seconds 1500))
+    (should= 15 (sut/millis->seconds 15000)))
+
+  (it "seconds-since-epoch"
+    (let [now     (now)
+          seconds (long (/ (sut/millis-since-epoch now) 1000))]
+      (should= seconds (sut/seconds-since-epoch now))))
 
   (it "creating Dates and getting the pieces"
     (let [dt (local 2011 1 1)]
@@ -53,23 +65,23 @@
 
   ; Only run in AZ timezone
   #_(it "utc offset AZ"
-    (should= (* -1 (-> 7 hours)) (utc-offset))
-    (should= (* -1 (-> 7 hours)) (utc-offset (now))))
+      (should= (* -1 (-> 7 hours)) (utc-offset))
+      (should= (* -1 (-> 7 hours)) (utc-offset (now))))
 
   ; Only run in Central timezone
   #_(it "utc offset in Central TZ"
-    (should= (* -1 (-> 5 hours)) (utc-offset (parse :dense "20221105000000")))
-    (should= (* -1 (-> 5 hours)) (utc-offset (parse :dense "20221106000000")))
-    (should= (* -1 (-> 6 hours)) (utc-offset (parse :dense "20221106070000")))
-    (should= (* -1 (-> 6 hours)) (utc-offset (parse :dense "20221107000000"))))
+      (should= (* -1 (-> 5 hours)) (utc-offset (parse :dense "20221105000000")))
+      (should= (* -1 (-> 5 hours)) (utc-offset (parse :dense "20221106000000")))
+      (should= (* -1 (-> 6 hours)) (utc-offset (parse :dense "20221106070000")))
+      (should= (* -1 (-> 6 hours)) (utc-offset (parse :dense "20221107000000"))))
 
   ; Only run in Central timezone
   #_(it "creates dates relative to now in day increments - across timezone"
-    (let [start (local 2022 11 05)] ;; 1 day1 before DSL begins
-      (should= (parse :dense "20221105050000") start)
-      (should= (parse :dense "20221106050000") (after start (-> 1 days)))
-      (should= (parse :dense "20221107060000") (after start (-> 2 days)))
-      (should= (parse :dense "20221108060000") (after start (-> 3 days)))))
+      (let [start (local 2022 11 05)] ;; 1 day1 before DSL begins
+        (should= (parse :dense "20221105050000") start)
+        (should= (parse :dense "20221106050000") (after start (-> 1 days)))
+        (should= (parse :dense "20221107060000") (after start (-> 2 days)))
+        (should= (parse :dense "20221108060000") (after start (-> 3 days)))))
 
   (it "local vs utc after DST"
     (let [local-time (local 2020 1 1 1 1 1)
@@ -141,9 +153,9 @@
 
   (it "leap-year?"
     (should= false (sut/leap-year? 2011))
-    (should= true  (sut/leap-year? 2012))
+    (should= true (sut/leap-year? 2012))
     (should= false (sut/leap-year? 2100))
-    (should= true  (sut/leap-year? 2400)))
+    (should= true (sut/leap-year? 2400)))
 
   (it "days in month"
     (should= 31 (sut/days-in-month 2000 0))
