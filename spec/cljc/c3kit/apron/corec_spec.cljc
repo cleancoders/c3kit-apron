@@ -268,4 +268,15 @@
     (should= false (ccc/ex? "Not an exception"))
     (should= true (ccc/ex? #?(:clj (Exception. "yup") :cljs (js/Error. "yup")))))
 
+  (it "invoke"
+    (should= 0 (ccc/invoke (fn [] 0)))
+    (should= {:foo :bar} (ccc/invoke identity {:foo :bar}))
+    (should= 6 (ccc/invoke + 1 2 3))
+    (should= "hello world" (-> {:some-fn str} :some-fn (ccc/invoke "hello" " " "world"))))
+
+  (it "narity"
+    (let [f (ccc/narity (fn [] :foo))]
+      (should= :foo (f))
+      (should= :foo (f 1 2 3))))
+
   )

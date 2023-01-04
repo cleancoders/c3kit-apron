@@ -169,3 +169,13 @@
 (defn noop
   "Does nothing"
   [& _])
+
+(defn invoke
+  "Insert in threading macro to invoke a function with a given set of arguments."
+  [f & args]
+  (apply f args))
+
+(defn narity
+  "Create an n-arity function from a 0-arity function"
+  [f]
+  (fn [& _] (f)))
