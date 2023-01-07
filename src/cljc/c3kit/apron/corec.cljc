@@ -3,8 +3,9 @@
   Clients should be able to safely :refer :all from this namespace."
   #?(:clj (:import (java.util UUID)))
   #?(:cljs (:require-macros [c3kit.apron.corec :refer [for-all nand nor xor]]))
-  #?(:cljs (:require [goog.string :as gstring]
-                     [goog.string.format])))
+  (:require [clojure.string :as str]
+            #?(:cljs [goog.string :as gstring])
+            #?(:cljs [goog.string.format])))
 
 #?(:clj (defmacro for-all [bindings body]
           `(doall (for ~bindings ~body))))
@@ -148,12 +149,13 @@
     (map? (first options)) (merge (first options) (apply hash-map (rest options)))
     :else (apply hash-map options)))
 
-
 (defn formats
   "Platform agnostic string format fm"
   [format & args]
   #?(:clj  (apply clojure.core/format format args)
      :cljs (apply gstring/format format args)))
+
+(def not-blank? (complement str/blank?))
 
 (defn remove-nils
   "Return a map where all the keys with nil values are removed"

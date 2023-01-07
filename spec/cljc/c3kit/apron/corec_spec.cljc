@@ -2,7 +2,7 @@
   (:require
     [c3kit.apron.corec :as ccc]
     [c3kit.apron.time :as time]
-    [speclj.core #?(:clj :refer :cljs :refer-macros) [context describe it should= should-be-nil]]))
+    [speclj.core #?(:clj :refer :cljs :refer-macros) [context describe it should= should should-not should-be-nil]]))
 
 (describe "Core Common"
 
@@ -260,6 +260,15 @@
 
   (it "formats"
     (should= "Number 9" (ccc/formats "Number %s" 9)))
+
+  (it "not-blank?"
+    (should (ccc/not-blank? "a"))
+    (should (ccc/not-blank? "\r\n\t a "))
+    (should-not (ccc/not-blank? "\r"))
+    (should-not (ccc/not-blank? "\n"))
+    (should-not (ccc/not-blank? "\t"))
+    (should-not (ccc/not-blank? " "))
+    (should-not (ccc/not-blank? "\r\n\t ")))
 
   (it "remove-nils"
     (should= {:a 1} (ccc/remove-nils {:a 1 :b nil})))
