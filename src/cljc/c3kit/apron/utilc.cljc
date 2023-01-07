@@ -3,6 +3,7 @@
   #?(:clj (:import (java.util UUID)
                    (java.io ByteArrayInputStream ByteArrayOutputStream)))
   (:require #?(:clj [clojure.data.json :as json])
+            [c3kit.apron.corec :as ccc]
             [c3kit.apron.schema :as schema]
             [clojure.edn :as edn]
             [clojure.string :as str]
@@ -11,7 +12,7 @@
 
 (defn ->edn
   "Convenience.  Convert the form to EDN"
-  [v] (if v (pr-str v) nil))
+  [v] (some-> v pr-str))
 
 (defn <-edn
   "Convenience.  Convert the EDN string to a Clojure form"
@@ -81,7 +82,7 @@
 (defn <-json
   "Convert JSON into clj data structure."
   [v]
-  (when (and v (not (str/blank? v)))
+  (when (some-> v ccc/not-blank?)
     #?(:clj  (json/read-str v)
        :cljs (js->clj (.parse js/JSON v)))))
 
@@ -96,14 +97,12 @@
 ; ----- CSV -----
 
 (defn- csv-maybe-quote [value]
-  (if (or (str/index-of value ",") (str/index-of value "\""))
+  (if (re-find #"[,\"]" value)
     (str "\"" (str/replace value "\"" "\"\"") "\"")
     value))
 
 (defn cell->csv [cell]
-  (-> (str cell)
-      csv-maybe-quote))
-
+  (-> cell str csv-maybe-quote))
 (defn row->csv [row]
   (str/join "," (map cell->csv row)))
 
