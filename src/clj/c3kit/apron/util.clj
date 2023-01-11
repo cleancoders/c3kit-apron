@@ -1,11 +1,10 @@
 (ns c3kit.apron.util
-  (:import [java.security MessageDigest DigestInputStream]
-           (java.io InputStream OutputStream))
-  (:require
-    [clojure.java.io :as io]
-    [clojure.string :as str]
-    [c3kit.apron.utilc :as utilc]
-    [c3kit.apron.log :as log]))
+  (:require [c3kit.apron.log :as log]
+            [c3kit.apron.utilc :as utilc]
+            [clojure.java.io :as io]
+            [clojure.string :as str])
+  (:import (java.io InputStream OutputStream)
+           (java.security DigestInputStream MessageDigest)))
 
 (defn files-in
   ([pred path] (files-in pred path (.list (io/file path)) []))
@@ -19,22 +18,31 @@
          (pred name) (recur pred base more (conj result (str base "/" name)))
          :else (recur pred base more result))))))
 
-(defn clj-files-in
-  "Return a list of filenames of .clj files located within the specified path, recursively"
+(defn files-with-suffix-in
+  "Return a list of filenames matching a suffix located within the specified path, recursively."
+  [suffix path]
+  (files-in #(.endsWith % suffix) path))
+
+(defn edn-files-in
+  "Return a list of filenames of .edn files located within the specified path, recursively."
   [path]
-  (files-in #(.endsWith % ".clj") path))
+  (files-with-suffix-in ".edn" path))
+
+(defn clj-files-in
+  "Return a list of filenames of .clj files located within the specified path, recursively."
+  [path]
+  (files-with-suffix-in ".clj" path))
 
 (defn filename->ns [filename]
   (-> filename
-      (str/replace "src/clj/" "")
+      (str/replace #"^(src/clj/|/src/clj/|)|.clj$" "")
       (str/replace "/" ".")
-      (str/replace "_" "-")
-      (str/replace ".clj" "")))
+      (str/replace "_" "-")))
 
 (defn establish-path
   "Create any missing directories in path"
   [path]
-  (let [file (io/file path)
+  (let [file   (io/file path)
         parent (.getParentFile file)]
     (when (not (.exists parent))
       (.mkdirs parent))))
@@ -69,7 +77,7 @@
 (defn md5
   "MD5 hash the string"
   [^String s]
-  (let [alg (MessageDigest/getInstance "md5")
+  (let [alg   (MessageDigest/getInstance "md5")
         bytes (.getBytes s "UTF-8")]
     (format "%032x" (BigInteger. 1 (.digest alg bytes)))))
 

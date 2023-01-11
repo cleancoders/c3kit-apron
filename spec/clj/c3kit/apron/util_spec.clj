@@ -13,6 +13,13 @@
     (should-throw (deref (sut/resolve-var 'foo/bar)))
     (should= "Foo" (deref (sut/resolve-var 'c3kit.apron.util-spec/foo))))
 
+  (it "filename->ns"
+    (should= "foo" (sut/filename->ns "src/clj/foo.clj"))
+    (should= "foo" (sut/filename->ns "/src/clj/foo.clj"))
+    (should= "hello.world" (sut/filename->ns "src/clj/hello/world.clj"))
+    (should= "hello.cljwhatever" (sut/filename->ns "src/clj/hello/cljwhatever.clj"))
+    (should= "acme.foo.src.clj.hello" (sut/filename->ns "src/clj/acme/foo/src/clj/hello.clj")))
+
   (context "var-value"
 
     (around [it] (log/capture-logs (it)))
