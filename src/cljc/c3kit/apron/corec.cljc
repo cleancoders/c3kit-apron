@@ -96,6 +96,12 @@
   ([f coll] (sequence (map-some f) coll))
   ([f coll & colls] (apply sequence (map-some f) coll colls)))
 
+(defn some-map
+  "Like (map f (filter some? coll)).
+   Returns a transducer when no collection is provided."
+  ([f] (comp (filter some?) (map f)))
+  ([f coll] (sequence (some-map f) coll)))
+
 (defn rsort
   "Same as sort, but reversed"
   ([coll] (rsort compare coll))

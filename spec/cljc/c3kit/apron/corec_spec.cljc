@@ -165,7 +165,37 @@
       (should= [1 2 3] (transduce (ccc/map-some identity) conj [1 2 3]))
       (should= [2 4] (eduction (ccc/map-some :a) (map inc) [{:a 1} {:b 2} {:a 3 :b 4}]))
       (should= [2 4] (sequence (comp (ccc/map-some :a) (map inc)) [{:a 1} {:b 2} {:a 3 :b 4}]))
-      (should= [] (transduce (ccc/map-some identity) conj []))))
+      (should= [] (transduce (ccc/map-some identity) conj []))
+      (should= [1 3] (transduce (ccc/map-some identity) conj [1 nil 3]))))
+
+  (context "some-map"
+    (it "removes nil values before mapping is applied"
+      (should= [] (ccc/some-map identity nil))
+      (should= [] (ccc/some-map identity []))
+      (should= [1] (ccc/some-map identity [1]))
+      (should= [] (ccc/some-map identity [nil]))
+      (should= [1 2 3] (ccc/some-map identity [1 2 3]))
+      (should= [false true] (ccc/some-map even? [1 nil 2]))
+      (should= [4 2 11] (ccc/some-map inc [3 nil 1 10 nil]))
+      (should= [nil 2 4] (ccc/some-map :b [{:a 1} {:b 2} {:a 3 :b 4}]))
+      (should= [nil nil nil] (ccc/some-map :c [{:a 1} {:b 2} {:a 3 :b 4}])))
+
+    (it "is lazy"
+      (should-be-lazy (ccc/some-map identity [1 2 3]))
+      (should-be-lazy (ccc/some-map identity [1]))
+      (let [empty (ccc/some-map identity [])]
+        #?(:clj  (should= (class clojure.lang.PersistentList/EMPTY) (type empty))
+           :cljs (should-be-lazy empty)))
+      (let [nils (ccc/some-map identity [nil nil nil])]
+        #?(:clj  (should= (class clojure.lang.PersistentList/EMPTY) (type nils))
+           :cljs (should-be-lazy nils))))
+
+    (it "creates a transducer"
+      (should= [1 2 3] (transduce (ccc/some-map identity) conj [1 2 3]))
+      (should= [2 4] (eduction (ccc/some-map identity) (map inc) [1 nil 3]))
+      (should= [2 4] (sequence (comp (ccc/some-map identity) (map inc)) [1 nil 3]))
+      (should= [] (transduce (ccc/some-map identity) conj []))
+      (should= [1 3] (transduce (ccc/some-map identity) conj [1 nil 3]))))
 
   (context "rsort"
     (it "a nil collection"
