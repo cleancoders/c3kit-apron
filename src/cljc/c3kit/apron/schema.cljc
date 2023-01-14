@@ -392,7 +392,7 @@
    (let [presenters   (->vec (:present spec))
          presenter-fn (fn [v] (reduce #(%2 %1) v presenters))]
      (if (sequential? (:type spec))
-       (if (nil? value) nil (vec (remove nil? (map presenter-fn value))))
+       (when-not (nil? value) (vec (ccc/map-some presenter-fn value)))
        (presenter-fn value)))))
 
 ; Entity Actions ------------------------------------------

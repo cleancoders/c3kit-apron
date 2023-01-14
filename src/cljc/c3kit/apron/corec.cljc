@@ -89,6 +89,13 @@
   [pred coll]
   (reduce (fn [_ b] (when (pred b) (reduced b))) nil coll))
 
+(defn map-some
+  "Like (filter some? (map f coll)).
+   Returns a transducer when no collection is provided."
+  ([f] (comp (map f) (filter some?)))
+  ([f coll] (sequence (map-some f) coll))
+  ([f coll & colls] (apply sequence (map-some f) coll colls)))
+
 (defn rsort
   "Same as sort, but reversed"
   ([coll] (rsort compare coll))

@@ -3,6 +3,7 @@
            (java.net URL))
   (:require
     [c3kit.apron.app :as app]
+    [c3kit.apron.corec :as ccc]
     [c3kit.apron.log :as log]
     [c3kit.apron.util :as util]
     [clojure.java.io :as io]
@@ -66,8 +67,7 @@
                    (map #(.name %))
                    (filter #(str/starts-with? (name %) @prefix))
                    (remove @excludes)
-                   (map ns-to-file)
-                   (remove nil?))
+                   (ccc/map-some ns-to-file))
         deleted (seq (deleted-files tracker files))
         modified (seq (modified-files tracker files))]
     (if (or deleted modified)
