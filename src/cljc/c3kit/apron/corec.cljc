@@ -14,6 +14,10 @@
   "Like for-all, but with map"
   (comp doall map))
 
+(def map-all-indexed
+  "Like for-all, but with map-indexed"
+  (comp doall map-indexed))
+
 #?(:clj
    (defmacro nand
      "Same as (not (and ...))"
