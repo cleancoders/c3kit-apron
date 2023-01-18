@@ -697,4 +697,71 @@
         (should= :pet (:kind result))))
 
     )
+
+  (context "merge schemas"
+
+    (it "simple"
+      (let [pet-a  {:kind    (schema/kind :pet)
+                    :id      schema/id
+                    :name    {:type :string}
+                    :species {:type :string :validate :valid-species :message "invalid species"}
+                    :*       {:name {:validate :valid-entity-name}}}
+            pet-b  {:name    {:validate :valid-name :message "invalid name"}
+                    :species {:coerce :coerce-species}
+                    :color   {:type :string}
+                    :*       {:species {:validate :valid-entity-species}}}
+            result (schema/merge-schemas pet-a pet-b)]
+        (should= schema/id (:id result))
+        (should= {:type :string :message "invalid name"
+                  :validations [{:validate :valid-name, :message "invalid name"}]}
+                 (:name result))
+        (should= {:type :string :message "invalid species"
+                  :validations [{:validate :valid-species, :message "invalid species"}]
+                  :coerce :coerce-species} (:species result))
+        (should= {:type :string} (:color result))
+        (should= {:name    {:validate :valid-entity-name}
+                  :species {:validate :valid-entity-species}}
+                 (:* result))))
+
+    (it "with validations"
+      (let [pet-a  {:kind    (schema/kind :pet)
+                    :id      schema/id
+                    :name    {:type :string}
+                    :species {:type :string :validations [{:validate :valid-species :message "invalid species"}]}
+                    :*       {:name {:validations [{:validate :valid-entity-name}]}}}
+            pet-b  {:name    {:validations [{:validate :valid-name :message "invalid name"}]}
+                    :species {:validations [{:validate :valid-species2 :message "invalid2 species"}]}
+                    :*       {:species {:validations [{:validate :valid-entity-species}]}
+                              :name    {:validations [{:validate :valid-entity-name2}]}}}
+            result (schema/merge-schemas pet-a pet-b)]
+        (should= schema/id (:id result))
+        (should= {:type :string :validations [{:validate :valid-name :message "invalid name"}]} (:name result))
+        (should= {:type        :string
+                  :validations [{:validate :valid-species :message "invalid species"}
+                                {:validate :valid-species2 :message "invalid2 species"}]}
+                 (:species result))
+        (should= {:species {:validations [{:validate :valid-entity-species}]}
+                  :name    {:validations [{:validate :valid-entity-name}
+                                          {:validate :valid-entity-name2}]}} (:* result))))
+
+    (it "conflicting validate"
+      (let [pet-a  {:kind    (schema/kind :pet)
+                    :id      schema/id
+                    :species {:type :string :validate :valid-species :message "invalid species"}
+                    :*       {:species {:validate :valid-entity-species :message "invalid entity species"}}}
+            pet-b  {:species {:type :string :validate :valid-species2 :message "invalid species2"}
+                    :*       {:species {:validate :valid-entity-species2 :message "invalid entity species2"}}}
+            result (schema/merge-schemas pet-a pet-b)]
+        (should= schema/id (:id result))
+        (should= {:type        :string
+                  :validations [{:validate :valid-species :message "invalid species"}
+                                {:validate :valid-species2 :message "invalid species2"}]
+                  :message     "invalid species2"} (:species result))
+
+        (should= {:species { :message "invalid entity species2"
+                            :validations [{:validate :valid-entity-species :message "invalid entity species"}
+                                          {:validate :valid-entity-species2 :message "invalid entity species2"}]}}
+                 (:* result))))
+
+    )
   )

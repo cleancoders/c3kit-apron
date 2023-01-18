@@ -538,3 +538,22 @@
       (throw (ex-info "Unpresentable entity" result))
       result)))
 
+(defn- validate->validations [{:keys [validate message] :as spec}]
+  (if validate
+    (-> (dissoc spec :validate)
+        (update :validations ccc/conjv {:validate validate :message message}))
+    spec))
+
+(defn merge-specs [a b]
+  (let [a (validate->validations a)
+        b (validate->validations b)]
+    (if-let [validations (seq (concat (:validations a []) (:validations b [])))]
+      (assoc (merge a b) :validations (vec validations))
+      (merge a b))))
+
+(defn merge-schemas [& schemas]
+  (let [entity-specs (apply merge-with merge-specs (map :* schemas))
+        attr-specs (apply merge-with merge-specs (map #(dissoc % :*) schemas))]
+    (if (seq entity-specs)
+      (assoc attr-specs :* entity-specs)
+      attr-specs)))
