@@ -1,5 +1,4 @@
 (ns c3kit.apron.utilc
-  (:refer-clojure :exclude [format])
   #?(:clj (:import (java.util UUID)
                    (java.io ByteArrayInputStream ByteArrayOutputStream)))
   (:require #?(:clj [clojure.data.json :as json])
@@ -17,6 +16,16 @@
 (defn <-edn
   "Convenience.  Convert the EDN string to a Clojure form"
   [s] (edn/read-string s))
+
+(defn ->hex
+  "Convert integer to a hex string"
+  [n] #?(:clj (format "%x" n)
+         :cljs (.toString n 16)))
+
+(defn <-hex
+  "Convert hex string to an integer"
+  [hex] #?(:clj (Long/parseLong hex 16)
+           :cljs (js/parseInt hex 16)))
 
 (defn index-by-id
   "Give a list of entities with unique :id's, return a map with the ids as keys and the entities as values"

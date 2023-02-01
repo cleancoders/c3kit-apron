@@ -326,6 +326,60 @@
   (it "formats"
     (should= "Number 9" (ccc/formats "Number %s" 9)))
 
+  (it "pad-left"
+    (should-be-nil (ccc/pad-left nil 0))
+    (should= " " (ccc/pad-left nil 1))
+    (should= " " (ccc/pad-left "" 1))
+    (should= "hello" (ccc/pad-left "hello" 1 "X"))
+    (should= "hello" (ccc/pad-left "hello" 5 "X"))
+    (should= "Xhello" (ccc/pad-left "hello" 6 "X"))
+    (should= "0hello" (ccc/pad-left "hello" 6 0))
+    (should= "00000hello" (ccc/pad-left "hello" 10 0))
+    (should= "abc" (ccc/pad-left "abc" 0)))
+
+  (it "pad-right"
+    (should-be-nil (ccc/pad-right nil 0))
+    (should= " " (ccc/pad-right nil 1))
+    (should= " " (ccc/pad-right "" 1))
+    (should= "hello" (ccc/pad-right "hello" 0))
+    (should= "hello " (ccc/pad-right "hello" 6))
+    (should= "hello" (ccc/pad-right "hello" 1 "X"))
+    (should= "hello" (ccc/pad-right "hello" 5 "X"))
+    (should= "helloX" (ccc/pad-right "hello" 6 "X"))
+    (should= "hello0" (ccc/pad-right "hello" 6 0))
+    (should= "hello00000" (ccc/pad-right "hello" 10 0)))
+
+  (it "pad-left!"
+    (should-be-nil (ccc/pad-left! nil 0))
+    (should= " " (ccc/pad-left! nil 1))
+    (should= " " (ccc/pad-left! "" 1))
+    (should= "" (ccc/pad-left! "hello" 0))
+    (should= "o" (ccc/pad-left! "hello" 1 "X"))
+    (should= "hello" (ccc/pad-left! "hello" 5 "X"))
+    (should= "Xhello" (ccc/pad-left! "hello" 6 "X"))
+    (should= "0hello" (ccc/pad-left! "hello" 6 0))
+    (should= "00000hello" (ccc/pad-left! "hello" 10 0)))
+
+  (it "pad-right!"
+    (should-be-nil (ccc/pad-right! nil 0))
+    (should= " " (ccc/pad-right! nil 1))
+    (should= " " (ccc/pad-right! "" 1))
+    (should= "" (ccc/pad-right! "hello" 0))
+    (should= "h" (ccc/pad-right! "hello" 1 "X"))
+    (should= "hello" (ccc/pad-right! "hello" 5 "X"))
+    (should= "hello " (ccc/pad-right! "hello" 6))
+    (should= "helloX" (ccc/pad-right! "hello" 6 "X"))
+    (should= "hello0" (ccc/pad-right! "hello" 6 0))
+    (should= "hello00000" (ccc/pad-right! "hello" 10 0)))
+
+  (it "char-code-at"
+    (should= 65 (ccc/char-code-at "ABC" 0))
+    (should= 66 (ccc/char-code-at "ABC" 1)))
+
+  (it "first-char-code"
+    (should= 65 (ccc/first-char-code "ABC"))
+    (should= 67 (ccc/first-char-code "C")))
+
   (it "not-blank?"
     (should (ccc/not-blank? "a"))
     (should (ccc/not-blank? "\r\n\t a "))

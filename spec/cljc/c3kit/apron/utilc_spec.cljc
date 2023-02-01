@@ -7,7 +7,7 @@
 (describe "Util common"
 
 
-  (context "end"
+  (context "edn"
 
     (it "->edn"
       (should= "[1 2 3]" (sut/->edn [1 2 3])))
@@ -15,6 +15,13 @@
     (it "<-edn"
       (should= [1 2 3] (sut/<-edn "[1 2 3]")))
     )
+
+  (it "->hex"
+    (should= "7b" (sut/->hex 123)))
+
+  (it "<-hex"
+    (should= 123 (sut/<-hex "7b"))
+    (should= 122 (sut/<-hex "7A")))
 
   (context "map manipulation"
 

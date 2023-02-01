@@ -172,6 +172,66 @@
   #?(:clj  (apply clojure.core/format format args)
      :cljs (apply gstring/format format args)))
 
+(defn- ->string
+  "Creates a string of a given length by repeating the provided value."
+  [v length] (apply str (repeat length v)))
+
+(defn pad-left
+  "Pads the left side of a string.
+   If no character is provided, spaces will be used.
+   If the string is greater than or equal to the pad length,
+   the unmodified string will be returned."
+  ([s length] (pad-left s length " "))
+  ([s length v]
+   (let [size (count s)]
+     (cond->>
+       s
+       (> length size)
+       (str (->string v (- length size)))))))
+
+(defn pad-right
+  "Pads the right side of a string.
+   If no character is provided, spaces will be used.
+   If the string is greater than or equal to the pad length,
+   the unmodified string will be returned."
+  ([s length] (pad-right s length " "))
+  ([s length v]
+   (let [size (count s)]
+     (cond->
+       s
+       (> length size)
+       (str (->string v (- length size)))))))
+
+(defn pad-left!
+  "Same as pad-left, except the string will be trimmed to the desired length."
+  ([s length] (pad-left! s length " "))
+  ([s length v]
+   (let [size (count s)]
+     (cond
+       (= length size) s
+       (> size length) (subs s (- size length))
+       :else (str (->string v (- length size)) s)))))
+
+(defn pad-right!
+  "Same as pad-right, except the string will be trimmed to the desired length."
+  ([s length] (pad-right! s length " "))
+  ([s length v]
+   (let [size (count s)]
+     (cond
+       (= length size) s
+       (> size length) (subs s 0 length)
+       :else (str s (->string v (- length size)))))))
+
+(defn char-code-at
+  "Char code at the given index of a string"
+  [s i]
+  #?(:clj  (int (.charAt s i))
+     :cljs (.charCodeAt s i)))
+
+(defn first-char-code
+  "Char code at index 0 of a string"
+  [s] (char-code-at s 0))
+
 (def not-blank? (complement str/blank?))
 
 (defn remove-nils
