@@ -59,7 +59,7 @@
   (context "coersion"
 
     (it "to boolean"
-      (should= false (schema/->boolean nil))
+      (should= nil (schema/->boolean nil))
       (should= false (schema/->boolean "false"))
       (should= false (schema/->boolean "FALSE"))
       (should= true (schema/->boolean "abc"))

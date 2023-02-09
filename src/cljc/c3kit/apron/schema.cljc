@@ -70,7 +70,7 @@
          result))))
 
 (defn ->boolean [value]
-  (cond (nil? value) false
+  (cond (nil? value) nil
         (boolean? value) value
         (string? value) (not (= "false" (str/lower-case value)))
         :else (boolean value)))
