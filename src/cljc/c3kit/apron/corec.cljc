@@ -93,6 +93,19 @@
   [pred coll]
   (reduce (fn [_ b] (when (pred b) (reduced b))) nil coll))
 
+(defn count-where
+  "Counts the number of entities that satisfy a predicate"
+  [pred es]
+  (reduce #(if (pred %2) (inc %1) %1) 0 es))
+
+(defn count-by
+  "Counts the number of entities that
+   exactly match some given key-value pairs"
+  [es & kvs]
+  (let [test (apply hash-map kvs)
+        keys (keys test)]
+    (count-where #(= test (select-keys % keys)) es)))
+
 (defn map-some
   "Like (filter some? (map f coll)).
    Returns a transducer when no collection is provided."

@@ -136,6 +136,32 @@
     (it "first item of no results"
       (should-be-nil (ccc/ffilter number? [nil false :a :b]))))
 
+  (it "count-where"
+    (should= 0 (ccc/count-where pos? []))
+    (should= 0 (ccc/count-where nil? []))
+    (should= 0 (ccc/count-where nil? [1]))
+    (should= 0 (ccc/count-where nil? [1 2]))
+    (should= 0 (ccc/count-where nil? [1 2]))
+    (should= 2 (ccc/count-where pos? [1 2]))
+    (should= 1 (ccc/count-where odd? [1 2]))
+    (should= 5 (ccc/count-where some? [1 2 nil 3 4 5])))
+
+  (it "count-by"
+    (let [e1     {:foo "bar" :size 2 :round? false}
+          e2     {:foo "bar" :size 3 :round? true}
+          e3     {:bar "foo" :size 2 :round? nil :hello :world}
+          e4     {:bar "foo" :size 2 :hello :world}
+          things [e1 e2 e3 e4]]
+      (should= 0 (ccc/count-by [] :foo "bar"))
+      (should= 2 (ccc/count-by things :foo "bar"))
+      (should= 2 (ccc/count-by things :bar "foo"))
+      (should= 0 (ccc/count-by things :foo "foo"))
+      (should= 0 (ccc/count-by things :foo "foo" :size 2))
+      (should= 1 (ccc/count-by things :round? false))
+      (should= 1 (ccc/count-by things :round? true))
+      (should= 1 (ccc/count-by things :round? nil))
+      (should= 0 (ccc/count-by things :round? :blah))))
+
   (context "map-some"
     (it "removes nil values from mapping"
       (should= [] (ccc/map-some identity nil))
