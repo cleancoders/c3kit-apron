@@ -106,6 +106,11 @@
         keys (keys test)]
     (count-where #(= test (select-keys % keys)) es)))
 
+(defn sum-by
+  "Sums the results of a function applied to the elements of a collection"
+  [f coll]
+  (transduce (map f) + coll))
+
 (defn map-some
   "Like (filter some? (map f coll)).
    Returns a transducer when no collection is provided."

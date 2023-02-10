@@ -162,6 +162,18 @@
       (should= 1 (ccc/count-by things :round? nil))
       (should= 0 (ccc/count-by things :round? :blah))))
 
+  (it "sum-by"
+    (let [e1     {:size 2}
+          e2     {:size 3}
+          e3     {:size -3}
+          e4     {:size 2}
+          things [e1 e2 e3 e4]]
+      (should= 0 (ccc/sum-by :blah []))
+      (should= 0 (ccc/sum-by :blah nil))
+      (should= 2 (ccc/sum-by :size [e1]))
+      (should= -1 (ccc/sum-by :size [e1 e3]))
+      (should= 4 (ccc/sum-by :size things))))
+
   (context "map-some"
     (it "removes nil values from mapping"
       (should= [] (ccc/map-some identity nil))
