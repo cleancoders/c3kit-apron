@@ -235,6 +235,19 @@
       (should= [] (transduce (ccc/some-map identity) conj []))
       (should= [1 3] (transduce (ccc/some-map identity) conj [1 nil 3]))))
 
+  (it "map-set"
+    (should= #{} (ccc/map-set inc nil))
+    (should= #{2} (ccc/map-set inc [1]))
+    (should= #{2} (ccc/map-set inc [1 1]))
+    (should= #{2 3 4 5} (ccc/map-set inc [1 1 2 3 4 3])))
+
+  (it "map-distinct"
+    (should= [] (ccc/map-distinct inc nil))
+    (should= [2] (ccc/map-distinct inc [1]))
+    (should= [2] (ccc/map-distinct inc [1 1]))
+    (should= [2 3 4 5] (ccc/map-distinct inc [1 1 2 3 4 3]))
+    (should= [2 3 4 5] (transduce (ccc/map-distinct inc) conj [1 1 2 3 4 3])))
+
   (context "rsort"
     (it "a nil collection"
       (should= [] (ccc/rsort nil)))

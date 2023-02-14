@@ -124,6 +124,16 @@
   ([f] (comp (filter some?) (map f)))
   ([f coll] (sequence (some-map f) coll)))
 
+(defn map-set
+  "Like (set (map f coll))"
+  [f coll]
+  (into #{} (map f) coll))
+
+(defn map-distinct
+  "Like (distinct (map f coll))"
+  ([f] (comp (map f) (distinct)))
+  ([f coll] (sequence (map-distinct f) coll)))
+
 (defn rsort
   "Same as sort, but reversed"
   ([coll] (rsort compare coll))
