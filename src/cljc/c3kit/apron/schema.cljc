@@ -5,19 +5,19 @@
     [c3kit.apron.corec :as ccc]
     [clojure.edn :as edn]
     [clojure.string :as str]
-    #?(:cljs [com.cognitect.transit.types])                 ;; https://github.com/cognitect/transit-cljs/issues/41
+    #?(:cljs [com.cognitect.transit.types]) ;; https://github.com/cognitect/transit-cljs/issues/41
     ))
 
 (comment
   "Schema Sample"
   {:field
-   {:type        :string                                    ;; see type-validators for list
-    :db          [:unique-value]                            ;; passed to database
-    :coerce      [#(str % "y")]                             ;; single/list of coerce fns
-    :validate    [#(> (count %) 1)]                         ;; single/list of validation fns
-    :message     "message describing the field"             ;; coerce failure message (or :validate failure message)
-    :validations [{:validate fn :message "msg"}]            ;; multiple validation/message pairs
-    :present     [#(str %)]                                 ;; single/list of presentation fns
+   {:type        :string ;; see type-validators for list
+    :db          [:unique-value] ;; passed to database
+    :coerce      [#(str % "y")] ;; single/list of coerce fns
+    :validate    [#(> (count %) 1)] ;; single/list of validation fns
+    :message     "message describing the field" ;; coerce failure message (or :validate failure message)
+    :validations [{:validate fn :message "msg"}] ;; multiple validation/message pairs
+    :present     [#(str %)] ;; single/list of presentation fns
     }})
 
 (def stdex
@@ -142,7 +142,10 @@
     (instance? date v) v
     (integer? v) (doto (new #?(:clj java.util.Date :cljs js/Date)) (.setTime v))
     #?(:cljs (instance? goog.date.Date v)) #?(:cljs (js/Date. (.getTime v)))
-    (and (string? v) (str/starts-with? v "#inst")) (edn/read-string v)
+    (string? v) (cond
+                  (str/blank? v) nil
+                  (str/starts-with? v "#inst") (edn/read-string v)
+                  :else (throw (coerce-ex v "date")))
     :else (throw (coerce-ex v "date"))))
 
 (defn ->sql-date [v]
@@ -152,7 +155,10 @@
     #?(:clj (instance? java.util.Date v)) #?(:clj (java.sql.Date. (.getTime v)))
     (integer? v) #?(:clj (java.sql.Date. v) :cljs (doto (new js/Date) (.setTime v)))
     #?(:cljs (instance? goog.date.Date v)) #?(:cljs (js/Date. (.getTime v)))
-    (and (string? v) (str/starts-with? v "#inst")) #?(:clj (java.sql.Date. (.getTime (edn/read-string v))) :cljs (edn/read-string v))
+    (string? v) (cond
+                  (str/blank? v) nil
+                  (str/starts-with? v "#inst") #?(:clj (java.sql.Date. (.getTime (edn/read-string v))) :cljs (edn/read-string v))
+                  :else (throw (coerce-ex v "sql-date")))
     :else (throw (coerce-ex v "sql-date"))))
 
 (defn ->timestamp [v]
@@ -162,7 +168,10 @@
     #?(:clj (instance? java.util.Date v)) #?(:clj (java.sql.Timestamp. (.getTime v)))
     (integer? v) #?(:clj (java.sql.Timestamp. v) :cljs (doto (new js/Date) (.setTime v)))
     #?(:cljs (instance? goog.date.Date v)) #?(:cljs (js/Date. (.getTime v)))
-    (and (string? v) (str/starts-with? v "#inst")) #?(:clj (java.sql.Timestamp. (.getTime (edn/read-string v))) :cljs (edn/read-string v))
+    (string? v) (cond
+                  (str/blank? v) nil
+                  (str/starts-with? v "#inst") #?(:clj (java.sql.Timestamp. (.getTime (edn/read-string v))) :cljs (edn/read-string v))
+                  :else (throw (coerce-ex v "timestamp")))
     :else (throw (coerce-ex v "timestamp"))))
 
 (defn ->uri [v]
@@ -553,7 +562,7 @@
 
 (defn merge-schemas [& schemas]
   (let [entity-specs (apply merge-with merge-specs (map :* schemas))
-        attr-specs (apply merge-with merge-specs (map #(dissoc % :*) schemas))]
+        attr-specs   (apply merge-with merge-specs (map #(dissoc % :*) schemas))]
     (if (seq entity-specs)
       (assoc attr-specs :* entity-specs)
       attr-specs)))

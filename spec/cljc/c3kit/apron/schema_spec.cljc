@@ -1,8 +1,8 @@
 (ns c3kit.apron.schema-spec
   (:require
     [c3kit.apron.schema :as schema]
-    [speclj.core #?(:clj :refer :cljs :refer-macros) [context describe it xit should= should-contain should-not-contain
-                                                      should-throw should-be-a should should-not should-not-throw]]
+    [speclj.core #?(:clj :refer :cljs :refer-macros) [context describe it should= should-contain should-not-contain
+                                                      should-throw should-be-a should should-not]]
     [clojure.string :as str]
     [c3kit.apron.utilc :as utilc]
     [c3kit.apron.corec :as ccc]
@@ -119,6 +119,7 @@
 
     (it "to date"
       (should= nil (schema/->date nil))
+      (should= nil (schema/->date " \r\n\t"))
       (should= now (schema/->date now))
       (should= now (schema/->date (.getTime now)))
       (should-be-a #?(:clj java.util.Date :cljs js/Date) (schema/->date now))
@@ -127,6 +128,7 @@
 
     (it "to sql date"
       (should= nil (schema/->sql-date nil))
+      (should= nil (schema/->sql-date " \r\n\t"))
       (should= #?(:clj (java.sql.Date. (.getTime now)) :cljs now) (schema/->sql-date now))
       (should= #?(:clj (java.sql.Date. (.getTime now)) :cljs now) (schema/->sql-date (.getTime now)))
       (should-be-a #?(:clj java.sql.Date :cljs js/Date) (schema/->sql-date now))
@@ -135,6 +137,7 @@
 
     (it "to sql timestamp"
       (should= nil (schema/->timestamp nil))
+      (should= nil (schema/->timestamp " \r\n\t"))
       (should= #?(:clj (java.sql.Timestamp. (.getTime now)) :cljs now) (schema/->timestamp now))
       (should= #?(:clj (java.sql.Timestamp. (.getTime now)) :cljs now) (schema/->timestamp (.getTime now)))
       (should-be-a #?(:clj java.sql.Timestamp :cljs js/Date) (schema/->timestamp now))
@@ -712,12 +715,12 @@
                     :*       {:species {:validate :valid-entity-species}}}
             result (schema/merge-schemas pet-a pet-b)]
         (should= schema/id (:id result))
-        (should= {:type :string :message "invalid name"
+        (should= {:type        :string :message "invalid name"
                   :validations [{:validate :valid-name, :message "invalid name"}]}
                  (:name result))
-        (should= {:type :string :message "invalid species"
+        (should= {:type        :string :message "invalid species"
                   :validations [{:validate :valid-species, :message "invalid species"}]
-                  :coerce :coerce-species} (:species result))
+                  :coerce      :coerce-species} (:species result))
         (should= {:type :string} (:color result))
         (should= {:name    {:validate :valid-entity-name}
                   :species {:validate :valid-entity-species}}
@@ -758,7 +761,7 @@
                                 {:validate :valid-species2 :message "invalid species2"}]
                   :message     "invalid species2"} (:species result))
 
-        (should= {:species { :message "invalid entity species2"
+        (should= {:species {:message     "invalid entity species2"
                             :validations [{:validate :valid-entity-species :message "invalid entity species"}
                                           {:validate :valid-entity-species2 :message "invalid entity species2"}]}}
                  (:* result))))
