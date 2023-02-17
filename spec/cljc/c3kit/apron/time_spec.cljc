@@ -212,6 +212,16 @@
              (let [date (parse :iso8601 "1994-11-06 08:49:12Z")]
                (should= "1994-11-06 08:49:12Z" (unparse :iso8601 date)))))
 
+  (it "parses REF 3339 format"
+    (let [date1 (parse :ref3339 "2022-03-04T23:59:02-05:00")
+          date2 (parse :ref3339 "2022-03-04T23:59:02+05:00")
+          date3 (parse :ref3339 "2022-03-04T23:59:02-00:00")
+          date4 (parse :ref3339 "2022-03-04T23:59:02Z")]
+      (should= "2022-03-05T04:59:02Z" (unparse :ref3339 date1))
+      (should= "2022-03-04T18:59:02Z" (unparse :ref3339 date2))
+      (should= "2022-03-04T23:59:02Z" (unparse :ref3339 date3))
+      (should= "2022-03-04T23:59:02Z" (unparse :ref3339 date4))))
+
   (it "parses and formats :webform datas"
     (let [date (parse :webform "2020-03-31")
           utc  (sut/->utc date)]

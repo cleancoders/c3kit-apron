@@ -261,7 +261,8 @@
    :http       (formatter "EEE, dd MMM yyyy HH:mm:ss ZZZ")
    :rfc1123    (formatter "EEE, dd MMM yyyy HH:mm:ss ZZZ")
    :rfc822     (formatter "EEE, dd MMM yyyy HH:mm:ss Z")
-   :ref3339    (formatter "yyyy-MM-dd'T'hh:mm:ss-00:00")
+   :ref3339    (formatter #?(:clj  "yyyy-MM-dd'T'HH:mm:ssXXX"
+                             :cljs "yyyy-MM-dd'T'HH:mm:ssZZ"))
    :long-no-tz (formatter "EEE, dd MMM yyyy HH:mm:ss")
    :iso8601    (formatter "yyyy-MM-dd HH:mm:ssZ")
    :dense      (formatter "yyyyMMddHHmmss")
