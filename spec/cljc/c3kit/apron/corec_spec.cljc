@@ -2,7 +2,8 @@
   (:require
     [c3kit.apron.corec :as ccc]
     [c3kit.apron.time :as time]
-    [speclj.core #?(:clj :refer :cljs :refer-macros) [context describe it should= should should-not should-be-nil]]))
+    [speclj.core #?(:clj :refer :cljs :refer-macros) [context describe it should= should should-not should-be-nil
+                                                      should-throw]]))
 
 (defn should-be-lazy [thing]
   (should= #?(:clj  clojure.lang.LazySeq
@@ -457,5 +458,50 @@
     (let [f (ccc/narity (fn [] :foo))]
       (should= :foo (f))
       (should= :foo (f 1 2 3))))
+
+  #?(:cljs
+     (context "gobj"
+
+       (it "oget"
+         (let [jsobj (clj->js {:foo "foo" :bar "bar"})]
+           (should= "foo" (ccc/oget jsobj :foo))
+           (should= "bar" (ccc/oget jsobj :bar))
+           (should= "bang" (ccc/oget jsobj :fizz "bang"))))
+
+       (it "oset"
+         (let [jsobj (clj->js {:foo "foo"})]
+           (should= {"foo" "bar"} (js->clj (ccc/oset jsobj :foo "bar")))
+           (should= {"foo" "bar" "fizz" "bang"} (js->clj (ccc/oset jsobj :fizz "bang")))
+           (should= {"foo" "bar" "fizz" "bang"} (js->clj jsobj))
+           (should= {"foo" "bar"} (js->clj (ccc/oset nil :foo "bar")))))
+
+       (it "oget-in"
+         (let [jsobj (clj->js {:a1 "a1"
+                               :b1 {:a2 "a2"
+                                    :b2 {:a3 "a3"
+                                         :b3 ["zero" "one" "two"]}}})]
+           (should= nil (ccc/oget-in jsobj [:blah]))
+           (should= :default (ccc/oget-in jsobj [:blah] :default))
+           (should= "a1" (ccc/oget-in jsobj [:a1]))
+           (should= nil (ccc/oget-in jsobj [:a1 :a2]))
+           (should= "a2" (ccc/oget-in jsobj [:b1 :a2]))
+           (should= "a3" (ccc/oget-in jsobj [:b1 :b2 :a3]))
+           (should= "zero" (ccc/oget-in jsobj [:b1 :b2 :b3 0]))
+           (should= "two" (ccc/oget-in jsobj [:b1 :b2 :b3 2]))))
+
+       (it "oset-in"
+         (should= {"a" "a"} (js->clj (ccc/oset-in nil [:a] "a")))
+         (let [jsobj (js-obj)]
+           (should= jsobj (ccc/oset-in jsobj [] "a"))
+           (should= {"a1" "a1"} (js->clj (ccc/oset-in jsobj [:a1] "a1")))
+           (should-throw (ccc/oset-in jsobj [:a1 :a1] "stomp"))
+           (ccc/oset-in jsobj [:b1 :b2 :b3] "b3")
+           (ccc/oset-in jsobj [:c1 2] "c1-2")
+           (should= {"a1" "a1"
+                     "b1" {"b2" {"b3" "b3"}}
+                     "c1" {"2" "c1-2"}}
+                    (js->clj jsobj))))
+
+       ))
 
   )

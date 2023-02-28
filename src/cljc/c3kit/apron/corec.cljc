@@ -5,7 +5,8 @@
   #?(:cljs (:require-macros [c3kit.apron.corec :refer [for-all nand nor xor]]))
   (:require [clojure.string :as str]
             #?(:cljs [goog.string :as gstring])
-            #?(:cljs [goog.string.format])))
+            #?(:cljs [goog.string.format])
+            #?(:cljs [goog.object :as gobj])))
 
 #?(:clj (defmacro for-all [bindings body]
           `(doall (for ~bindings ~body))))
@@ -20,23 +21,23 @@
 
 #?(:clj
    (defmacro nand
-     "Same as (not (and ...))"
+             "Same as (not (and ...))"
      ([] false)
      ([x & next] `(if-not ~x true (nand ~@next)))))
 
 #?(:clj
    (defmacro nor
-     "Same as (not (or ...))"
+             "Same as (not (or ...))"
      ([] true)
      ([x & next] `(if ~x false (nor ~@next)))))
 
 #?(:clj
    (defmacro xor
-     "Evaluates expressions one at a time, from left to right.
-      If a second form evaluates to logical true, xor returns nil
-      and doesn't evaluate any of the other expressions, otherwise
-      it returns the value of the first logical true expression.
-      If there are no truthy expressions, xor returns nil."
+             "Evaluates expressions one at a time, from left to right.
+              If a second form evaluates to logical true, xor returns nil
+              and doesn't evaluate any of the other expressions, otherwise
+              it returns the value of the first logical true expression.
+              If there are no truthy expressions, xor returns nil."
      ([] nil)
      ([x] `(or ~x nil))
      ([x y & next]
@@ -45,6 +46,45 @@
          (if (and x# y#)
            nil
            (xor (or x# y#) ~@next))))))
+#?(:cljs
+   (defn oset
+     "assoc for js objects"
+     [o k v]
+     (if (nil? o)
+       (js-obj (name k) v)
+       (do (gobj/set o (name k) v) o))))
+
+#?(:cljs
+   (defn oset-in
+     "assoc-in for js objects"
+     [o ks v]
+     (if-not (seq ks)
+       o
+       (let [o (if (nil? o) (js-obj) o)]
+         (loop [o o ks ks]
+           (let [[k & ks] ks
+                 k (if (number? k) k (name k))]
+             (if (seq ks)
+               (if-let [o-next (gobj/get o k)]
+                 (recur o-next ks)
+                 (let [o-next (js-obj)]
+                   (gobj/set o k o-next)
+                   (recur o-next ks)))
+               (gobj/set o k v))))
+         o))))
+
+#?(:cljs
+   (defn oget
+     "get for js objects"
+     ([o k] (gobj/get o (name k) nil))
+     ([o k not-found] (gobj/get o (name k) not-found))))
+
+#?(:cljs
+   (defn oget-in
+     "get-in for js objects"
+     ([o ks] (oget-in o ks nil))
+     ([o ks not-found]
+      (or (apply gobj/getValueByKeys o (map #(if (number? %) % (name %)) ks)) not-found))))
 
 (defn new-uuid []
   #?(:clj  (UUID/randomUUID)
