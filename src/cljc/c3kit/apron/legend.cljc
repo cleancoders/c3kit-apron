@@ -27,18 +27,18 @@
   ([entity] (present! index entity))
   ([index entity]
    (when entity
-     (schema/present! (-> (:kind entity) (for-kind index)) entity))))
+     (schema/present! (for-kind index (:kind entity)) entity))))
 
 (defn coerce!
   ([entity] (coerce! index entity))
   ([index entity]
    (when entity
-     (schema/coerce! (-> (:kind entity) (for-kind index)) entity))))
+     (schema/coerce! (for-kind index (:kind entity)) entity))))
 
 (defn conform!
   ([entity] (conform! index entity))
   ([index entity]
    (when entity
-     (schema/conform! (-> (:kind entity) (for-kind index)) entity))))
+     (schema/conform! (for-kind index (:kind entity)) entity))))
 
 
