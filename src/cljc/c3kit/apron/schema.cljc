@@ -82,7 +82,7 @@
 
 (defn ->keyword [value]
   (cond
-    (= nil value) nil
+    (nil? value) nil
     (keyword? value) value
     :else (let [s (str value)]
             (if (str/starts-with? s ":")
@@ -91,13 +91,13 @@
 
 (defn ->float [v]
   (cond
-    (= nil v) nil
-    (string? v) (if (str/blank? v)
-                  nil
+    (nil? v) nil
+    (string? v) (when-not (str/blank? v)
                   (try
                     #?(:clj (Double/parseDouble v) :cljs (parse! js/parseFloat v))
                     (catch #?(:clj Exception :cljs :default) _
                       (throw (coerce-ex v "float")))))
+    (char? v) (-> v str ->float)
     #?@(:cljs [(js/isNaN v) nil])
     (integer? v) (double v)
     (#?(:clj float? :cljs number?) v) v
@@ -106,14 +106,14 @@
 
 (defn ->int [v]
   (cond
-    (= nil v) nil
-    (string? v) (if (str/blank? v)
-                  nil
+    (nil? v) nil
+    (string? v) (when-not (str/blank? v)
                   (try
                     #?(:clj  (long (Double/parseDouble v))
                        :cljs (parse! js/parseInt v))
                     (catch #?(:clj Exception :cljs :default) _
                       (throw (coerce-ex v "int")))))
+    (char? v) (-> v str ->int)
     #?@(:cljs [(js/isNaN v) nil])
     (integer? v) v
     (#?(:clj float? :cljs number?) v) (long v)
@@ -122,14 +122,14 @@
 
 (defn ->bigdec [v]
   (cond
-    (= nil v) nil
-    (string? v) (if (str/blank? v)
-                  nil
+    (nil? v) nil
+    (string? v) (when-not (str/blank? v)
                   (try
                     #?(:clj  (bigdec v)
                        :cljs (parse! js/parseFloat v))
                     (catch #?(:clj Exception :cljs :default) _
                       (throw (coerce-ex v "bigdec")))))
+    (char? v) (-> v str ->bigdec)
     #?@(:cljs [(js/isNaN v) nil])
     (integer? v) #?(:clj (bigdec v) :cljs (double v))
     (#?(:clj float? :cljs number?) v) #?(:clj (bigdec v) :cljs v)

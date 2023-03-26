@@ -84,37 +84,43 @@
 
     (it "to float"
       (should= nil (schema/->float nil))
-      (should= nil (schema/->int ""))
-      (should= nil (schema/->int "\t"))
+      (should= nil (schema/->float ""))
+      (should= nil (schema/->float "\t"))
+      (should= 1.0 (schema/->float \1))
       (should= 1.0 (schema/->float 1))
       (should= 3.14 (schema/->float 3.14) 0.00001)
       (should= 3.14 (schema/->float "3.14") 0.00001)
       (should= 42.0 (schema/->float "42") 0.00001)
       (should= 3.14 (schema/->float 3.14M) 0.00001)
+      (should-throw (schema/->float \a))
       (should-throw schema/stdex (schema/->float "fooey")))
 
     (it "to int"
       (should= nil (schema/->int nil))
       (should= nil (schema/->int ""))
       (should= nil (schema/->int "\t"))
+      (should= 1 (schema/->int \1))
       (should= 1 (schema/->int 1))
       (should= 3 (schema/->int 3.14))
       (should= 3 (schema/->int 3.9))
       (should= 42 (schema/->int "42"))
       (should= 3 (schema/->int "3.14"))
       (should= 3 (schema/->int 3.14M))
+      (should-throw (schema/->int \a))
       (should-throw schema/stdex (schema/->int "fooey")))
 
     (it "to bigdec"
       (should= nil (schema/->bigdec nil))
       (should= nil (schema/->bigdec ""))
       (should= nil (schema/->bigdec "\t"))
+      (should= 1M (schema/->bigdec \1))
       (should= 1M (schema/->bigdec 1))
       (should= 3.14M (schema/->bigdec 3.14))
       (should= 3.9M (schema/->bigdec 3.9))
       (should= 42M (schema/->bigdec "42"))
       (should= 3.14M (schema/->bigdec "3.14"))
       (should= 3.14M (schema/->bigdec 3.14M))
+      (should-throw (schema/->bigdec \a))
       (should-throw schema/stdex (schema/->bigdec "fooey")))
 
     (it "to date"
