@@ -97,7 +97,7 @@
                     #?(:clj (Double/parseDouble v) :cljs (parse! js/parseFloat v))
                     (catch #?(:clj Exception :cljs :default) _
                       (throw (coerce-ex v "float")))))
-    (char? v) (-> v str ->float)
+    #?@(:clj [(char? v) (-> v str ->float)])
     #?@(:cljs [(js/isNaN v) nil])
     (integer? v) (double v)
     (#?(:clj float? :cljs number?) v) v
@@ -113,7 +113,7 @@
                        :cljs (parse! js/parseInt v))
                     (catch #?(:clj Exception :cljs :default) _
                       (throw (coerce-ex v "int")))))
-    (char? v) (-> v str ->int)
+    #?@(:clj [(char? v) (-> v str ->int)])
     #?@(:cljs [(js/isNaN v) nil])
     (integer? v) v
     (#?(:clj float? :cljs number?) v) (long v)
@@ -129,7 +129,7 @@
                        :cljs (parse! js/parseFloat v))
                     (catch #?(:clj Exception :cljs :default) _
                       (throw (coerce-ex v "bigdec")))))
-    (char? v) (-> v str ->bigdec)
+    #?@(:clj [(char? v) (-> v str ->bigdec)])
     #?@(:cljs [(js/isNaN v) nil])
     (integer? v) #?(:clj (bigdec v) :cljs (double v))
     (#?(:clj float? :cljs number?) v) #?(:clj (bigdec v) :cljs v)
