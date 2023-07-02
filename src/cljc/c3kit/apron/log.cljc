@@ -26,12 +26,12 @@
           `(let [original-level# (:level timbre/*config*)]
              (reset! captured-logs [])
              (try
-               (timbre/set-level! :trace)
+               (timbre/set-min-level! :trace)
                (with-redefs [timbre/-log! (fn [& args#] (swap! captured-logs conj args#))]
                  ~@body)
                (finally
-                 (timbre/set-level! original-level#))))))
-#?(:clj (defmacro with-level [level & body] `(timbre/with-level ~level ~@body)))
+                 (timbre/set-min-level! original-level#))))))
+#?(:clj (defmacro with-level [level & body] `(timbre/with-min-level ~level ~@body)))
 
 (defn test-levels [msg]
   (report msg)
@@ -47,7 +47,7 @@
 (defn set-level! [new-level]
   (when-not (= (level) new-level)
     (report (str "Setting log level: " new-level))
-    (timbre/set-level! new-level)))
+    (timbre/set-min-level! new-level)))
 
 (defn off! [] (set-level! :report))
 (defn fatal! [] (set-level! :fatal))
