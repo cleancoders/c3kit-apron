@@ -1,6 +1,7 @@
 (ns c3kit.apron.log
   #?(:cljs (:require-macros [c3kit.apron.log :refer [trace debug info warn error fatal report capture-logs]]))
-  (:require [clojure.string :as str]
+  (:require [c3kit.apron.corec :as ccc]
+            [clojure.string :as str]
             [taoensso.timbre :as timbre]))
 
 ;; MDM - If you're not seeing a log entry, check your Chrome Dev Tools console levels.
@@ -67,20 +68,18 @@
             (map #(str/join " " %)
                  (map #(deref (nth % 7)) @captured-logs))))
 
-;; TODO - MDM: Make this portable.  Either replace use of clojure.core/format, or find cljs equiv.
-#?(:clj
-   (defn table-spec [& cols]
-     (let [width (+ (apply + (map second cols)) (count cols))
-           format-str (str/join " " (map #(str "%-" (second %) "s") cols))]
-       {:cols     cols
-        :format   format-str
-        :width    width
-        :title-fn (fn [title]
-                    (let [pad (/ (- width (.length title)) 2)]
-                      (str (str/join "" (take pad (repeat " "))) title "\n")))
-        :header   (str (apply (partial format format-str) (map first cols)) "\n"
-                       (str/join "" (take width (repeat "-"))) "\n")
-        })))
+(defn table-spec [& cols]
+   (let [width      (+ (apply + (map second cols)) (count cols))
+         format-str (str/join " " (map #(str "%-" (second %) "s") cols))]
+     {:cols     cols
+      :format   format-str
+      :width    width
+      :title-fn (fn [title]
+                  (let [pad (/ (- width (.length title)) 2)]
+                    (str (str/join "" (take pad (repeat " "))) title "\n")))
+      :header   (str (apply (partial ccc/formats format-str) (map first cols)) "\n"
+                     (str/join "" (take width (repeat "-"))) "\n")
+      }))
 
 (defn color-pr
   "For ANSI color codes: https://en.wikipedia.org/wiki/ANSI_escape_code"
