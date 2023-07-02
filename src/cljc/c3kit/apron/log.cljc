@@ -23,7 +23,7 @@
 #?(:clj (defmacro fatal [& args] `(timbre/fatal ~@args)))
 #?(:clj (defmacro report [& args] `(timbre/report ~@args)))
 #?(:clj (defmacro capture-logs [& body]
-          `(let [original-level# (:level timbre/*config*)]
+          `(let [original-level# (:min-level timbre/*config*)]
              (reset! captured-logs [])
              (try
                (timbre/set-min-level! :trace)
@@ -42,7 +42,7 @@
   (debug msg)
   (trace msg))
 
-(defn level [] (:level timbre/*config*))
+(defn level [] (:min-level timbre/*config*))
 
 (defn set-level! [new-level]
   (when-not (= (level) new-level)
@@ -59,7 +59,7 @@
 
 (defn parse-captured-logs []
   (map
-    (fn [[config level ?ns-str ?file ?line msg-type ?err vargs_ ?base-data callsite-id]]
+    (fn [[config level ?ns-str ?file ?line msg-type ?err vargs_ ?base-data callsite-id spying?]]
       {:level level :message (apply str @vargs_)})
     @captured-logs))
 
