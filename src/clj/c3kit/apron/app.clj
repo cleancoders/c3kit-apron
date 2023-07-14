@@ -1,6 +1,7 @@
 (ns c3kit.apron.app
   (:import (clojure.lang IDeref))
   (:require
+    [c3kit.apron.env :as env]
     [c3kit.apron.log :as log]
     [c3kit.apron.util :as util]))
 
@@ -64,14 +65,13 @@
 
 (defn find-env
   "Look for the env value in the system properties, OS environment variables, or default to development"
-  ([] (find-env env-keys))
-  ([env-keys] (let [[p-name e-name] env-keys] (find-env p-name e-name)))
-  ([property-name env-name] (or (System/getProperty property-name) (System/getenv env-name) "development")))
+  ([] (apply env/env env-keys))
+  ([& keys] (or (apply env/env keys) "development")))
 
 (defn start-env
   "To be used as in a start service fn."
-  ([app] (let [[p-name e-name] env-keys] (start-env p-name e-name app)))
-  ([property-name env-name app] (assoc app :env (find-env property-name env-name))))
+  ([app] (apply start-env app env-keys))
+  ([app & keys] (assoc app :env (apply env/env keys))))
 
 (defn stop-env
   "To be used as in a stop service fn."

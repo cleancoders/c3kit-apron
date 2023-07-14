@@ -52,7 +52,7 @@
   ;; usage:  lein run -m cleancoders.cljs [auto (default)|once] [env (development)]
   (let [once-or-auto (or (first args) "auto")
         config (util/read-edn-resource "config/cljs.edn")
-        build-key (keyword (or (second args) (app/find-env (or (:env-keys config) app/env-keys))))]
+        build-key (keyword (or (second args) (apply app/find-env (or (:env-keys config) app/env-keys))))]
     (when-let [cmd (:run-cmd config)] (reset! run-cmd cmd))
     (reset! build-config (resolve-watch-fn (get config build-key)))
     (assert (#{"once" "auto"} once-or-auto) (str "Unrecognized build frequency: " once-or-auto ". Must be 'once' or 'auto'"))

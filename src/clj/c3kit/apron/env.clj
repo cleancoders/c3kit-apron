@@ -24,8 +24,13 @@
     2) '.env' file (Java Properties format)
     3) Java System properties
     4) Environment variables"
-  [key]
+  ([key]
   (or (get @-overrides key)
       (get @-locals key)
       (System/getProperty key)
       (System/getenv key)))
+  ([key & keys]
+   (->> (cons key keys)
+        (map env)
+        (filter some?)
+        first)))

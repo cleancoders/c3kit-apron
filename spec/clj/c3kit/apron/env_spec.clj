@@ -29,6 +29,7 @@
 
   (context "env"
 
+    (before (reset! sut/-overrides {}))
     (after (System/setProperty "PATH" "nil")) ;; PATH is not a typical JVM property, so fear not
 
     (it "from ENV"
@@ -48,6 +49,11 @@
       (with-redefs [sut/-locals (delay {"PATH" "local"})]
         (sut/override! "PATH" "override")
         (should= "override" (sut/env "PATH"))))
+
+    (it "multiple keys"
+      (sut/override! "FOO" "bar")
+      (should= "bar" (sut/env "FOO" "FIZZ"))
+      (should= "bar" (sut/env "FIZZ" "FOO")))
 
     )
 
