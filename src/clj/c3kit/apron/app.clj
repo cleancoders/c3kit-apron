@@ -71,7 +71,9 @@
 (defn start-env
   "To be used as in a start service fn."
   ([app] (apply start-env app env-keys))
-  ([app & keys] (assoc app :env (apply env/env keys))))
+  ([app & keys]
+   (assert (not (string? app)) "app must be the first param")
+   (assoc app :env (apply env/env keys))))
 
 (defn stop-env
   "To be used as in a stop service fn."
