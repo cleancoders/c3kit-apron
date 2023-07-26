@@ -12,7 +12,7 @@
  :aliases {
            :test {:extra-deps  {
                                 org.clojure/clojurescript {:mvn/version "1.11.60"}
-                                speclj/speclj             {:mvn/version "3.4.1"}
+                                speclj/speclj             {:mvn/version "3.4.3"}
                                 }
                   :extra-paths ["dev" "spec/clj" "spec/cljc"]}
            :spec {:main-opts ["-m" "speclj.main" "-c"]}

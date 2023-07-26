@@ -30,23 +30,25 @@
   (context "env"
 
     (before (reset! sut/-overrides {}))
-    (after (System/setProperty "PATH" "nil")) ;; PATH is not a typical JVM property, so fear not
-
-    (it "from ENV"
-      (should-not= nil (sut/env "PATH")))
-
-    (it "from System properties"
-      (System/setProperty "PATH" "sys-prop")
-      (should= "sys-prop" (sut/env "PATH")))
+    (redefs-around [sut/-locals (delay {"PATH" "local"})
+                    sut/-sys-env (constantly nil)
+                    sut/-sys-property (constantly nil)])
 
     (it "from .env"
-      (System/setProperty "PATH" "sys-prop")
-      (with-redefs [sut/-locals (delay {"PATH" "local"})]
-        (should= "local" (sut/env "PATH"))))
+      (should= "local" (sut/env "PATH")))
+
+    (it "from ENV"
+      (with-redefs [sut/-sys-env (constantly "sys-env")]
+        (should= "sys-env" (sut/env "PATH"))))
+
+    (it "from System properties"
+      (with-redefs [sut/-sys-env (constantly "sys-env")
+                    sut/-sys-property (constantly "sys-prop")]
+        (should= "sys-prop" (sut/env "PATH"))))
 
     (it "from override"
-      (System/setProperty "PATH" "sys-prop")
-      (with-redefs [sut/-locals (delay {"PATH" "local"})]
+      (with-redefs [sut/-sys-env (constantly "sys-env")
+                    sut/-sys-property (constantly "sys-prop")]
         (sut/override! "PATH" "override")
         (should= "override" (sut/env "PATH"))))
 
