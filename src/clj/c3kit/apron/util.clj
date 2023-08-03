@@ -4,9 +4,54 @@
             [clojure.java.io :as io]
             [clojure.string :as str])
   (:import (java.io InputStream OutputStream)
+           (java.net URI)
+           (java.nio.file FileSystems Files Paths)
            (java.security DigestInputStream MessageDigest)))
 
+(defn filename->ns
+  "Given a filesystem path or classpath resource (not including scheme), returns the namespace can be required."
+  [filename]
+  (log/warn "c3kit.apron.uitl/filename->ns is deprecated.  Use path->namespace instead.")
+  (-> filename
+      (str/replace #"^(src/clj/|/src/clj/|)|.clj$" "")
+      (str/replace "/" ".")
+      (str/replace "_" "-")))
+
+(defn path->namespace
+  "Given a filesystem path or classpath resource (not including scheme), returns the namespace can be required."
+  [filename]
+  (-> filename
+      (str/replace #"\.(clj|cljc|cljs)$" "")
+      (str/replace "/" ".")
+      (str/replace "_" "-")))
+
+(defn namespace->path
+  "Given a namespace string, returns a path to the resource directory."
+  [namespace]
+  (-> namespace (str/replace "-" "_") (str/replace "." "/")))
+
+(defn- path-listing [path]
+  (let [listing (Files/list path)]
+    (mapv #(str (.getFileName %)) (-> listing .iterator iterator-seq))))
+
+(defn- resources-in-uri [^String path ^URI uri]
+  (if (= "jar" (.getScheme uri))
+    (with-open [fs (FileSystems/newFileSystem uri {})]
+      (path-listing (.getPath fs path (into-array String []))))
+    (path-listing (Paths/get uri))))
+
+(defn resources-in
+  "Returns a seq of all the files and directories in the provided package names.  They resources must be in the
+  classpath, either in the filesystem or a jar file.  Not recursive."
+  [package]
+  (let [^String package-path      (namespace->path package)
+        ^ClassLoader class-loader (.getContextClassLoader (Thread/currentThread))
+        package-urls              (enumeration-seq (.getResources class-loader package-path))
+        package-uris              (map #(.toURI %) (remove nil? package-urls))]
+    (seq (mapcat (partial resources-in-uri package-path) package-uris))))
+
 (defn files-in
+  "Returns a list of files that are in the path and match the predicate. Recursive."
   ([pred path] (files-in pred path (.list (io/file path)) []))
   ([pred base [name & more] result]
    (if (not name)
@@ -32,12 +77,6 @@
   "Return a list of filenames of .clj files located within the specified path, recursively."
   [path]
   (files-with-suffix-in ".clj" path))
-
-(defn filename->ns [filename]
-  (-> filename
-      (str/replace #"^(src/clj/|/src/clj/|)|.clj$" "")
-      (str/replace "/" ".")
-      (str/replace "_" "-")))
 
 (defn establish-path
   "Create any missing directories in path"

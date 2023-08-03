@@ -18,7 +18,20 @@
     (should= "foo" (sut/filename->ns "/src/clj/foo.clj"))
     (should= "hello.world" (sut/filename->ns "src/clj/hello/world.clj"))
     (should= "hello.cljwhatever" (sut/filename->ns "src/clj/hello/cljwhatever.clj"))
-    (should= "acme.foo.src.clj.hello" (sut/filename->ns "src/clj/acme/foo/src/clj/hello.clj")))
+    (should= "acme.foo.src.clj.hello" (sut/filename->ns "src/clj/acme/foo/src/clj/hello.clj"))
+    (should= "foo.bar.fizz-bang" (sut/filename->ns "foo/bar/fizz_bang"))
+    (should= "fizz-bang" (sut/filename->ns "fizz_bang.clj"))
+    (should= "foo.bar.fizz-bang" (sut/filename->ns "foo/bar/fizz_bang.clj")))
+
+  (it "path->namespace"
+    (should= "foo" (sut/path->namespace "foo.clj"))
+    (should= "foo" (sut/path->namespace "foo.clj"))
+    (should= "hello.world" (sut/path->namespace "hello/world.clj"))
+    (should= "hello.cljwhatever" (sut/path->namespace "hello/cljwhatever.clj"))
+    (should= "acme.foo.src.clj.hello" (sut/path->namespace "acme/foo/src/clj/hello.clj"))
+    (should= "foo.bar.fizz-bang" (sut/path->namespace "foo/bar/fizz_bang"))
+    (should= "fizz-bang" (sut/path->namespace "fizz_bang.clj"))
+    (should= "foo.bar.fizz-bang" (sut/path->namespace "foo/bar/fizz_bang.clj")))
 
   (context "var-value"
 
@@ -64,4 +77,27 @@
     (should= "8622b9718771d75e07734684d6efa1dd"
              (sut/stream->md5 (ByteArrayInputStream. (.getBytes "I'm a little teapot" "UTF-8")))))
 
+
+  (context "resources-in"
+
+    (it "namespace->path"
+      (should= "foo/bar/fizz_bang" (sut/namespace->path "foo.bar.fizz-bang")))
+
+    (it "file system"
+      (let [result (sut/resources-in "c3kit.apron")]
+        ;(prn "result: " result)
+        (should-contain "app.clj" result)
+        (should-contain "util.clj" result)
+        (should-contain "log.cljc" result)))
+
+    (it "jar file"
+      (let [result (sut/resources-in "clojure.java")]
+        (should-contain "io" result)
+        (should-contain "io.clj" result)
+        (should-contain "shell.clj" result)))
+
+    (it "missing"
+      (should= nil (sut/resources-in "some.missing.package")))
+
+    )
   )

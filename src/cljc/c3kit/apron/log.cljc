@@ -27,7 +27,7 @@
              (reset! captured-logs [])
              (try
                (timbre/set-min-level! :trace)
-               (with-redefs [timbre/-log! (fn [& args#] (swap! captured-logs conj args#))]
+               (with-redefs [timbre/-log! (fn [& args#] (swap! captured-logs conj args#) nil)]
                  ~@body)
                (finally
                  (timbre/set-min-level! original-level#))))))
