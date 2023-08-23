@@ -124,6 +124,19 @@
       (should= [1 3 4] result)
       (should= true (vector? result))))
 
+  #?(:cljs
+     (it "map-component"
+       (let [[one two three] (ccc/map-component inc ccc/noop [1 2 3])]
+         (should (vector? one))
+         (should (vector? two))
+         (should (vector? three))
+         (should= [ccc/noop 1] one)
+         (should= [ccc/noop 2] two)
+         (should= [ccc/noop 3] three)
+         (should= {:key 2} (meta one))
+         (should= {:key 3} (meta two))
+         (should= {:key 4} (meta three)))))
+
   (context "ffilter"
     (for [coll [nil [] [nil]]]
       (it (str "is nil when " (pr-str coll))

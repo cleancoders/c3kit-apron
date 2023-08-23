@@ -15,29 +15,36 @@
   "Like for-all, but with map"
   (comp doall map))
 
-(def map-all-indexed
+#?(:cljs
+   (defn map-component
+     "Creates a collection where each element is put into component syntax: [component-fn item]
+      Each component is given a React key using (key-fn item)."
+     [key-fn component-fn coll]
+     (map-all (fn [x] ^{:key (key-fn x)} [component-fn x]) coll)))
+
+(defn map-all-indexed
   "Like for-all, but with map-indexed"
-  (comp doall map-indexed))
+  [f coll] (doall (map-indexed f coll)))
 
 #?(:clj
    (defmacro nand
-             "Same as (not (and ...))"
+     "Same as (not (and ...))"
      ([] false)
      ([x & next] `(if-not ~x true (nand ~@next)))))
 
 #?(:clj
    (defmacro nor
-             "Same as (not (or ...))"
+     "Same as (not (or ...))"
      ([] true)
      ([x & next] `(if ~x false (nor ~@next)))))
 
 #?(:clj
    (defmacro xor
-             "Evaluates expressions one at a time, from left to right.
-              If a second form evaluates to logical true, xor returns nil
-              and doesn't evaluate any of the other expressions, otherwise
-              it returns the value of the first logical true expression.
-              If there are no truthy expressions, xor returns nil."
+     "Evaluates expressions one at a time, from left to right.
+      If a second form evaluates to logical true, xor returns nil
+      and doesn't evaluate any of the other expressions, otherwise
+      it returns the value of the first logical true expression.
+      If there are no truthy expressions, xor returns nil."
      ([] nil)
      ([x] `(or ~x nil))
      ([x y & next]
