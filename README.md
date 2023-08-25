@@ -27,3 +27,23 @@ Apron consists of necessities that almost any clojure app would find useful.
     # Compile and Run JS tests
     clj -M:test:cljs once
     clj -M:test:cljs            # auto runner
+
+# Deployment
+
+In order to deploy to c3kit you must be a member of the Clojars group `com.cleancoders.c3kit`.
+
+1. Go to https://clojars.org/tokens and configure a token with the appropriate scope
+2. Add the following to ~/.m2/settings.xml
+
+```xml
+<servers>
+        <server>
+            <id>clojars</id>
+            <username>[clojars username]</username>
+            <password>[deploy token]</password>
+        </server>
+    </servers>
+```
+
+3. Build the jar using `clj -T:build jar`
+4. Deploy to maven `mvn deploy`
