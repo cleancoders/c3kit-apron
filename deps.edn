@@ -1,22 +1,24 @@
 {
  :paths   ["src/clj" "src/cljc"]
  :deps    {
-           com.andrewmcveigh/cljs-time {:mvn/version "0.5.2"}
-           com.cognitect/transit-clj   {:mvn/version "1.0.329"}
-           com.cognitect/transit-cljs  {:mvn/version "0.8.280"}
-           com.taoensso/timbre         {:mvn/version "6.2.1"}
-           org.clojure/clojure         {:mvn/version "1.11.1"}
-           org.clojure/data.json       {:mvn/version "2.4.0"}
-           org.clojure/tools.namespace {:mvn/version "1.4.4"}
-           org.slf4j/slf4j-nop         {:mvn/version "1.7.36"} ;; eliminated annoying log output
+           com.andrewmcveigh/cljs-time   {:mvn/version "0.5.2"}
+           com.cognitect/transit-clj     {:mvn/version "1.0.329"}
+           com.cognitect/transit-cljs    {:mvn/version "0.8.280"}
+           com.taoensso/timbre           {:mvn/version "6.2.1"}
+           org.clojure/clojure           {:mvn/version "1.11.1"}
+           org.clojure/data.json         {:mvn/version "2.4.0"}
+           org.clojure/tools.namespace   {:mvn/version "1.4.4"}
+           org.slf4j/slf4j-nop           {:mvn/version "1.7.36"} ;; eliminated annoying log output
            }
  :aliases {
-           :test {:extra-deps  {
+           :test  {:extra-deps  {
                                 org.clojure/clojurescript {:mvn/version "1.11.60"}
                                 speclj/speclj             {:mvn/version "3.4.3"}
                                 }
                   :extra-paths ["dev" "spec/clj" "spec/cljc"]}
-           :spec {:main-opts ["-m" "speclj.main" "-c"]}
-           :cljs {:main-opts ["-m" "c3kit.apron.cljs"]}
+           :spec  {:main-opts ["-m" "speclj.main" "-c"]}
+           :cljs  {:main-opts ["-m" "c3kit.apron.cljs"]}
+           :build {:extra-deps {io.github.clojure/tools.build {:mvn/version "0.9.5"}}
+                   :ns-default build}
            }
  }
