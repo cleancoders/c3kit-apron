@@ -1,17 +1,17 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <meta charset="iso-8859-1" content="text/html" http-equiv="Content-Type"/>
+    <meta charset="iso-8859-1" content="text/html" http-equiv="Content-Type" />
     <title>C3Kit Specs</title>
-    <script src="../../target/cljs/goog/base.js" type="text/javascript"></script>
-    <script src="../../target/cljs/c3kit_apron_dev.js" type="text/javascript"></script>
+    <script src="goog/base.js" type="text/javascript"></script>
+    <script src="<--OUTPUT-TO-->" type="text/javascript"></script>
     <script type="text/javascript">
         String.prototype.endsWith = function (suffix) {
             return this.indexOf(suffix, this.length - suffix.length) !== -1;
         };
 
         // Load all the specs
-        for(var k in goog.debugLoader_.dependencies_) {
+        for (var k in goog.debugLoader_.dependencies_) {
             var dep = goog.debugLoader_.dependencies_[k];
             for (var i = 0; i < dep.provides.length; i++) {
                 var ns = dep.provides[i];
@@ -35,17 +35,13 @@
         }
 
         runSpecsFiltered = function (affectedSpecs) {
-            if(affectedSpecs != null) {
-                console.log("Only running affected specs:");
+            if (affectedSpecs != null) {
                 var descriptionAtom = speclj.config.active_runner().descriptions;
                 cljs.core.swap_BANG_(descriptionAtom, function (descriptions) {
                     return cljs.core.filter(function (description) {
                         return description.ns in affectedSpecs;
                     }, descriptions);
                 });
-                cljs.core.doall(cljs.core.map(function (description) {
-                    console.log("  ", description.ns);
-                }, cljs.core.deref(descriptionAtom)));
             }
             return runSpecsConfigured(true, "documentation");
         }
@@ -58,7 +54,7 @@
     Typically these specs are run using phantomjs on the command line.
     But you can run them here if you like.
     That is, assuming all the cljs has been compiled in development.
-    <br/>
+    <br />
     Open up the browser console:
 </p>
 <pre style="margin: 1em; padding: 1em; width: 400px; border: 1px dotted slategray; background-color: lightgray;">

@@ -12,10 +12,11 @@
            }
  :aliases {
            :test  {:extra-deps  {
-                                 org.clojure/clojurescript     {:mvn/version "1.11.60"}
-                                 speclj/speclj                 {:mvn/version "3.4.3"}
-                                 io.github.clojure/tools.build {:mvn/version "0.9.5"}
-                                 clj-commons/pomegranate       {:mvn/version "1.2.23"}
+                                 clj-commons/pomegranate             {:mvn/version "1.2.23"}
+                                 com.microsoft.playwright/playwright {:mvn/version "1.28.1"}
+                                 io.github.clojure/tools.build       {:mvn/version "0.9.5"}
+                                 org.clojure/clojurescript           {:mvn/version "1.11.60"}
+                                 speclj/speclj                       {:mvn/version "3.4.3"}
                                  }
                    :extra-paths ["dev" "spec/clj" "spec/cljc"]}
            :spec  {:main-opts ["-m" "speclj.main" "-c"]}
