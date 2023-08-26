@@ -10,7 +10,7 @@
                :sources        ["spec/cljc" "src/cljc"]
                :specs          true
                :verbose        false
-               :watch-fn       c3kit.apron.cljs/on-dev-compiled
+               :watch-fn       cljs/on-dev-compiled
                }
  :production  {
                :cache-analysis false

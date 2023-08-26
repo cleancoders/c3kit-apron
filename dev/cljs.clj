@@ -1,4 +1,4 @@
-(ns c3kit.apron.cljs
+(ns cljs
   "This is a copy of scaffold.cljs, to avoid dependency cycles."
   (:require
     [c3kit.apron.app :as app]
@@ -28,7 +28,7 @@
         spec-html-file (io/file output-dir "specs.html")
         js-file        (str (.toURL (.toURI (io/file (:output-to @build-config)))))]
     (when-not (.exists spec-html-file)
-      (let [html (-> (slurp (io/resource "specs/specs.html"))
+      (let [html (-> (slurp (io/resource "specs.html"))
                      (str/replace "<--OUTPUT-TO-->" js-file))]
         (spit spec-html-file html)))
     (str (.toURL spec-html-file))))
