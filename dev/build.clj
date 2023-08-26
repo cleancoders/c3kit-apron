@@ -3,7 +3,7 @@
             [cemerick.pomegranate.aether :as aether]))
 
 (def lib 'com.cleancoders.c3kit/apron)
-(def version "2.0.0")
+(def version (slurp "VERSION"))
 (def class-dir "target/classes")
 (def basis (b/create-basis {:project "deps.edn"}))
 (def jar-file (format "target/%s-%s.jar" (name lib) version))
