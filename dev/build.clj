@@ -1,8 +1,8 @@
 (ns build
-  (:require [clojure.string :as str]
-            [clojure.tools.build.api :as b]
+  (:require [cemerick.pomegranate.aether :as aether]
             [clojure.java.shell :as shell]
-            [cemerick.pomegranate.aether :as aether]))
+            [clojure.string :as str]
+            [clojure.tools.build.api :as b]))
 
 (def lib-name "apron")
 (def basis (b/create-basis {:project "deps.edn"}))
@@ -18,35 +18,36 @@
 
 (defn pom [_]
   (println "writing pom.xml")
-  (b/write-pom {:basis basis
+  (b/write-pom {:basis     basis
                 :class-dir class-dir
-                :lib lib
-                :version version}))
+                :lib       lib
+                :version   version}))
 
 (defn jar [_]
   (clean nil)
   (pom nil)
   (println "building" jar-file)
-  (b/copy-dir {:src-dirs src-dirs
+  (b/copy-dir {:src-dirs   src-dirs
                :target-dir class-dir})
   (b/jar {:class-dir class-dir
-          :jar-file jar-file}))
+          :jar-file  jar-file}))
 
 (defn tag [_]
-  (let [tags (->> (shell/sh "git" "tag") :out str/split-lines set)]
-    (if (contains? tags version)
-      (println "tag already exists")
-      (do (println "pushing tag" version)
-          (shell/sh "git" "tag" version)
-          (shell/sh "git" "push" "--tags")))))
+  (let [clean? (str/blank? (:out (shell/sh "git" "diff")))
+        tags   (delay (->> (shell/sh "git" "tag") :out str/split-lines set))]
+    (cond (not clean?) (do (println "ABORT: commit master before tagging") (System/exit 1))
+          (contains? @tags version) (println "tag already exists")
+          :else (do (println "pushing tag" version)
+                    (shell/sh "git" "tag" version)
+                    (shell/sh "git" "push" "--tags")))))
 
 (defn deploy [_]
   (tag nil)
   (jar nil)
-  (aether/deploy {:coordinates [lib version]
-                  :jar-file jar-file
-                  :repository {"clojars" {:url "https://clojars.org/repo"
-                                          :username (System/getenv "CLOJARS_USERNAME")
-                                          :password (System/getenv "CLOJARS_PASSWORD")}}
+  (aether/deploy {:coordinates       [lib version]
+                  :jar-file          jar-file
+                  :repository        {"clojars" {:url      "https://clojars.org/repo"
+                                                 :username (System/getenv "CLOJARS_USERNAME")
+                                                 :password (System/getenv "CLOJARS_PASSWORD")}}
                   :transfer-listener :stdout}))
 
