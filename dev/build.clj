@@ -1,6 +1,7 @@
 (ns build
   (:require [clojure.string :as str]
             [clojure.tools.build.api :as b]
+            [clojure.java.shell :as shell]
             [cemerick.pomegranate.aether :as aether]))
 
 (def lib-name "apron")
@@ -31,7 +32,16 @@
   (b/jar {:class-dir class-dir
           :jar-file jar-file}))
 
+(defn tag [_]
+  (let [tags (->> (shell/sh "git" "tag") :out str/split-lines set)]
+    (if (contains? tags version)
+      (println "tag already exists")
+      (do (println "pushing tag" version)
+          (shell/sh "git" "tag" version)
+          (shell/sh "git" "push" "--tags")))))
+
 (defn deploy [_]
+  (tag nil)
   (jar nil)
   (aether/deploy {:coordinates [lib version]
                   :jar-file jar-file

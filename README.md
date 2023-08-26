@@ -40,4 +40,5 @@ CLOJARS_USERNAME=<your username>
 CLOJARS_PASSWORD=<your deploy key>
 ```
 
-3. `clj -T:build deploy`
+3. Update VERSION file
+4. `clj -T:build deploy`
