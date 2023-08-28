@@ -80,6 +80,16 @@
         (should= 1 (ccc/xor (swap! flag inc) nil nil))
         (should= 1 @flag))))
 
+  (context "attempt"
+    (it "constant" (should= 2 (ccc/attempt 2)))
+    (it "throws" (should-be-nil (ccc/attempt (throw "foo"))))
+    (it "longer body" (should= 7 (ccc/attempt "foo" "bar" (+ 3 4)))))
+
+  (context "try-or"
+    (it "constant" (should= 2 (ccc/try-or 1 2)))
+    (it "throws" (should= :default (ccc/try-or :default (throw "foo"))))
+    (it "longer body" (should= 7 (ccc/try-or "foo" "bar" (+ 3 4)))))
+
   (context "->options"
 
     (it "nil -> {}"
