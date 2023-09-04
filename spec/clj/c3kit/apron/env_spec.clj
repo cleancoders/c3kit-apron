@@ -59,4 +59,27 @@
 
     )
 
+  (context "env!"
+
+    (before (reset! sut/-overrides {}))
+    (redefs-around [sut/-locals (delay {"PATH" "local"})
+                    sut/-sys-env (constantly nil)
+                    sut/-sys-property (constantly nil)])
+
+    (it "existing"
+      (should-not-throw (sut/env! "PATH"))
+      (should-not-throw (sut/env! "FOO" "PATH")))
+
+    (it "missing"
+      (should-throw (sut/env! "FOO"))
+      (should-throw (sut/env! "FOO" "BAR")))
+
+    (it "blank"
+      (sut/override! "FOO" "")
+      (should-throw (sut/env! "FOO")))
+
+    )
+
+
+
   )

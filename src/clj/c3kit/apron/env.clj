@@ -1,5 +1,6 @@
 (ns c3kit.apron.env
-  (:require [clojure.java.io :as io])
+  (:require [clojure.java.io :as io]
+            [clojure.string :as str])
   (:import (java.io FileNotFoundException)))
 
 (defn -read-properties [readable]
@@ -36,3 +37,16 @@
         (map env)
         (filter some?)
         first)))
+
+(defn env!
+  "Like env, but throws an exception if the key (or keys) resolved to nil or blank string."
+  ([key]
+   (let [result (env key)]
+     (if (str/blank? result)
+       (throw (ex-info (str "unresolved env " key) {}))
+       result)))
+  ([key & keys]
+   (let [result (apply env key keys)]
+     (if (str/blank? result)
+       (throw (ex-info (str "unresolved env " key keys) {}))
+       result))))
