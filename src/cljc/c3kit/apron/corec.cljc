@@ -158,19 +158,6 @@
   [pred coll]
   (reduce (fn [_ b] (when (pred b) (reduced b))) nil coll))
 
-(defn count-where
-  "Counts the number of entities that satisfy a predicate"
-  [pred es]
-  (reduce #(if (pred %2) (inc %1) %1) 0 es))
-
-(defn count-by
-  "Counts the number of entities that
-   exactly match some given key-value pairs"
-  [es & kvs]
-  (let [test (apply hash-map kvs)
-        keys (keys test)]
-    (count-where #(= test (select-keys % keys)) es)))
-
 (defn sum-by
   "Sums the results of a function applied to the elements of a collection"
   [f coll]
@@ -351,3 +338,83 @@
   "Create an n-arity function from a 0-arity function"
   [f]
   (fn [& _] (f)))
+
+(defn- pattern-comparator [v case-sensitive?]
+  (let [pattern (-> (str/replace v "%" ".*") (str/replace "_" ".") re-pattern)]
+    (fn [ev]
+      (when ev
+        (let [ev (if case-sensitive? ev (str/upper-case ev))]
+          (boolean (re-matches pattern ev)))))))
+
+(defn- multi? [v] (or (sequential? v) (set? v)))
+
+(defn- -normal-tester [f v]
+  (fn [ev]
+    (if (multi? ev)
+      (some #(f % v) ev)
+      (and (some? ev) (f ev v)))))
+
+(defn- -or-tester [values]
+  (let [v-set (set values)]
+    (fn [ev]
+      (if (multi? ev)
+        (some #(contains? v-set %) ev)
+        (contains? v-set ev)))))
+
+(defn- -tester [form]
+  (condp = (first form)
+    '> (let [v (second form)] (if (number? v) (-normal-tester > v) (-normal-tester #(pos? (compare %1 %2)) v)))
+    '< (let [v (second form)] (if (number? v) (-normal-tester < v) (-normal-tester #(neg? (compare %1 %2)) v)))
+    '>= (let [v (second form)] (if (number? v) (-normal-tester >= v) (-normal-tester #(>= (compare %1 %2) 0) v)))
+    '<= (let [v (second form)] (if (number? v) (-normal-tester <= v) (-normal-tester #(<= (compare %1 %2) 0) v)))
+    'like (pattern-comparator (second form) true)
+    'ilike (pattern-comparator (str/upper-case (second form)) false)
+    'not= (complement (-or-tester (rest form)))
+    '= (-or-tester (rest form))
+    (-or-tester form)))
+
+(defn- ensure-key [k]
+  (if (set? k)
+    (map ensure-key k)
+    (->> [(namespace k) (name k)]
+         (remove nil?)
+         (map keyword)
+         vec)))
+
+(defn- get-tester-by-type [v]
+  (cond (set? v) (-or-tester v)
+        (sequential? v) (-tester v)
+        (nil? v) nil?
+        :else (-normal-tester = v)))
+
+(defn- kv->tester [[k v]]
+  (let [tester (get-tester-by-type v)]
+    (fn [e]
+      (tester (get-in e (ensure-key k))))))
+
+(defn- spec->tester [spec]
+  (apply every-pred (map kv->tester spec)))
+
+(defn- filter-where [where entities]
+  (cond->> entities
+           (seq where)
+           (filter (spec->tester where))))
+
+(defn find-by
+  "Filters coll by items matching kvs."
+  [coll & {:as kvs}] (filter-where kvs coll))
+
+(defn ffind-by
+  "Finds the first item in coll matching kvs."
+  [coll & {:as kvs}] (ffilter (spec->tester kvs) coll))
+
+(defn count-where
+  "Counts the number of items in coll that satisfy a predicate"
+  [pred coll]
+  (reduce #(if (pred %2) (inc %1) %1) 0 coll))
+
+(defn count-by
+  "Counts the number of items in coll that
+   exactly match some given key-value pairs"
+  [coll & {:as kvs}]
+  (count-where (spec->tester kvs) coll))
