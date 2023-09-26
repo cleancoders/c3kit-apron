@@ -176,12 +176,12 @@
       (should= 2 (ccc/count-by things :bar "foo"))
       (should= 0 (ccc/count-by things :foo "foo"))
       (should= 0 (ccc/count-by things :foo "foo" :size 2))
+      (should= 2 (ccc/count-by things {:bar "foo" :size 2}))
       (should= 1 (ccc/count-by things :round? false))
       (should= 1 (ccc/count-by things :round? true))
       (should= 2 (ccc/count-by things :round? nil))
       (should= 2 (ccc/count-by things :round? ['not nil]))
-      (should= 0 (ccc/count-by things :round? :blah))
-      ))
+      (should= 0 (ccc/count-by things :round? :blah))))
 
   (context "find-by"
     (with e1 {:name "hello"})
@@ -189,6 +189,9 @@
     (with e3 {:name "hello world" :size 2})
     (with e4 {:name "hi!" :size 2})
     (with items [@e1 @e2 @e3 @e4])
+
+    (it "map options"
+      (should= [@e4] (ccc/find-by @items {:size ['> 1] :name "hi!"})))
 
     (it "greater than or less than"
       (should= [] (ccc/find-by @items :size ['> 2]))
