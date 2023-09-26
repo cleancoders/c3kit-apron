@@ -2,7 +2,7 @@
   "Common core code.  This file should have minimal dependencies.
   Clients should be able to safely :refer :all from this namespace."
   #?(:clj (:import (java.util UUID)))
-  #?(:cljs (:require-macros [c3kit.apron.corec :refer [attempt try-or for-all nand nor xor]]))
+  #?(:cljs (:require-macros [c3kit.apron.corec :refer [for-all nand nor xor]]))
   (:require [clojure.string :as str]
             #?(:cljs [goog.string :as gstring])
             #?(:cljs [goog.string.format])
@@ -37,24 +37,6 @@
      "Same as (not (or ...))"
      ([] true)
      ([x & next] `(if ~x false (nor ~@next)))))
-
-; Nested reader conditionals will not work,
-; so we must determine where we are here before calling the try macros.
-(def cljs-env? (some? (find-ns 'cljs.core)))
-
-#?(:clj
-   (defmacro try-or
-     "Attempts to execute `body`. If an exception is throw, returns `default`."
-     [default & body]
-     ;; TODO [BAC]: This feels wrong, but seems to be the only way we can do this in cljc.
-     (if cljs-env?
-       `(try ~@body (catch :default _# ~default))
-       `(try ~@body (catch Exception _# ~default)))))
-
-#?(:clj
-   (defmacro attempt
-     "Attempts to execute `body`. If an exception is throw, returns `nil`."
-     [& body] `(try-or nil ~@body)))
 
 #?(:clj
    (defmacro xor
