@@ -198,7 +198,11 @@
       (should= [@e3 @e4] (ccc/find-by @items :size ['> 1]))
       (should= [@e2 @e3 @e4] (ccc/find-by @items :size ['>= 1]))
       (should= [] (ccc/find-by @items :size ['< 1]))
-      (should= [@e2] (ccc/find-by @items :size ['<= 1])))
+      (should= [@e2] (ccc/find-by @items :size ['<= 1]))
+      (should= [] (ccc/find-by @items :name ['> "world"]))
+      (should= [] (ccc/find-by @items :name ['< "hello"]))
+      (should= [@e1] (ccc/find-by @items :name ['<= "hello"]))
+      (should= [@e2] (ccc/find-by @items :name ['>= "world"])))
 
     (it "equal and not equal"
       (should= [@e2] (ccc/find-by @items :size ['= 1]))
@@ -210,6 +214,9 @@
       (should= [@e1 @e2] (ccc/find-by @items :size ['not= 2]))
       (should= [@e1] (ccc/find-by @items :size ['not= 2 1]))
       (should= [@e2 @e3 @e4] (ccc/find-by @items :size ['not= nil])))
+
+    (it "in"
+      (should= [@e1 @e2] (ccc/find-by @items :size [1 nil])))
 
     (it "like fuzzy match with anything before or after"
       (should= [@e2 @e3] (ccc/find-by @items :name ['like "%orl%"]))

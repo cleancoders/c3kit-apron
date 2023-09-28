@@ -3,7 +3,8 @@
   Clients should be able to safely :refer :all from this namespace."
   #?(:clj (:import (java.util UUID)))
   #?(:cljs (:require-macros [c3kit.apron.corec :refer [for-all nand nor xor]]))
-  (:require [clojure.string :as str]
+  (:require [c3kit.apron.test-fabric :as fabric]
+            [clojure.string :as str]
             #?(:cljs [goog.string :as gstring])
             #?(:cljs [goog.string.format])
             #?(:cljs [goog.object :as gobj])))
@@ -321,74 +322,16 @@
   [f]
   (fn [& _] (f)))
 
-(defn- pattern-comparator [v case-sensitive?]
-  (let [pattern (-> (str/replace v "%" ".*") (str/replace "_" ".") re-pattern)]
-    (fn [ev]
-      (when ev
-        (let [ev (if case-sensitive? ev (str/upper-case ev))]
-          (boolean (re-matches pattern ev)))))))
-
-(defn- multi? [v] (or (sequential? v) (set? v)))
-
-(defn- -normal-tester [f v]
-  (fn [ev]
-    (if (multi? ev)
-      (some #(f % v) ev)
-      (and (some? ev) (f ev v)))))
-
-(defn- -or-tester [values]
-  (let [v-set (set values)]
-    (fn [ev]
-      (if (multi? ev)
-        (some #(contains? v-set %) ev)
-        (contains? v-set ev)))))
-
-(defn- -tester [form]
-  (condp = (first form)
-    '> (let [v (second form)] (if (number? v) (-normal-tester > v) (-normal-tester #(pos? (compare %1 %2)) v)))
-    '< (let [v (second form)] (if (number? v) (-normal-tester < v) (-normal-tester #(neg? (compare %1 %2)) v)))
-    '>= (let [v (second form)] (if (number? v) (-normal-tester >= v) (-normal-tester #(>= (compare %1 %2) 0) v)))
-    '<= (let [v (second form)] (if (number? v) (-normal-tester <= v) (-normal-tester #(<= (compare %1 %2) 0) v)))
-    'like (pattern-comparator (second form) true)
-    'ilike (pattern-comparator (str/upper-case (second form)) false)
-    'not= (complement (-or-tester (rest form)))
-    '= (-or-tester (rest form))
-    (-or-tester form)))
-
-(defn- ensure-key [k]
-  (if (set? k)
-    (map ensure-key k)
-    (->> [(namespace k) (name k)]
-         (remove nil?)
-         (map keyword)
-         vec)))
-
-(defn- get-tester-by-type [v]
-  (cond (set? v) (-or-tester v)
-        (sequential? v) (-tester v)
-        (nil? v) nil?
-        :else (-normal-tester = v)))
-
-(defn- kv->tester [[k v]]
-  (let [tester (get-tester-by-type v)]
-    (fn [e]
-      (tester (get-in e (ensure-key k))))))
-
-(defn- spec->tester [spec]
-  (apply every-pred (map kv->tester spec)))
-
-(defn- filter-where [where entities]
-  (cond->> entities
-           (seq where)
-           (filter (spec->tester where))))
-
 (defn find-by
   "Filters coll by items matching kvs."
-  [coll & {:as kvs}] (filter-where kvs coll))
+  [coll & {:as kvs}]
+  (cond->> coll
+           (seq kvs)
+           (filter (fabric/spec->tester kvs))))
 
 (defn ffind-by
   "Finds the first item in coll matching kvs."
-  [coll & {:as kvs}] (ffilter (spec->tester kvs) coll))
+  [coll & {:as kvs}] (ffilter (fabric/spec->tester kvs) coll))
 
 (defn count-where
   "Counts the number of items in coll that satisfy a predicate"
@@ -399,4 +342,4 @@
   "Counts the number of items in coll that
    exactly match some given key-value pairs"
   [coll & {:as kvs}]
-  (count-where (spec->tester kvs) coll))
+  (count-where (fabric/spec->tester kvs) coll))
