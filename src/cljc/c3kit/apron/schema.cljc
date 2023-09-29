@@ -59,7 +59,7 @@
       (or (nil? value)
           (contains? enum-set value)))))
 
-; Common Coersions ----------------------------------------
+; Common Coercions ----------------------------------------
 
 #?(:cljs
    (defn parse! [f v]
@@ -266,7 +266,7 @@
 
 (defn type-coercer! [type]
   (or (get type-coercers type)
-      (throw (ex-info (str "unhandled coersion type: " (pr-str type)) {:coerce? true}))))
+      (throw (ex-info (str "unhandled coercion type: " (pr-str type)) {:coerce? true}))))
 
 (defn type-validator! [type]
   (or (get type-validators type)
@@ -277,24 +277,24 @@
     (when (some? value) (mapv coerce-fn (->seq value)))
     (coerce-fn value)))
 
-(declare do-coersion)
+(declare do-coercion)
 
-(defn- do-object-coersion [schema value]
+(defn- do-object-coercion [schema value]
   (reduce-kv
     (fn [m k spec]
       (cond-> m
               (contains? value k)
-              (assoc k (do-coersion spec (get value k)))))
+              (assoc k (do-coercion spec (get value k)))))
     {} schema))
 
-(defn- do-coersion [{:keys [type schema] :as spec} value]
+(defn- do-coercion [{:keys [type schema] :as spec} value]
   (let [?seq  (multiple? type)
         type  (if ?seq (first type) type)
         value (reduce #(-coerce-value! %2 %1 ?seq) value (->vec (:coerce spec)))
         value (cond
                 (ccc/nand (= :object type) value) value
-                ?seq (mapv (partial do-object-coersion schema) value)
-                :else (do-object-coersion schema value))]
+                ?seq (mapv (partial do-object-coercion schema) value)
+                :else (do-object-coercion schema value))]
     (-coerce-value! (type-coercer! type) value ?seq)))
 
 (defn- validation-ex [message value] (ex-info "invalid" {:invalid? true :message (or message "is invalid") :value value}))
@@ -375,11 +375,11 @@
   ([schema key value] (coerce-value (get schema key) value))
   ([spec value]
    (try
-     (do-coersion spec value)
+     (do-coercion spec value)
      (catch #?(:clj Exception :cljs :default) e
        (if (coerce-ex? e)
          (throw e)
-         (throw (ex-info "coersion failed" {:message (:message spec "coersion failed") :value value} e)))))))
+         (throw (ex-info "coercion failed" {:message (:message spec "coercion failed") :value value} e)))))))
 
 (defn validate-value!
   "throws an exception when validation fails, value otherwise"
@@ -489,7 +489,7 @@
       (error-or-result errors schema entity result))))
 
 (defn coerce
-  "Returns coerced entity or SchemaError if any coersion failed. Use error? to check result.
+  "Returns coerced entity or SchemaError if any coercion failed. Use error? to check result.
   Use Case: 'I want to change my data into the types specified by the schema.'"
   [schema entity]
   (let [result (process-fields coerce-value (dissoc schema :*) entity)]
@@ -507,7 +507,7 @@
       (validate-whole-entity result schema entity))))
 
 (defn conform
-  "Returns coerced entity or SchemaError upon any coersion or validation failure. Use error? to check result.
+  "Returns coerced entity or SchemaError upon any coercion or validation failure. Use error? to check result.
   Use Case: 'I want to coerce my data then validate the coerced data, all according to the schema.'
   Use Case: Data comes in from a web-form so strings have to be coerced into numbers, etc., then
             we need to validate that the data is good."
@@ -531,7 +531,7 @@
           result
           (ccc/remove-nils result))))))
 
-;(defn coersion-errors [schema entity]
+;(defn coercion-errors [schema entity]
 ;  (messages (coerce schema entity)))
 
 (defn validation-errors [schema entity]

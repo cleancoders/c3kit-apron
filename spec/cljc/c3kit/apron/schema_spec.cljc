@@ -59,7 +59,7 @@
 
 (describe "Schema"
 
-  (context "coersion"
+  (context "coercion"
 
     (it "to boolean"
       (should= nil (schema/->boolean nil))
@@ -180,7 +180,7 @@
     (context "from spec"
 
       (it "with missing type"
-        (should-throw schema/stdex "unhandled coersion type: nil" (schema/coerce-value {} 123)))
+        (should-throw schema/stdex "unhandled coercion type: nil" (schema/coerce-value {} 123)))
 
       (it "of boolean"
         (should= true (schema/coerce-value {:type :boolean} 123)))
@@ -201,7 +201,7 @@
       (it "of bigdec"
         (should= 123.4M (schema/coerce-value {:type :bigdec} "123.4")))
 
-      (it "with custom coercsions"
+      (it "with custom coercions"
         (let [spec {:type :string :coerce [str/trim reverse #(apply str %)]}]
           (should= "321" (schema/coerce-value spec " 123\t"))))
 
@@ -217,21 +217,21 @@
               value {:name "  fred "}]
           (should= [{:name "fred"}] (schema/coerce-value spec [value]))))
 
-      (it "of object with custom coersions"
+      (it "of object with custom coercions"
         (let [spec  {:type   :object
                      :coerce (constantly {:name "billy"})
                      :schema {:name {:type :string}}}
               value "blah"]
           (should= {:name "billy"} (schema/coerce-value spec value))))
 
-      (it "of object with nested coersions"
+      (it "of object with nested coercions"
         (let [spec  {:type   :object
                      :coerce (constantly {:name "  billy "})
                      :schema {:name {:type :string :coerce str/trim}}}
               value "blah"]
           (should= {:name "billy"} (schema/coerce-value spec value))))
 
-      (it ", custom coersions happen before type coersion"
+      (it ", custom coercions happen before type coercion"
         (let [spec {:type :string :coerce #(* % %)}]
           (should= "16" (schema/coerce-value spec 4))))
 
@@ -253,7 +253,7 @@
           (should= 4.1415 (last result) 0.0001)))
 
       (it "missing multiple type coercer"
-        (should-throw schema/stdex "unhandled coersion type: :blah"
+        (should-throw schema/stdex "unhandled coercion type: :blah"
                       (schema/coerce-value {:type [:blah]} nil)))
 
       (it "of entity"
@@ -284,7 +284,7 @@
           (should-not-contain :owner result)
           (should-not-contain :uuid result)))
 
-      (it "of entity level coersions"
+      (it "of entity level coercions"
         (let [result (schema/coerce (assoc pet :* {:stage-name {:type   :string
                                                                 :coerce #(str (:name %) " the " (:species %))}}) valid-pet)]
           (should= "Fluffyy the dog" (:stage-name result))))
@@ -559,7 +559,7 @@
       )
     )
 
-  (context "coersion"
+  (context "coercion"
 
     (it "multi field with nil value"
       (should= nil (schema/coerce-value {:type [:int]} nil)))
@@ -575,8 +575,8 @@
 
   (context "conforming"
 
-    (it "with failed coersion"
-      (should-throw schema/stdex "coersion failed"
+    (it "with failed coercion"
+      (should-throw schema/stdex "coercion failed"
                     (schema/conform-value {:type :int :message "oh no!"} "foo")))
 
     (it "with failed validation"
@@ -662,12 +662,12 @@
             errors (:errors result)]
         (should= true (schema/error? result))
         (should= "invalid" (schema/exmessage (:species errors)))
-        (should= "coersion failed" (schema/exmessage (:birthday errors)))
-        (should= "coersion failed" (schema/exmessage (:length errors)))
+        (should= "coercion failed" (schema/exmessage (:birthday errors)))
+        (should= "coercion failed" (schema/exmessage (:length errors)))
         (should= "invalid" (schema/exmessage (:teeth errors)))
         (should= "invalid" (schema/exmessage (:name errors)))
         (should= "invalid" (schema/exmessage (:owner errors)))
-        (should= "coersion failed" (schema/exmessage (:parent errors)))))
+        (should= "coercion failed" (schema/exmessage (:parent errors)))))
 
     (it "removed extra fields"
       (let [crufty (assoc valid-pet :garbage "yuk!")
