@@ -35,6 +35,9 @@
    :colors      {:type [:string]}
    :uuid        {:type :uuid
                  :db   [:unique-identity]}
+   :parent      {:type   :object
+                 :schema {:name {:type :string}
+                          :age  {:type :int}}}
    :temperament {:type :kw-ref}})
 
 (def temperaments
@@ -107,7 +110,8 @@
       (should= 3 (schema/->int "3.14"))
       (should= 3 (schema/->int 3.14M))
       (should-throw (schema/->int \a))
-      (should-throw schema/stdex (schema/->int "fooey")))
+      (should-throw schema/stdex (schema/->int "fooey"))
+      (should-throw schema/stdex (schema/->int :foo)))
 
     (it "to bigdec"
       (should= nil (schema/->bigdec nil))
@@ -200,6 +204,32 @@
       (it "with custom coercsions"
         (let [spec {:type :string :coerce [str/trim reverse #(apply str %)]}]
           (should= "321" (schema/coerce-value spec " 123\t"))))
+
+      (it "of object"
+        (let [spec  {:type   :object
+                     :schema {:name {:type :string :coerce str/trim}}}
+              value {:name "  fred "}]
+          (should= {:name "fred"} (schema/coerce-value spec value))))
+
+      (it "of multi object"
+        (let [spec  {:type   [:object]
+                     :schema {:name {:type :string :coerce str/trim}}}
+              value {:name "  fred "}]
+          (should= [{:name "fred"}] (schema/coerce-value spec [value]))))
+
+      (it "of object with custom coersions"
+        (let [spec  {:type   :object
+                     :coerce (constantly {:name "billy"})
+                     :schema {:name {:type :string}}}
+              value "blah"]
+          (should= {:name "billy"} (schema/coerce-value spec value))))
+
+      (it "of object with nested coersions"
+        (let [spec  {:type   :object
+                     :coerce (constantly {:name "  billy "})
+                     :schema {:name {:type :string :coerce str/trim}}}
+              value "blah"]
+          (should= {:name "billy"} (schema/coerce-value spec value))))
 
       (it ", custom coersions happen before type coersion"
         (let [spec {:type :string :coerce #(* % %)}]
@@ -406,6 +436,43 @@
         (should= true (schema/valid-value? {:type [:float] :validate pos?} [32.1 3.1415]))
         (should= false (schema/valid-value? {:type [:float] :validate pos?} [32.1 -3.1415])))
 
+      (it "of object"
+        (let [spec {:type   :object
+                    :schema {:foo {:type :keyword}}}]
+          (should= true (schema/valid-value? spec {:foo :bar}))))
+
+      (it "of multiple object"
+        (let [spec {:type   [:object]
+                    :schema {:age {:type :int}}}]
+          (should= true (schema/valid-value? spec [{:age 1} {:age 2}]))
+          (should= false (schema/valid-value? spec [{:age :foo}]))))
+
+      (it "of object with customs"
+        (let [spec {:type     :object
+                    :schema   {:foo {:type :keyword}}
+                    :validate :foo}]
+          (should= true (schema/valid-value? spec {:foo :bar}))
+          (should= false (schema/valid-value? spec {}))))
+
+      (it "of multiple object with custom validation"
+        (let [spec {:type     [:object]
+                    :validate :foo
+                    :schema   {:foo {:type :keyword}}}]
+          (should= true (schema/valid-value? spec [{:foo :bar} {:foo :baz}]))
+          (should= false (schema/valid-value? spec [{:foo :bar} {}]))
+          (should= false (schema/valid-value? spec [{} {:foo :bar}]))
+          (should= true (schema/valid-value? spec []))))
+
+      (it "of object with nested validations"
+        (let [spec {:type     :object
+                    :validate :foo
+                    :schema   {:foo   {:type :keyword}
+                               :hello {:type :string :validate (partial = "world")}}}]
+          (should= false (schema/valid-value? spec {:foo :bar}))
+          (should= false (schema/valid-value? spec {:hello "world"}))
+          (should= false (schema/valid-value? spec {:foo :bar :hello "worlds"}))
+          (should= true (schema/valid-value? spec {:foo :bar :hello "world"}))))
+
       (it "missing multiple type coercer"
         (should-throw schema/stdex "unhandled validation type: :blah"
                       (schema/validate-value! {:type [:blah]} nil)))
@@ -416,7 +483,8 @@
                                            :length   "foo"
                                            :teeth    1000
                                            :name     ""
-                                           :owner    nil})
+                                           :owner    nil
+                                           :parent   {:age :fo}})
               errors (:errors result)]
           (should= true (schema/error? result))
           (should= "invalid" (schema/exmessage (:species errors)))
@@ -424,7 +492,8 @@
           (should= "invalid" (schema/exmessage (:length errors)))
           (should= "invalid" (schema/exmessage (:teeth errors)))
           (should= "invalid" (schema/exmessage (:name errors)))
-          (should= "invalid" (schema/exmessage (:owner errors)))))
+          (should= "invalid" (schema/exmessage (:owner errors)))
+          (should= "invalid" (schema/exmessage (:parent errors)))))
 
       (it "of valid entity"
         (let [result (schema/validate pet valid-pet)]
@@ -527,7 +596,21 @@
       (should= [123 321 3] (schema/conform-value {:type [:int]} ["123.4" 321 3.1415])))
 
     (it "of sequentials - empty"
-      (should= [] (schema/conform-value {:type [:int]} [])))
+      (should= [] (schema/conform-value {:type [:int]} []))
+      (should= nil (schema/conform-value {:type [:int]} nil)))
+
+    (it "of object"
+      (let [spec {:type   :object
+                  :schema {:foo {:type :keyword}}}]
+        (should= {} (schema/conform-value spec {}))
+        (should= {:foo :bar} (schema/conform-value spec {:foo :bar :hello "world"}))))
+
+    (it "of multi object"
+      (let [spec {:type   [:object]
+                  :schema {:foo {:type :keyword}}}]
+        (should= [{}] (schema/conform-value spec [{}]))
+        (should= [{:foo :bar}] (schema/conform-value spec [{:foo :bar :hello "world"}]))
+        (should= nil (schema/conform-value spec nil))))
 
     (it "a valid entity"
       (let [result (schema/conform pet {:species  "dog"
@@ -574,7 +657,8 @@
                                         :length   "foo"
                                         :teeth    1000
                                         :name     ""
-                                        :owner    nil})
+                                        :owner    nil
+                                        :parent   {:age :foo}})
             errors (:errors result)]
         (should= true (schema/error? result))
         (should= "invalid" (schema/exmessage (:species errors)))
@@ -582,7 +666,8 @@
         (should= "coersion failed" (schema/exmessage (:length errors)))
         (should= "invalid" (schema/exmessage (:teeth errors)))
         (should= "invalid" (schema/exmessage (:name errors)))
-        (should= "invalid" (schema/exmessage (:owner errors)))))
+        (should= "invalid" (schema/exmessage (:owner errors)))
+        (should= "coersion failed" (schema/exmessage (:parent errors)))))
 
     (it "removed extra fields"
       (let [crufty (assoc valid-pet :garbage "yuk!")
@@ -664,6 +749,32 @@
 
     (it "of sequentials when omitted"
       (should= [] (schema/present-value {:type [:int] :present schema/omit} [123 456])))
+
+    (it "of object"
+      (let [spec  {:type   :object
+                   :schema {:age {:type :int :present str}}}
+            value {:age 10}]
+        (should= {:age "10"} (schema/present-value spec value))))
+
+    (it "of sequential object"
+      (let [spec  {:type   [:object]
+                   :schema {:age {:type :int :present str}}}
+            value [{:age 10}]]
+        (should= [{:age "10"}] (schema/present-value spec value))))
+
+    (it "of object with customs"
+      (let [spec  {:type    :object
+                   :present pr-str
+                   :schema  {:age {:type :int}}}
+            value {:age 10}]
+        (should= "{:age 10}" (schema/present-value spec value))))
+
+    (it "of object with presentable attributes"
+      (let [spec  {:type    :object
+                   :present pr-str
+                   :schema  {:age {:type :int :present str}}}
+            value {:age 10}]
+        (should= "{:age \"10\"}" (schema/present-value spec value))))
 
     (context "of entity"
 

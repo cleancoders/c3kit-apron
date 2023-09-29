@@ -40,13 +40,11 @@
   (not (or (nil? v)
            (and (string? v) (str/blank? v)))))
 
-(defn nil-or [f]
-  (fn [v]
-    (or (nil? v) (f v))))
+(defn nil-or [f] (some-fn nil? f))
 
 (def email-pattern #"[A-Za-z0-9!#$%&'*+/=?^_`{|}~-]+(?:\.[A-Za-z0-9!#$%&'*+/=?^_`{|}~-]+)*@(?:[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?\.)+[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?")
 
-(defn email? [value] (if (re-matches email-pattern value) true false))
+(defn email? [value] (boolean (re-matches email-pattern value)))
 
 (defn bigdec? [v] #?(:clj (instance? BigDecimal v) :cljs (number? v)))
 
@@ -55,7 +53,8 @@
      :cljs (string? value)))
 
 (defn is-enum? [enum]
-  (let [enum-set (set (map #(keyword (name (:enum enum)) (name %)) (:values enum)))]
+  (let [enum-name (name (:enum enum))
+        enum-set  (ccc/map-set #(keyword enum-name (name %)) (:values enum))]
     (fn [value]
       (or (nil? value)
           (contains? enum-set value)))))
@@ -72,13 +71,11 @@
 (defn ->boolean [value]
   (cond (nil? value) nil
         (boolean? value) value
-        (string? value) (not (= "false" (str/lower-case value)))
+        (string? value) (not= "false" (str/lower-case value))
         :else (boolean value)))
 
-(defn ->string [value]
-  (if (= nil value)
-    nil
-    (str value)))
+(defn ->string [value] (some-> value str))
+(defn str-or-nil [v] (->string v))
 
 (defn ->keyword [value]
   (cond
@@ -113,12 +110,13 @@
                        :cljs (parse! js/parseInt v))
                     (catch #?(:clj Exception :cljs :default) _
                       (throw (coerce-ex v "int")))))
+    (keyword? v) (throw (coerce-ex v "int"))
     #?@(:clj [(char? v) (-> v str ->int)])
     #?@(:cljs [(js/isNaN v) nil])
     (integer? v) v
     (#?(:clj float? :cljs number?) v) (long v)
     (bigdec? v) #?(:clj (.intValue v) :cljs v)
-    :else (throw (coerce-ex v "inv"))))
+    :else (throw (coerce-ex v "int"))))
 
 (defn ->bigdec [v]
   (cond
@@ -196,7 +194,7 @@
 
 (def type-validators
   {:bigdec    (nil-or bigdec?)
-   :boolean   (nil-or #(or (= true %) (= false %)))
+   :boolean   (nil-or boolean?)
    :double    (nil-or #?(:clj float? :cljs number?))
    :float     (nil-or #?(:clj float? :cljs number?))
    :instant   (nil-or #(instance? date %))
@@ -210,7 +208,8 @@
    :string    (nil-or string?)
    :uri       (nil-or uri?)
    :uuid      (nil-or uuid?)
-   :ignore    (constantly true)})
+   :ignore    (constantly true)
+   :object    (constantly true)})
 
 (def type-coercers
   {:bigdec    ->bigdec
@@ -228,7 +227,8 @@
    :string    ->string
    :uri       ->uri
    :uuid      ->uuid
-   :ignore    identity})
+   :ignore    identity
+   :object    identity})
 
 
 ; Common Schema Attributes --------------------------------
@@ -245,8 +245,6 @@
    :message  (str "mismatch; must be " key)})
 
 (def id {:type :ref})
-
-(defn str-or-nil [v] (if (= nil v) nil (str v)))
 
 ; Processing ---------------------------------------------
 
@@ -276,26 +274,35 @@
 
 (defn -coerce-value! [coerce-fn value ?seq]
   (if ?seq
-    (if (nil? value) nil (mapv #(coerce-fn %) (->seq value)))
+    (when (some? value) (mapv coerce-fn (->seq value)))
     (coerce-fn value)))
 
-(defn- do-coersion [{:keys [type coerce message] :as spec} value]
-  (let [?seq        (multiple? type)
-        type        (if ?seq (first type) type)
-        coerce-type (type-coercer! type)
-        value       (if coerce
-                      (if (multiple? coerce)
-                        (reduce #(-coerce-value! %2 %1 ?seq) value coerce)
-                        (-coerce-value! coerce value ?seq))
-                      value)]
-    (-coerce-value! coerce-type value ?seq)))
+(declare do-coersion)
+
+(defn- do-object-coersion [schema value]
+  (reduce-kv
+    (fn [m k spec]
+      (cond-> m
+              (contains? value k)
+              (assoc k (do-coersion spec (get value k)))))
+    {} schema))
+
+(defn- do-coersion [{:keys [type schema] :as spec} value]
+  (let [?seq  (multiple? type)
+        type  (if ?seq (first type) type)
+        value (reduce #(-coerce-value! %2 %1 ?seq) value (->vec (:coerce spec)))
+        value (cond
+                (ccc/nand (= :object type) value) value
+                ?seq (mapv (partial do-object-coersion schema) value)
+                :else (do-object-coersion schema value))]
+    (-coerce-value! (type-coercer! type) value ?seq)))
 
 (defn- validation-ex [message value] (ex-info "invalid" {:invalid? true :message (or message "is invalid") :value value}))
 (defn- validation-ex? [e] (and (instance? stdex e)
                                (:invalid? (ex-data e))))
 
 (defn- -validate-value! [valid? message value ?seq]
-  (if (and ?seq (not (nil? value)))
+  (if (and ?seq (some? value))
     (doseq [v value] (when-not (valid? v) (throw (validation-ex message v))))
     (when-not (valid? value) (throw (validation-ex message value)))))
 
@@ -304,14 +311,26 @@
     (doseq [v-fn validate-fn] (-validate-value! v-fn message value ?seq))
     (-validate-value! validate-fn message value ?seq)))
 
-(defn- do-validation [{:keys [type validate message validations] :as spec} value]
+(declare do-validation)
+(defn- do-object-validation [schema value]
+  (doseq [[key spec] schema]
+    (do-validation spec (get value key))))
+
+(defn- validate-object [schema value ?seq]
+  (if ?seq
+    (run! (partial do-object-validation schema) value)
+    (do-object-validation schema value)))
+
+(defn- do-validation [{:keys [type schema] :as spec} value]
   (let [?seq (multiple? type)
         type (if ?seq (first type) type)]
-    (when (and ?seq (not (multiple? value)) value) (throw (validation-ex (str "[" type "] expected") value)))
-    (-validate-value! (type-validator! type) message value ?seq)
-    (when validate (-validate*?-value! validate message value ?seq))
-    (doseq [{:keys [validate message]} validations]
-      (-validate*?-value! validate message value ?seq))))
+    (let [{:keys [message validations]} spec]
+      (when (and ?seq (not (multiple? value)) value) (throw (validation-ex (str "[" type "] expected") value)))
+      (-validate-value! (type-validator! type) message value ?seq)
+      (when (= :object type) (validate-object schema value ?seq))
+      (some-> spec :validate (-validate*?-value! message value ?seq))
+      (doseq [{:keys [validate message]} validations]
+        (-validate*?-value! validate message value ?seq)))))
 
 ; Error Handling ------------------------------------------
 
@@ -394,14 +413,19 @@
    (let [coerced (coerce-value spec value)]
      (validate-coerced-value! spec value coerced))))
 
+(declare present)
 (defn present-value
   "returns a presentable representation of the value"
   ([schema key value] (present-value (get schema key) value))
-  ([spec value]
-   (let [presenters   (->vec (:present spec))
-         presenter-fn (fn [v] (reduce #(%2 %1) v presenters))]
-     (if (sequential? (:type spec))
-       (when-not (nil? value) (vec (ccc/map-some presenter-fn value)))
+  ([{:keys [schema type] :as spec} value]
+   (let [?seq         (multiple? type)
+         type         (if ?seq (first type) type)
+         presenters   (->vec (:present spec))
+         presenter-fn (cond-> (fn [v] (reduce #(%2 %1) v presenters))
+                              (= :object type)
+                              (comp (partial present schema)))]
+     (if ?seq
+       (when (some? value) (vec (ccc/map-some presenter-fn value)))
        (presenter-fn value)))))
 
 ; Entity Actions ------------------------------------------
@@ -424,12 +448,12 @@
             field-result (result-or-ex processor spec value)]
         (if (ccc/ex? field-result)
           (recur (assoc errors key field-result) result (rest specs))
-          (let [result (if (nil? field-result) result (assoc result key field-result))]
+          (let [result (cond-> result (some? field-result) (assoc key field-result))]
             (recur errors result (rest specs)))))
       (error-or-result errors schema entity result))))
 
 (defn- coerce-whole-entity [result schema entity]
-  (loop [errors {} result result specs (filter (fn [[k s]] (:coerce s)) (:* schema))]
+  (loop [errors {} result result specs (filter (comp :coerce second) (:* schema))]
     (if (seq specs)
       (let [[key spec] (first specs)
             value (result-or-ex coerce-value spec result)]
@@ -439,7 +463,7 @@
       (error-or-result errors schema entity result))))
 
 (defn- validate-whole-entity [result schema entity]
-  (let [specs (filter (fn [[k s]] (or (:validate s) (:validations s))) (:* schema))]
+  (let [specs (filter (comp (some-fn :validate :validations) second) (:* schema))]
     (loop [errors {} result result specs specs]
       (if (seq specs)
         (let [[key spec] (first specs)
@@ -455,7 +479,7 @@
         (error-or-result errors schema entity result)))))
 
 (defn- present-whole-entity [result schema entity]
-  (loop [errors {} result result specs (filter (fn [[k s]] (:present s)) (:* schema))]
+  (loop [errors {} result result specs (filter (comp :present second) (:* schema))]
     (if (seq specs)
       (let [[key spec] (first specs)
             value (result-or-ex present-value spec result)]
