@@ -11,6 +11,20 @@
      (:import (java.net URI)
               (java.util UUID))))
 
+
+;; TODO [BAC]: Implement this
+(comment "More verbose error messaging on schema types"
+
+  (def thing-schema {:thing {:type {:age :int :validate pos?}}})
+  (schema/validate thing-schema {:thing {:age 0}})
+  => {:thing {:age "is invalid"}}
+
+  (def things-schema {:things [{:type {:age :int :validate pos?}}]})
+  (schema/validate things-schema {:things [{:age 1} {:age 0}]})
+  => {:things {1 {:age "is invalid"}}}
+
+  )
+
 (def pet
   {:kind        (schema/kind :pet)
    :id          schema/id
