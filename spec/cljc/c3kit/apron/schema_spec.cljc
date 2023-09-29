@@ -35,9 +35,8 @@
    :colors      {:type [:string]}
    :uuid        {:type :uuid
                  :db   [:unique-identity]}
-   :parent      {:type   :object
-                 :schema {:name {:type :string}
-                          :age  {:type :int}}}
+   :parent      {:type {:name {:type :string}
+                        :age  {:type :int}}}
    :temperament {:type :kw-ref}})
 
 (def temperaments
@@ -206,28 +205,24 @@
           (should= "321" (schema/coerce-value spec " 123\t"))))
 
       (it "of object"
-        (let [spec  {:type   :object
-                     :schema {:name {:type :string :coerce str/trim}}}
+        (let [spec  {:type {:name {:type :string :coerce str/trim}}}
               value {:name "  fred "}]
           (should= {:name "fred"} (schema/coerce-value spec value))))
 
       (it "of multi object"
-        (let [spec  {:type   [:object]
-                     :schema {:name {:type :string :coerce str/trim}}}
+        (let [spec  {:type [{:name {:type :string :coerce str/trim}}]}
               value {:name "  fred "}]
           (should= [{:name "fred"}] (schema/coerce-value spec [value]))))
 
       (it "of object with custom coercions"
-        (let [spec  {:type   :object
-                     :coerce (constantly {:name "billy"})
-                     :schema {:name {:type :string}}}
+        (let [spec  {:type   {:name {:type :string}}
+                     :coerce (constantly {:name "billy"})}
               value "blah"]
           (should= {:name "billy"} (schema/coerce-value spec value))))
 
       (it "of object with nested coercions"
-        (let [spec  {:type   :object
-                     :coerce (constantly {:name "  billy "})
-                     :schema {:name {:type :string :coerce str/trim}}}
+        (let [spec  {:type   {:name {:type :string :coerce str/trim}}
+                     :coerce (constantly {:name "  billy "})}
               value "blah"]
           (should= {:name "billy"} (schema/coerce-value spec value))))
 
@@ -437,37 +432,32 @@
         (should= false (schema/valid-value? {:type [:float] :validate pos?} [32.1 -3.1415])))
 
       (it "of object"
-        (let [spec {:type   :object
-                    :schema {:foo {:type :keyword}}}]
+        (let [spec {:type {:foo {:type :keyword}}}]
           (should= true (schema/valid-value? spec {:foo :bar}))))
 
       (it "of multiple object"
-        (let [spec {:type   [:object]
-                    :schema {:age {:type :int}}}]
+        (let [spec {:type [{:age {:type :int}}]}]
           (should= true (schema/valid-value? spec [{:age 1} {:age 2}]))
           (should= false (schema/valid-value? spec [{:age :foo}]))))
 
       (it "of object with customs"
-        (let [spec {:type     :object
-                    :schema   {:foo {:type :keyword}}
+        (let [spec {:type     {:foo {:type :keyword}}
                     :validate :foo}]
           (should= true (schema/valid-value? spec {:foo :bar}))
           (should= false (schema/valid-value? spec {}))))
 
       (it "of multiple object with custom validation"
-        (let [spec {:type     [:object]
-                    :validate :foo
-                    :schema   {:foo {:type :keyword}}}]
+        (let [spec {:type     [{:foo {:type :keyword}}]
+                    :validate :foo}]
           (should= true (schema/valid-value? spec [{:foo :bar} {:foo :baz}]))
           (should= false (schema/valid-value? spec [{:foo :bar} {}]))
           (should= false (schema/valid-value? spec [{} {:foo :bar}]))
           (should= true (schema/valid-value? spec []))))
 
       (it "of object with nested validations"
-        (let [spec {:type     :object
-                    :validate :foo
-                    :schema   {:foo   {:type :keyword}
-                               :hello {:type :string :validate (partial = "world")}}}]
+        (let [spec {:type     {:foo   {:type :keyword}
+                               :hello {:type :string :validate (partial = "world")}}
+                    :validate :foo}]
           (should= false (schema/valid-value? spec {:foo :bar}))
           (should= false (schema/valid-value? spec {:hello "world"}))
           (should= false (schema/valid-value? spec {:foo :bar :hello "worlds"}))
@@ -600,14 +590,12 @@
       (should= nil (schema/conform-value {:type [:int]} nil)))
 
     (it "of object"
-      (let [spec {:type   :object
-                  :schema {:foo {:type :keyword}}}]
+      (let [spec {:type {:foo {:type :keyword}}}]
         (should= {} (schema/conform-value spec {}))
         (should= {:foo :bar} (schema/conform-value spec {:foo :bar :hello "world"}))))
 
     (it "of multi object"
-      (let [spec {:type   [:object]
-                  :schema {:foo {:type :keyword}}}]
+      (let [spec {:type [{:foo {:type :keyword}}]}]
         (should= [{}] (schema/conform-value spec [{}]))
         (should= [{:foo :bar}] (schema/conform-value spec [{:foo :bar :hello "world"}]))
         (should= nil (schema/conform-value spec nil))))
@@ -751,28 +739,24 @@
       (should= [] (schema/present-value {:type [:int] :present schema/omit} [123 456])))
 
     (it "of object"
-      (let [spec  {:type   :object
-                   :schema {:age {:type :int :present str}}}
+      (let [spec  {:type {:age {:type :int :present str}}}
             value {:age 10}]
         (should= {:age "10"} (schema/present-value spec value))))
 
     (it "of sequential object"
-      (let [spec  {:type   [:object]
-                   :schema {:age {:type :int :present str}}}
+      (let [spec  {:type [{:age {:type :int :present str}}]}
             value [{:age 10}]]
         (should= [{:age "10"}] (schema/present-value spec value))))
 
     (it "of object with customs"
-      (let [spec  {:type    :object
-                   :present pr-str
-                   :schema  {:age {:type :int}}}
+      (let [spec  {:type    {:age {:type :int}}
+                   :present pr-str}
             value {:age 10}]
         (should= "{:age 10}" (schema/present-value spec value))))
 
     (it "of object with presentable attributes"
-      (let [spec  {:type    :object
-                   :present pr-str
-                   :schema  {:age {:type :int :present str}}}
+      (let [spec  {:type    {:age {:type :int :present str}}
+                   :present pr-str}
             value {:age 10}]
         (should= "{:age \"10\"}" (schema/present-value spec value))))
 

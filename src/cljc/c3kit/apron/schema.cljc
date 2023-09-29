@@ -209,7 +209,7 @@
    :uri       (nil-or uri?)
    :uuid      (nil-or uuid?)
    :ignore    (constantly true)
-   :object    (constantly true)})
+   :schema    (constantly true)})
 
 (def type-coercers
   {:bigdec    ->bigdec
@@ -228,7 +228,7 @@
    :uri       ->uri
    :uuid      ->uuid
    :ignore    identity
-   :object    identity})
+   :schema    identity})
 
 
 ; Common Schema Attributes --------------------------------
@@ -272,6 +272,13 @@
   (or (get type-validators type)
       (throw (ex-info (str "unhandled validation type: " (pr-str type)) {}))))
 
+(defn- <-type [type]
+  (let [?seq   (multiple? type)
+        type   (if ?seq (first type) type)
+        schema (when (map? type) type)
+        type   (if schema :schema type)]
+    [?seq type schema]))
+
 (defn -coerce-value! [coerce-fn value ?seq]
   (if ?seq
     (when (some? value) (mapv coerce-fn (->seq value)))
@@ -283,11 +290,10 @@
     (mapv (partial coerce! schema) value)
     (coerce! schema value)))
 
-(defn- do-coercion [{:keys [type schema] :as spec} value]
-  (let [?seq  (multiple? type)
-        type  (if ?seq (first type) type)
+(defn- do-coercion [{:keys [type] :as spec} value]
+  (let [[?seq type schema] (<-type type)
         value (reduce #(-coerce-value! %2 %1 ?seq) value (->vec (:coerce spec)))
-        value (if (and (= :object type) value)
+        value (if (and schema value)
                 (-coerce-object! schema value ?seq)
                 value)]
     (-coerce-value! (type-coercer! type) value ?seq)))
@@ -312,16 +318,15 @@
     (run! (partial validate! schema) value)
     (validate! schema value)))
 
-(defn- do-validation [{:keys [type schema] :as spec} value]
-  (let [?seq (multiple? type)
-        type (if ?seq (first type) type)]
-    (let [{:keys [message validations]} spec]
-      (when (and ?seq (not (multiple? value)) value) (throw (validation-ex (str "[" type "] expected") value)))
-      (-validate-value! (type-validator! type) message value ?seq)
-      (when (= :object type) (-validate-object! schema value ?seq))
-      (some-> spec :validate (-validate*?-value! message value ?seq))
-      (doseq [{:keys [validate message]} validations]
-        (-validate*?-value! validate message value ?seq)))))
+(defn- do-validation [{:keys [type] :as spec} value]
+  (let [[?seq type schema] (<-type type)
+        {:keys [message validations]} spec]
+    (when (and ?seq (not (multiple? value)) value) (throw (validation-ex (str "[" type "] expected") value)))
+    (-validate-value! (type-validator! type) message value ?seq)
+    (when schema (-validate-object! schema value ?seq))
+    (some-> spec :validate (-validate*?-value! message value ?seq))
+    (doseq [{:keys [validate message]} validations]
+      (-validate*?-value! validate message value ?seq))))
 
 ; Error Handling ------------------------------------------
 
@@ -408,12 +413,11 @@
 (defn present-value
   "returns a presentable representation of the value"
   ([schema key value] (present-value (get schema key) value))
-  ([{:keys [schema type] :as spec} value]
-   (let [?seq         (multiple? type)
-         type         (if ?seq (first type) type)
+  ([{:keys [type] :as spec} value]
+   (let [[?seq _type schema] (<-type type)
          presenters   (->vec (:present spec))
          presenter-fn (cond-> (fn [v] (reduce #(%2 %1) v presenters))
-                              (= :object type)
+                              schema
                               (comp (partial present! schema)))]
      (if ?seq
        (when (some? value) (vec (ccc/map-some presenter-fn value)))
