@@ -493,7 +493,7 @@
           (should= "invalid" (schema/exmessage (:teeth errors)))
           (should= "invalid" (schema/exmessage (:name errors)))
           (should= "invalid" (schema/exmessage (:owner errors)))
-          (should= "invalid" (schema/exmessage (:parent errors)))))
+          (should= "Invalid entity" (schema/exmessage (:parent errors)))))
 
       (it "of valid entity"
         (let [result (schema/validate pet valid-pet)]

@@ -277,24 +277,19 @@
     (when (some? value) (mapv coerce-fn (->seq value)))
     (coerce-fn value)))
 
-(declare do-coercion)
-
-(defn- do-object-coercion [schema value]
-  (reduce-kv
-    (fn [m k spec]
-      (cond-> m
-              (contains? value k)
-              (assoc k (do-coercion spec (get value k)))))
-    {} schema))
+(declare coerce!)
+(defn- -coerce-object! [schema value ?seq]
+  (if ?seq
+    (mapv (partial coerce! schema) value)
+    (coerce! schema value)))
 
 (defn- do-coercion [{:keys [type schema] :as spec} value]
   (let [?seq  (multiple? type)
         type  (if ?seq (first type) type)
         value (reduce #(-coerce-value! %2 %1 ?seq) value (->vec (:coerce spec)))
-        value (cond
-                (ccc/nand (= :object type) value) value
-                ?seq (mapv (partial do-object-coercion schema) value)
-                :else (do-object-coercion schema value))]
+        value (if (and (= :object type) value)
+                (-coerce-object! schema value ?seq)
+                value)]
     (-coerce-value! (type-coercer! type) value ?seq)))
 
 (defn- validation-ex [message value] (ex-info "invalid" {:invalid? true :message (or message "is invalid") :value value}))
@@ -311,15 +306,11 @@
     (doseq [v-fn validate-fn] (-validate-value! v-fn message value ?seq))
     (-validate-value! validate-fn message value ?seq)))
 
-(declare do-validation)
-(defn- do-object-validation [schema value]
-  (doseq [[key spec] schema]
-    (do-validation spec (get value key))))
-
-(defn- validate-object [schema value ?seq]
+(declare validate!)
+(defn- -validate-object! [schema value ?seq]
   (if ?seq
-    (run! (partial do-object-validation schema) value)
-    (do-object-validation schema value)))
+    (run! (partial validate! schema) value)
+    (validate! schema value)))
 
 (defn- do-validation [{:keys [type schema] :as spec} value]
   (let [?seq (multiple? type)
@@ -327,7 +318,7 @@
     (let [{:keys [message validations]} spec]
       (when (and ?seq (not (multiple? value)) value) (throw (validation-ex (str "[" type "] expected") value)))
       (-validate-value! (type-validator! type) message value ?seq)
-      (when (= :object type) (validate-object schema value ?seq))
+      (when (= :object type) (-validate-object! schema value ?seq))
       (some-> spec :validate (-validate*?-value! message value ?seq))
       (doseq [{:keys [validate message]} validations]
         (-validate*?-value! validate message value ?seq)))))
@@ -413,7 +404,7 @@
    (let [coerced (coerce-value spec value)]
      (validate-coerced-value! spec value coerced))))
 
-(declare present)
+(declare present!)
 (defn present-value
   "returns a presentable representation of the value"
   ([schema key value] (present-value (get schema key) value))
@@ -423,7 +414,7 @@
          presenters   (->vec (:present spec))
          presenter-fn (cond-> (fn [v] (reduce #(%2 %1) v presenters))
                               (= :object type)
-                              (comp (partial present schema)))]
+                              (comp (partial present! schema)))]
      (if ?seq
        (when (some? value) (vec (ccc/map-some presenter-fn value)))
        (presenter-fn value)))))
