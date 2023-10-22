@@ -524,6 +524,9 @@
   (it "remove-nils"
     (should= {:a 1} (ccc/remove-nils {:a 1 :b nil})))
 
+  (it "remove-blanks"
+    (should= {:a 1} (ccc/remove-blanks {:a 1 :b "    "})))
+
   (it "ex?"
     (should= false (ccc/ex? "Not an exception"))
     (should= true (ccc/ex? #?(:clj (Exception. "yup") :cljs (js/Error. "yup")))))

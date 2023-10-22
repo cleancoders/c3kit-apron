@@ -297,6 +297,11 @@
 
 (def not-blank? (complement str/blank?))
 
+(defn remove-blanks
+  "Return a map where all the keys with blank values are removed"
+  [e]
+  (reduce (fn [r [k v]] (if (str/blank? (str v)) r (assoc r k v))) {} e))
+
 (defn remove-nils
   "Return a map where all the keys with nil values are removed"
   [e]
