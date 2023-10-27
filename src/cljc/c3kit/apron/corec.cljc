@@ -164,6 +164,11 @@
   [f coll]
   (into #{} (map f) coll))
 
+(defn mapcat-set
+  "Like (set (mapcat f coll))"
+  [f coll]
+  (into #{} (mapcat f) coll))
+
 (defn map-distinct
   "Like (distinct (map f coll))"
   ([f] (comp (map f) (distinct)))
