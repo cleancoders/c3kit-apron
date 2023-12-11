@@ -129,6 +129,11 @@
       (should= [1 3 4] result)
       (should= true (vector? result))))
 
+  (it "map-all"
+    (should= [2 3 4] (ccc/map-all inc [1 2 3]))
+    (should= [5 7 9] (ccc/map-all + [1 2 3] [4 5 6]))
+    (should= [12 15 18] (ccc/map-all + [1 2 3] [4 5 6] [7 8 9])))
+
   #?(:cljs
      (it "map-component"
        (let [[one two three] (ccc/map-component inc ccc/noop [1 2 3])]
@@ -357,25 +362,47 @@
   (context "rsort"
     (it "a nil collection"
       (should= [] (ccc/rsort-by :x nil)))
+
     (it "an empty collection"
       (should= [] (ccc/rsort-by :x [])))
+
     (it "a single-element collection"
       (should= [{:x 1}] (ccc/rsort-by :x [{:x 1}])))
+
     (it "an already reverse-sorted collection"
       (let [coll [{:x 5} {:x 4} {:x 3} {:x 2} {:x 1}]]
         (should= (reverse (sort-by :x coll)) (ccc/rsort-by :x coll))))
+
     (it "a regular-sorted collection"
       (let [coll [{:x 1} {:x 2} {:x 3} {:x 4} {:x 5}]]
         (should= (reverse (sort-by :x coll)) (ccc/rsort-by :x coll))))
+
     (it "a shuffled collection"
       (let [coll [{:x 4} {:x 5} {:x 1} {:x 3} {:x 2}]]
         (should= (reverse (sort-by :x coll)) (ccc/rsort-by :x coll))))
+
     (it "by custom compare function"
       (let [coll       [{:a [5 1]} {:a [4 2]} {:a [3 3]} {:a [2 4]} {:a [1 5]}]
             compare-fn (fn [x y] (compare (second x) (second y)))]
         (should= (reverse (sort-by :a compare-fn coll))
-                 (ccc/rsort-by :a compare-fn coll)))))
+                 (ccc/rsort-by :a compare-fn coll))))
+    )
 
+  (it "drop-until"
+    (should= [] (sequence (ccc/drop-until pos?) []))
+    (should= [] (ccc/drop-until pos? []))
+    (should= [1 2 3] (sequence (ccc/drop-until pos?) [1 2 3]))
+    (should= [1 2 3] (ccc/drop-until pos? [1 2 3]))
+    (should= [1 2 3 -4] (sequence (ccc/drop-until pos?) [-1 -2 -3 0 1 2 3 -4]))
+    (should= [1 2 3 -4] (ccc/drop-until pos? [-1 -2 -3 0 1 2 3 -4])))
+
+  (it "take-until"
+    (should= [] (sequence (ccc/take-until pos?) []))
+    (should= [] (ccc/take-until pos? []))
+    (should= [-1 -2 -3] (sequence (ccc/take-until pos?) [-1 -2 -3]))
+    (should= [-1 -2 -3] (ccc/take-until pos? [-1 -2 -3]))
+    (should= [-1 -2 -3 0] (sequence (ccc/take-until pos?) [-1 -2 -3 0 1 2 3 -4]))
+    (should= [-1 -2 -3 0] (ccc/take-until pos? [-1 -2 -3 0 1 2 3 -4])))
 
   (it "max-v"
     (should-be-nil (ccc/max-v))

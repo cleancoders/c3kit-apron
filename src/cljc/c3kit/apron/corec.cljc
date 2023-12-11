@@ -12,9 +12,10 @@
 #?(:clj (defmacro for-all [bindings body]
           `(doall (for ~bindings ~body))))
 
-(def map-all
+(defn map-all
   "Like for-all, but with map"
-  (comp doall map))
+  ([f coll] (doall (map f coll)))
+  ([f coll & colls] (doall (apply map f coll colls))))
 
 #?(:cljs
    (defn map-component
@@ -183,6 +184,20 @@
   "Same as sort-by, but reversed"
   ([keyfn coll] (rsort-by keyfn compare coll))
   ([keyfn comp coll] (sort-by keyfn (fn [x y] (comp y x)) coll)))
+
+(defn drop-until
+  "Returns a lazy sequence of the items in coll starting from the
+   first item for which (pred item) returns logical true.  Returns a
+   stateful transducer when no collection is provided."
+  ([pred] (drop-while (complement pred)))
+  ([pred coll] (drop-while (complement pred) coll)))
+
+(defn take-until
+  "Returns a lazy sequence of successive items from coll while
+   (pred item) returns logical false. pred must be free of side effects.
+   Returns a transducer when no collection is provided."
+  ([pred] (take-while (complement pred)))
+  ([pred coll] (take-while (complement pred) coll)))
 
 (defn- greatest-v
   ([_] nil)
