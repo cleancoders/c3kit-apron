@@ -304,7 +304,7 @@
 
 (defn- -validate-value! [valid? message value ?seq]
   (if (and ?seq (some? value))
-    (doseq [v value] (when-not (valid? v) (throw (validation-ex message v))))
+    (doseq [[idx v] (map-indexed vector value)] (when-not (valid? v) (throw (validation-ex {idx message} v))))
     (when-not (valid? value) (throw (validation-ex message value)))))
 
 (defn- -validate*?-value! [validate-fn message value ?seq]
@@ -351,12 +351,18 @@
   (update result :errors #(reduce (fn [r [k ex]]
                                     (assoc r k (dissoc (ex-data ex) :schema))) {} %)))
 
+(defn- extract-msg [m k err]
+  (let [data (ex-data err)]
+    (if (error? data)
+      (assoc m k (reduce-kv extract-msg {} (:errors data)))
+      (assoc m k (or (:message data) "is invalid")))))
+
 (defn error-message-map
   "Nil when there are no errors, otherwise a map {<field> <message>} ."
   ([result]
    (when (error? result)
      (when-let [errors (seq (:errors result))]
-       (into {} (map (fn [[k e]] [k (:message (ex-data e) "is invalid")]) errors))))))
+        (apply merge (map (fn [[k e]] (extract-msg {} k e)) errors))))))
 
 (defn messages
   "Sequence of error messages in a validate/coerce/conform result; nil if none."

@@ -1,7 +1,7 @@
 (ns c3kit.apron.schema-spec
   (:require
     [c3kit.apron.schema :as schema]
-    [speclj.core #?(:clj :refer :cljs :refer-macros) [context describe it should= should-contain should-not-contain
+    [speclj.core #?(:clj :refer :cljs :refer-macros) [context focus-context describe focus-it it should= should-contain should-not-contain
                                                       should-throw should-be-a should should-not]]
     [clojure.string :as str]
     [c3kit.apron.utilc :as utilc]
@@ -46,7 +46,8 @@
    :owner       {:type     :ref
                  :validate [schema/present?]
                  :message  "must be a valid reference format"}
-   :colors      {:type [:string]}
+   :colors      {:type [:string]
+                 :message  "must be a string"}
    :uuid        {:type :uuid
                  :db   [:unique-identity]}
    :parent      {:type {:name {:type :string}
@@ -56,6 +57,14 @@
 (def temperaments
   {:enum   :temperament
    :values [:wild :domestic]})
+
+(def owner
+  {:kind (schema/kind :household)
+   :pet  {:type pet}})
+
+(def household
+  {:kind (schema/kind :household)
+   :pets {:type [pet]}})
 
 (def now (new #?(:clj java.util.Date :cljs js/Date)))
 (def home #?(:clj (URI/create "http://apron.co") :cljs "http://apron.co"))
@@ -69,6 +78,13 @@
                 :owner    12345
                 :color    ["brown" "white"]
                 :uuid     a-uuid})
+(def invalid-pet {:species  321
+                  :birthday "yesterday"
+                  :length   "foo"
+                  :teeth    1000
+                  :name     ""
+                  :owner    nil
+                  :parent   {:age :foo}})
 
 (describe "Schema"
 
@@ -482,13 +498,7 @@
                       (schema/validate-value! {:type [:blah]} nil)))
 
       (it "of invalid entity"
-        (let [result (schema/validate pet {:species  321
-                                           :birthday "yesterday"
-                                           :length   "foo"
-                                           :teeth    1000
-                                           :name     ""
-                                           :owner    nil
-                                           :parent   {:age :fo}})
+        (let [result (schema/validate pet invalid-pet)
               errors (:errors result)]
           (should= true (schema/error? result))
           (should= "invalid" (schema/exmessage (:species errors)))
@@ -654,13 +664,7 @@
         (should= "Snakes are not fluffy!" (:species (schema/error-message-map result2)))))
 
     (it "a invalid entity"
-      (let [result (schema/conform pet {:species  321
-                                        :birthday "yesterday"
-                                        :length   "foo"
-                                        :teeth    1000
-                                        :name     ""
-                                        :owner    nil
-                                        :parent   {:age :foo}})
+      (let [result (schema/conform pet invalid-pet)
             errors (:errors result)]
         (should= true (schema/error? result))
         (should= "invalid" (schema/exmessage (:species errors)))
@@ -709,6 +713,38 @@
                    (schema/make-error pet nil nil)
                    (schema/error-message-map))))
 
+    (it "for single, top-level error"
+      (let [invalid-pet (assoc valid-pet :name 123)]
+        (should= {:name "must be nice and unique name"}
+          (schema/error-message-map (schema/validate pet invalid-pet)))))
+
+    (it "for multiple, top-level errors"
+      (let [invalid-pet (assoc valid-pet :name 123 :species :cat)]
+        (should= {:name "must be nice and unique name", :species "must be a pet species"}
+          (schema/error-message-map (schema/validate pet invalid-pet)))))
+
+    (it "specifies idx when inside sequential structure"
+      (let [invalid-pet {:species  "dog"
+                         :birthday now
+                         :length   2.5
+                         :teeth    24
+                         :name     "Fluffy"
+                         :owner    12345
+                         :colors   ["brown" "white" 123 "red"]
+                         :uuid     a-uuid}]
+        (should= {:colors {2 "must be a string"}}
+          (schema/error-message-map (schema/validate pet invalid-pet)))))
+
+    (it "specifies individual errors within nested entities"
+      (let [invalid-owner {:pet invalid-pet}]
+        (should= {:pet  {:parent   {:age "is invalid"}
+                        :name     "must be nice and unique name"
+                        :species  "must be a pet species"
+                        :birthday "must be a date"
+                        :teeth    "must be between 0 and 999"
+                        :length   "must be unit in feet"
+                        :owner    "must be a valid reference format"}}
+          (schema/error-message-map (schema/validate owner invalid-owner)))))
     )
 
   (context "presentation"
