@@ -730,21 +730,37 @@
                          :teeth    24
                          :name     "Fluffy"
                          :owner    12345
-                         :colors   ["brown" "white" 123 "red"]
+                         :colors   ["brown" "white" 123 "red" 456]
                          :uuid     a-uuid}]
-        (should= {:colors {2 "must be a string"}}
-          (schema/error-message-map (schema/validate pet invalid-pet)))))
+        (should= {:colors {2 "must be a string"
+                           4 "must be a string"}}
+          (schema/error-message-map (schema/validate pet invalid-pet)))
+        (should= nil (schema/error-message-map (schema/validate pet valid-pet)))))
 
     (it "specifies individual errors within nested entities"
-      (let [invalid-owner {:pet invalid-pet}]
+      (let [invalid-owner {:pet invalid-pet}
+            valid-owner   {:pet valid-pet}]
         (should= {:pet  {:parent   {:age "is invalid"}
-                        :name     "must be nice and unique name"
-                        :species  "must be a pet species"
-                        :birthday "must be a date"
-                        :teeth    "must be between 0 and 999"
-                        :length   "must be unit in feet"
-                        :owner    "must be a valid reference format"}}
-          (schema/error-message-map (schema/validate owner invalid-owner)))))
+                         :name     "must be nice and unique name"
+                         :species  "must be a pet species"
+                         :birthday "must be a date"
+                         :teeth    "must be between 0 and 999"
+                         :length   "must be unit in feet"
+                         :owner    "must be a valid reference format"}}
+          (schema/error-message-map (schema/validate owner invalid-owner)))
+        (should= nil (schema/error-message-map (schema/validate owner valid-owner)))))
+
+    (it "specifies idx for invalid nested entity inside sequential structure"
+      (let [invalid-household {:pets [valid-pet invalid-pet valid-pet invalid-pet]}
+            error             {:parent   {:age "is invalid"}
+                               :name     "must be nice and unique name"
+                               :species  "must be a pet species"
+                               :birthday "must be a date"
+                               :teeth    "must be between 0 and 999"
+                               :length   "must be unit in feet"
+                               :owner    "must be a valid reference format"}
+            error-map          (schema/error-message-map (schema/validate household invalid-household))]
+        (should= {:pets {1 error 3 error}} error-map)))
     )
 
   (context "presentation"

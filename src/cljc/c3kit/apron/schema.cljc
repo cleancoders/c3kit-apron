@@ -302,9 +302,18 @@
 (defn- validation-ex? [e] (and (instance? stdex e)
                                (:invalid? (ex-data e))))
 
+(defn -validate-seq! [valid-fn message vals]
+  (let [vals    (map-indexed vector vals)
+        errors  (reduce (fn [results [idx val]]
+                          (if (valid-fn val)
+                            results
+                            (assoc results idx message))) {} vals)]
+    (when (not-empty errors)
+      (throw (validation-ex errors vals)))))
+
 (defn- -validate-value! [valid? message value ?seq]
   (if (and ?seq (some? value))
-    (doseq [[idx v] (map-indexed vector value)] (when-not (valid? v) (throw (validation-ex {idx message} v))))
+    (-validate-seq! valid? message value)
     (when-not (valid? value) (throw (validation-ex message value)))))
 
 (defn- -validate*?-value! [validate-fn message value ?seq]
@@ -313,9 +322,20 @@
     (-validate-value! validate-fn message value ?seq)))
 
 (declare validate!)
+(declare validate)
+(declare error-message-map)
+(defn- -errors-idx [schema entities]
+  (let [entities (map-indexed vector entities)]
+    (reduce (fn [results [idx entity]]
+              (if-let [error (error-message-map (validate schema entity))]
+                (assoc results idx error)
+                results)) {} entities)))
+
 (defn- -validate-object! [schema value ?seq]
   (if ?seq
-    (run! (partial validate! schema) value)
+    (let [errors (-errors-idx schema value)]
+      (when (not-empty errors)
+        (throw (validation-ex errors value))))
     (validate! schema value)))
 
 (defn- do-validation [{:keys [type] :as spec} value]
