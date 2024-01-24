@@ -303,11 +303,11 @@
                                (:invalid? (ex-data e))))
 
 (defn -validate-seq! [valid-fn message vals]
-  (let [vals    (map-indexed vector vals)
-        errors  (reduce (fn [results [idx val]]
-                          (if (valid-fn val)
-                            results
-                            (assoc results idx message))) {} vals)]
+  (let [vals   (map-indexed vector vals)
+        errors (reduce (fn [results [idx val]]
+                         (if (valid-fn val)
+                           results
+                           (assoc results idx message))) {} vals)]
     (when (not-empty errors)
       (throw (validation-ex errors vals)))))
 
@@ -343,7 +343,7 @@
         {:keys [message validations]} spec]
     (when (and ?seq (not (multiple? value)) value) (throw (validation-ex (str "[" type "] expected") value)))
     (-validate-value! (type-validator! type) message value ?seq)
-    (when schema (-validate-object! schema value ?seq))
+    (when (and schema (some? value)) (-validate-object! schema value ?seq))
     (some-> spec :validate (-validate*?-value! message value ?seq))
     (doseq [{:keys [validate message]} validations]
       (-validate*?-value! validate message value ?seq))))
@@ -382,7 +382,7 @@
   ([result]
    (when (error? result)
      (when-let [errors (seq (:errors result))]
-        (apply merge (map (fn [[k e]] (extract-msg {} k e)) errors))))))
+       (apply merge (map (fn [[k e]] (extract-msg {} k e)) errors))))))
 
 (defn messages
   "Sequence of error messages in a validate/coerce/conform result; nil if none."

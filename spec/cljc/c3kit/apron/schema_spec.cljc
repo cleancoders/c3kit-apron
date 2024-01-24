@@ -2,7 +2,7 @@
   (:require
     [c3kit.apron.schema :as schema]
     [speclj.core #?(:clj :refer :cljs :refer-macros) [context focus-context describe focus-it it should= should-contain should-not-contain
-                                                      should-throw should-be-a should should-not]]
+                                                      should-throw should-be-a should should-not should-be-nil should-not-be-nil]]
     [clojure.string :as str]
     [c3kit.apron.utilc :as utilc]
     [c3kit.apron.corec :as ccc]
@@ -10,20 +10,6 @@
   #?(:clj
      (:import (java.net URI)
               (java.util UUID))))
-
-
-;; TODO [BAC]: Implement this
-(comment "More verbose error messaging on schema types"
-
-  (def thing-schema {:thing {:type {:age :int :validate pos?}}})
-  (schema/validate thing-schema {:thing {:age 0}})
-  => {:thing {:age "is invalid"}}
-
-  (def things-schema {:things [{:type {:age :int :validate pos?}}]})
-  (schema/validate things-schema {:things [{:age 1} {:age 0}]})
-  => {:things {1 {:age "is invalid"}}}
-
-  )
 
 (def pet
   {:kind        (schema/kind :pet)
@@ -46,8 +32,8 @@
    :owner       {:type     :ref
                  :validate [schema/present?]
                  :message  "must be a valid reference format"}
-   :colors      {:type [:string]
-                 :message  "must be a string"}
+   :colors      {:type    [:string]
+                 :message "must be a string"}
    :uuid        {:type :uuid
                  :db   [:unique-identity]}
    :parent      {:type {:name {:type :string}
@@ -59,11 +45,13 @@
    :values [:wild :domestic]})
 
 (def owner
-  {:kind (schema/kind :household)
+  {:kind (schema/kind :owner)
+   :name {:type :string}
    :pet  {:type pet}})
 
 (def household
   {:kind (schema/kind :household)
+   :size {:type :long}
    :pets {:type [pet]}})
 
 (def now (new #?(:clj java.util.Date :cljs js/Date)))
@@ -713,15 +701,27 @@
                    (schema/make-error pet nil nil)
                    (schema/error-message-map))))
 
+    (it "does not validate nil values against schema types"
+      (let [jerry {:name "Jerry" :pet nil}]
+        (should-be-nil (schema/error-message-map (schema/validate owner jerry)))))
+
+    (it "validates false values against schema types"
+      (let [jerry {:name "Jerry" :pet false}]
+        (should-not-be-nil (schema/error-message-map (schema/validate owner jerry)))))
+
+    (it "does not require collection on seq of schema types"
+      (let [house {:size 10 :pets nil}]
+        (should-be-nil (schema/error-message-map (schema/validate household house)))))
+
     (it "for single, top-level error"
       (let [invalid-pet (assoc valid-pet :name 123)]
         (should= {:name "must be nice and unique name"}
-          (schema/error-message-map (schema/validate pet invalid-pet)))))
+                 (schema/error-message-map (schema/validate pet invalid-pet)))))
 
     (it "for multiple, top-level errors"
       (let [invalid-pet (assoc valid-pet :name 123 :species :cat)]
         (should= {:name "must be nice and unique name", :species "must be a pet species"}
-          (schema/error-message-map (schema/validate pet invalid-pet)))))
+                 (schema/error-message-map (schema/validate pet invalid-pet)))))
 
     (it "specifies idx when inside sequential structure"
       (let [invalid-pet {:species  "dog"
@@ -734,21 +734,21 @@
                          :uuid     a-uuid}]
         (should= {:colors {2 "must be a string"
                            4 "must be a string"}}
-          (schema/error-message-map (schema/validate pet invalid-pet)))
-        (should= nil (schema/error-message-map (schema/validate pet valid-pet)))))
+                 (schema/error-message-map (schema/validate pet invalid-pet)))
+        (should-be-nil (schema/error-message-map (schema/validate pet valid-pet)))))
 
     (it "specifies individual errors within nested entities"
       (let [invalid-owner {:pet invalid-pet}
             valid-owner   {:pet valid-pet}]
-        (should= {:pet  {:parent   {:age "is invalid"}
-                         :name     "must be nice and unique name"
-                         :species  "must be a pet species"
-                         :birthday "must be a date"
-                         :teeth    "must be between 0 and 999"
-                         :length   "must be unit in feet"
-                         :owner    "must be a valid reference format"}}
-          (schema/error-message-map (schema/validate owner invalid-owner)))
-        (should= nil (schema/error-message-map (schema/validate owner valid-owner)))))
+        (should= {:pet {:parent   {:age "is invalid"}
+                        :name     "must be nice and unique name"
+                        :species  "must be a pet species"
+                        :birthday "must be a date"
+                        :teeth    "must be between 0 and 999"
+                        :length   "must be unit in feet"
+                        :owner    "must be a valid reference format"}}
+                 (schema/error-message-map (schema/validate owner invalid-owner)))
+        (should-be-nil (schema/error-message-map (schema/validate owner valid-owner)))))
 
     (it "specifies idx for invalid nested entity inside sequential structure"
       (let [invalid-household {:pets [valid-pet invalid-pet valid-pet invalid-pet]}
@@ -759,7 +759,7 @@
                                :teeth    "must be between 0 and 999"
                                :length   "must be unit in feet"
                                :owner    "must be a valid reference format"}
-            error-map          (schema/error-message-map (schema/validate household invalid-household))]
+            error-map         (schema/error-message-map (schema/validate household invalid-household))]
         (should= {:pets {1 error 3 error}} error-map)))
     )
 
@@ -783,7 +783,7 @@
       (should= 124 (schema/present-value {:type :long :present inc} 123)))
 
     (it "ommited"
-      (should= nil (schema/present-value {:type :long :present schema/omit} 123)))
+      (should-be-nil (schema/present-value {:type :long :present schema/omit} 123)))
 
     (it "applies multiple custom presenters"
       (should= 62 (schema/present-value {:type :long :present [inc #(/ % 2)]} 123)))
@@ -795,7 +795,7 @@
       (should= [] (schema/present-value {:type [:int]} [])))
 
     (it "of sequentials - nil"
-      (should= nil (schema/present-value {:type [:int]} nil)))
+      (should-be-nil (schema/present-value {:type [:int]} nil)))
 
     (it "of sequentials with customs"
       (should= ["123" "456"] (schema/present-value {:type [:int] :present str} [123 456]))
