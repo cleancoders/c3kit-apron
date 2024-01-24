@@ -461,53 +461,62 @@
     (SchemaError. errors schema entity result)
     result))
 
+(defn- assoc-some [m k v]
+  (cond-> m (some? v) (assoc k v)))
+
+(defn- -process-spec [processor entity [errors result] [key spec]]
+  (let [value        (get entity key)
+        field-result (result-or-ex processor spec value)]
+    (if (ccc/ex? field-result)
+      [(assoc errors key field-result) result]
+      [errors (assoc-some result key field-result)])))
+
 (defn- process-fields [processor schema entity]
-  (loop [errors {} result {} specs schema]
-    (if (seq specs)
-      (let [[key spec] (first specs)
-            value        (get entity key)
-            field-result (result-or-ex processor spec value)]
-        (if (ccc/ex? field-result)
-          (recur (assoc errors key field-result) result (rest specs))
-          (let [result (cond-> result (some? field-result) (assoc key field-result))]
-            (recur errors result (rest specs)))))
-      (error-or-result errors schema entity result))))
+  (let [[errors result] (reduce (partial -process-spec processor entity) [{} {}] schema)]
+    (error-or-result errors schema entity result)))
+
+(defn- -coerce-spec [[errors result] [key spec]]
+  (let [value (result-or-ex coerce-value spec result)]
+    (if (ccc/ex? value)
+      [(assoc errors key value) result]
+      (let [result (if (some? value)
+                     (assoc result key value)
+                     (dissoc result key))]
+        [errors result]))))
 
 (defn- coerce-whole-entity [result schema entity]
-  (loop [errors {} result result specs (filter (comp :coerce second) (:* schema))]
-    (if (seq specs)
-      (let [[key spec] (first specs)
-            value (result-or-ex coerce-value spec result)]
-        (if (ccc/ex? value)
-          (recur (assoc errors key value) result (rest specs))
-          (recur errors (assoc result key value) (rest specs))))
-      (error-or-result errors schema entity result))))
+  (let [specs (filter (comp :coerce second) (:* schema))
+        [errors result] (reduce -coerce-spec [{} result] specs)]
+    (error-or-result errors schema entity result)))
+
+(defn- -validate-value [result spec value]
+  (try
+    (validate-value! spec value)
+    (get result key)
+    (catch #?(:clj Exception :cljs :default) ex ex)))
+
+(defn- -validate-spec [[errors result] [key spec]]
+  (let [spec  (assoc spec :type :ignore)
+        value (result-or-ex (partial -validate-value result) spec result)]
+    (if (ccc/ex? value)
+      [(assoc errors key value) result]
+      [errors (assoc-some result key value)])))
 
 (defn- validate-whole-entity [result schema entity]
-  (let [specs (filter (comp (some-fn :validate :validations) second) (:* schema))]
-    (loop [errors {} result result specs specs]
-      (if (seq specs)
-        (let [[key spec] (first specs)
-              value (result-or-ex (fn [spec value]
-                                    (try
-                                      (validate-value! spec value)
-                                      (get result key)
-                                      (catch #?(:clj Exception :cljs :default) ex ex)))
-                                  (assoc spec :type :ignore) result)]
-          (if (ccc/ex? value)
-            (recur (assoc errors key value) result (rest specs))
-            (recur errors (assoc result key value) (rest specs))))
-        (error-or-result errors schema entity result)))))
+  (let [specs (filter (comp (some-fn :validate :validations) second) (:* schema))
+        [errors result] (reduce -validate-spec [{} result] specs)]
+    (error-or-result errors schema entity result)))
+
+(defn- -present-spec [[errors result] [key spec]]
+  (let [value (result-or-ex present-value spec result)]
+    (if (ccc/ex? value)
+      [(assoc errors key value) result]
+      [errors (assoc result key value)])))
 
 (defn- present-whole-entity [result schema entity]
-  (loop [errors {} result result specs (filter (comp :present second) (:* schema))]
-    (if (seq specs)
-      (let [[key spec] (first specs)
-            value (result-or-ex present-value spec result)]
-        (if (ccc/ex? value)
-          (recur (assoc errors key value) result (rest specs))
-          (recur errors (assoc result key value) (rest specs))))
-      (error-or-result errors schema entity result))))
+  (let [specs (filter (comp :present second) (:* schema))
+        [errors result] (reduce -present-spec [{} result] specs)]
+    (error-or-result errors schema entity result)))
 
 (defn coerce
   "Returns coerced entity or SchemaError if any coercion failed. Use error? to check result.
@@ -551,9 +560,6 @@
         (if (error? result)
           result
           (ccc/remove-nils result))))))
-
-;(defn coercion-errors [schema entity]
-;  (messages (coerce schema entity)))
 
 (defn validation-errors [schema entity]
   (error-message-map (validate schema entity)))

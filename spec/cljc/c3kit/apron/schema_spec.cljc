@@ -298,9 +298,20 @@
           (should-not-contain :uuid result)))
 
       (it "of entity level coercions"
-        (let [result (schema/coerce (assoc pet :* {:stage-name {:type   :string
-                                                                :coerce #(str (:name %) " the " (:species %))}}) valid-pet)]
+        (let [schema (assoc pet :* {:stage-name {:type   :string
+                                                 :coerce #(str (:name %) " the " (:species %))}})
+              result (schema/coerce schema valid-pet)]
           (should= "Fluffyy the dog" (:stage-name result))))
+
+      (it "coerces to nil"
+        (let [schema (assoc-in pet [:name :coerce] {:coerce (constantly nil)})
+              result (schema/coerce schema (dissoc valid-pet :name))]
+          (should-not-contain :name result)))
+
+      (it "entity level coerces to nil"
+        (let [schema (assoc pet :* {:name {:type :string :coerce (constantly nil)}})
+              result (schema/coerce schema valid-pet)]
+          (should-not-contain :name result)))
       )
     )
 
@@ -650,6 +661,15 @@
         (should= "snake" (:species result1))
         (should= true (schema/error? result2))
         (should= "Snakes are not fluffy!" (:species (schema/error-message-map result2)))))
+
+    (it "of entity level operations on nil values"
+      (let [spec   (assoc pet
+                     :* {:length {:validate #(or (nil? (:length %))
+                                                 (pos? (:length %)))
+                                  :message  "must be a positive number"}})
+            result (schema/conform spec (dissoc valid-pet :length))]
+        (should= false (schema/error? result))
+        (should-not-contain :length result)))
 
     (it "a invalid entity"
       (let [result (schema/conform pet invalid-pet)
