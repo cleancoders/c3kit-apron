@@ -5,34 +5,34 @@
     [c3kit.apron.corec :as ccc]
     [clojure.edn :as edn]
     [clojure.string :as str]
-    #?(:cljs [com.cognitect.transit.types]) ;; https://github.com/cognitect/transit-cljs/issues/41
+    #?(:cljs [com.cognitect.transit.types])                 ;; https://github.com/cognitect/transit-cljs/issues/41
     ))
 
 (comment
   "Schema Sample"
   {:field
-   {:type        :string ;; see type-validators for list
-    :db          [:unique-value] ;; passed to database
-    :coerce      [#(str % "y")] ;; single/list of coerce fns
-    :validate    [#(> (count %) 1)] ;; single/list of validation fns
-    :message     "message describing the field" ;; coerce failure message (or :validate failure message)
-    :validations [{:validate fn :message "msg"}] ;; multiple validation/message pairs
-    :present     [#(str %)] ;; single/list of presentation fns
+   {:type        :string                                    ;; see type-validators for list
+    :db          [:unique-value]                            ;; passed to database
+    :coerce      [#(str % "y")]                             ;; single/list of coerce fns
+    :validate    [#(> (count %) 1)]                         ;; single/list of validation fns
+    :message     "message describing the field"             ;; coerce failure message (or :validate failure message)
+    :validations [{:validate fn :message "msg"}]            ;; multiple validation/message pairs
+    :present     [#(str %)]                                 ;; single/list of presentation fns
     }})
 
 (def stdex
   #?(:clj  clojure.lang.ExceptionInfo
      :cljs cljs.core/ExceptionInfo))
 
-(defn coerce-ex [v type] (ex-info (str "can't convert " (pr-str v) " to " type) {:value v :type type}))
+(defn coerce-ex [v type]
+  (let [value-str (pr-str v)
+        value-str (if (< 50 (count value-str))
+                    (str (subs value-str 0 45) "...")
+                    value-str)]
+    (ex-info (str "can't coerce " value-str " to " type) {:coerce? true :value v :type type})))
 (defn coerce-ex? [e] (and (instance? stdex e) (:coerce? (ex-data e))))
 
 (def date #?(:clj java.util.Date :cljs js/Date))
-
-(defn exmessage [e]
-  (when e
-    #?(:clj  (.getMessage e)
-       :cljs (cljs.core/ex-message e))))
 
 ; Common Validations --------------------------------------
 
@@ -209,7 +209,7 @@
    :uri       (nil-or uri?)
    :uuid      (nil-or uuid?)
    :ignore    (constantly true)
-   :schema    (constantly true)})
+   :schema    (nil-or map?)})
 
 (def type-coercers
   {:bigdec    ->bigdec
@@ -285,35 +285,37 @@
     (coerce-fn value)))
 
 (declare coerce!)
-(defn- -coerce-object! [schema value ?seq]
-  (if ?seq
-    (mapv (partial coerce! schema) value)
-    (coerce! schema value)))
+
+(defn- coerce-schema-value [schema value]
+  (cond (nil? value) nil
+        (map? value) (coerce! schema value)
+        :else (throw (coerce-ex value "map"))))
 
 (defn- do-coercion [{:keys [type] :as spec} value]
   (let [[?seq type schema] (<-type type)
-        value (reduce #(-coerce-value! %2 %1 ?seq) value (->vec (:coerce spec)))
-        value (if (and schema value)
-                (-coerce-object! schema value ?seq)
-                value)]
-    (-coerce-value! (type-coercer! type) value ?seq)))
+        value     (reduce #(-coerce-value! %2 %1 ?seq) value (->vec (:coerce spec)))
+        coerce-fn (if (= :schema type) (partial coerce-schema-value schema) (type-coercer! type))]
+    (-coerce-value! coerce-fn value ?seq)))
 
 (defn- validation-ex [message value] (ex-info "invalid" {:invalid? true :message (or message "is invalid") :value value}))
 (defn- validation-ex? [e] (and (instance? stdex e)
                                (:invalid? (ex-data e))))
 
-(defn -validate-seq! [valid-fn message vals]
+(defn- validate-seq! [valid-fn message vals]
   (let [vals   (map-indexed vector vals)
-        errors (reduce (fn [results [idx val]]
-                         (if (valid-fn val)
-                           results
-                           (assoc results idx message))) {} vals)]
+        errors (reduce
+                 (fn [results [idx val]]
+                   (if (valid-fn val)
+                     results
+                     (assoc results idx message)))
+                 {} vals)]
+    (prn "errors: " errors)
     (when (not-empty errors)
       (throw (validation-ex errors vals)))))
 
 (defn- -validate-value! [valid? message value ?seq]
   (if (and ?seq (some? value))
-    (-validate-seq! valid? message value)
+    (validate-seq! valid? message value)
     (when-not (valid? value) (throw (validation-ex message value)))))
 
 (defn- -validate*?-value! [validate-fn message value ?seq]
@@ -323,27 +325,35 @@
 
 (declare validate!)
 (declare validate)
-(declare error-message-map)
-(defn- -errors-idx [schema entities]
-  (let [entities (map-indexed vector entities)]
-    (reduce (fn [results [idx entity]]
-              (if-let [error (error-message-map (validate schema entity))]
-                (assoc results idx error)
-                results)) {} entities)))
+;(declare error-message-map)
+;(defn- -errors-idx [schema entities]
+;  (let [entities (map-indexed vector entities)]
+;    (reduce (fn [results [idx entity]]
+;              (if-let [error (error-message-map (validate schema entity))]
+;                (assoc results idx error)
+;                results)) {} entities)))
+;
+;(defn- -validate-schema! [schema value ?seq]
+;  (if ?seq
+;    (let [errors (-errors-idx schema value)]
+;      (when (not-empty errors)
+;        (throw (validation-ex errors value))))
+;    (validate! schema value)))
 
-(defn- -validate-object! [schema value ?seq]
-  (if ?seq
-    (let [errors (-errors-idx schema value)]
-      (when (not-empty errors)
-        (throw (validation-ex errors value))))
-    (validate! schema value)))
+(defn- validate-schema-value! [schema value]
+  (cond (nil? value) true
+        (map? value) (validate! schema value)
+        :else (throw (validation-ex "map expected" value))))
 
 (defn- do-validation [{:keys [type] :as spec} value]
   (let [[?seq type schema] (<-type type)
         {:keys [message validations]} spec]
     (when (and ?seq (not (multiple? value)) value) (throw (validation-ex (str "[" type "] expected") value)))
-    (-validate-value! (type-validator! type) message value ?seq)
-    (when (and schema (some? value)) (-validate-object! schema value ?seq))
+    (let [validator (if (= :schema type)
+                      (partial validate-schema-value! schema)
+                      (type-validator! type))]
+      (-validate-value! validator message value ?seq))
+    ;(when (and (= :schema type) (some? value)) (-validate-schema! schema value ?seq))
     (some-> spec :validate (-validate*?-value! message value ?seq))
     (doseq [{:keys [validate message]} validations]
       (-validate*?-value! validate message value ?seq))))
@@ -375,7 +385,7 @@
   (let [data (ex-data err)]
     (if (error? data)
       (assoc m k (reduce-kv extract-msg {} (:errors data)))
-      (assoc m k (or (:message data) "is invalid")))))
+      (assoc m k (or (:message data) (ex-message err) "is invalid")))))
 
 (defn error-message-map
   "Nil when there are no errors, otherwise a map {<field> <message>} ."
