@@ -317,6 +317,34 @@
               result (schema/coerce schema valid-pet)]
           (should-not-contain :name result)))
       )
+
+    (context "multi field"
+
+      (it "with nil value"
+        (should= nil (schema/coerce-value {:type [:int]} nil)))
+
+      (it "with empty list"
+        (should= () (schema/coerce-value {:type [:int]} ())))
+
+      (it "entity - with an empty seq value"
+        (let [result (schema/coerce pet {:colors []})]
+          (should= [] (:colors result))))
+      )
+
+    (it "nested entity as a seq is coerced into a map"
+      (let [result (schema/coerce pet {:parent [[:name "Fido"] [:age 12]]})]
+        (should= {:name "Fido" :age 12} (:parent result))))
+
+    (it "message is used"
+      (let [result (schema/coerce pet {:length "foo"})]
+        (should= "must be unit in feet" (:length (schema/message-map result)))
+        (should= "can't coerce \"foo\" to float" (-> result :length schema/error-exception ex-message))))
+
+    (it "message at entity level is used"
+      (let [schema (assoc pet :* {:name {:coerce (fn [_] (throw (ex-info "blah" {}))) :message "boom!"}})
+            result (schema/coerce schema valid-pet)]
+        (should= "boom!" (:name (schema/message-map result)))
+        (should= "blah" (-> result :name schema/error-exception ex-message))))
     )
 
   (context "validation"
@@ -517,7 +545,7 @@
           (should= false (schema/error? result))))
 
       (it "of entity with missing(required) fields"
-        (let [result (schema/validate pet {})
+        (let [result   (schema/validate pet {})
               failures (schema/error-map result)]
           (should= true (schema/error? result))
           (should-contain :owner failures)
@@ -577,25 +605,11 @@
       )
     )
 
-  (context "coercion"
-
-    (it "multi field with nil value"
-      (should= nil (schema/coerce-value {:type [:int]} nil)))
-
-    (it "multi field with empty list"
-      (should= () (schema/coerce-value {:type [:int]} ())))
-
-    (it "entity - with an empty seq value"
-      (let [result (schema/coerce pet {:colors []})]
-        (should= [] (:colors result))))
-
-    )
-
   (context "conforming"
 
     (it "with failed coercion"
-      (should-throw schema/stdex "can't coerce \"foo\" to int"
-                    (schema/conform-value {:type :int :message "oh no!"} "foo")))
+      (should-throw schema/stdex "can't coerce \"foo\" to int" (schema/conform-value {:type :int} "foo"))
+      (should-throw schema/stdex "oh no!" (schema/conform-value {:type :int :message "oh no!"} "foo")))
 
     (it "with failed validation"
       (should-throw schema/stdex "oh no!"
@@ -680,8 +694,8 @@
       (let [result (schema/conform pet invalid-pet)]
         (should= true (schema/error? result))
         (should= "must be a pet species" (schema/error-message (:species result)))
-        (should= "can't coerce \"yesterday\" to date" (schema/error-message (:birthday result)))
-        (should= "can't coerce \"foo\" to float" (schema/error-message (:length result)))
+        (should= "must be a date" (schema/error-message (:birthday result)))
+        (should= "must be unit in feet" (schema/error-message (:length result)))
         (should= "must be between 0 and 999" (schema/error-message (:teeth result)))
         (should= "must be nice and unique name" (schema/error-message (:name result)))
         (should= "must be a valid reference format" (schema/error-message (:owner result)))
@@ -715,12 +729,12 @@
 
     (it "are only given for failed results"
       (should= {:name "must be nice and unique name"}
-               (-> {:name (schema/-process-error :validate "must be nice and unique name")}
+               (-> {:name (schema/-process-error :validate {:message "must be nice and unique name"})}
                    (schema/message-map))))
 
     (it "with missing message"
       (should= {:foo "blah"}
-               (-> {:foo (schema/-process-error :validate (ex-info "blah" {}))}
+               (-> {:foo (schema/-process-error :validate {:exception (ex-info "blah" {})})}
                    (schema/message-map))))
 
     (it "does not validate nil values against schema types"
@@ -790,8 +804,24 @@
                                :owner    "must be a valid reference format"}]
 
         (should= {:pets {1 error 3 error}} (schema/message-map (schema/validate household invalid-household)))))
-    )
 
+    (it "message-seq flat"
+      (let [result (schema/message-seq (schema/conform pet (dissoc invalid-pet :parent)))]
+        (should-contain "name must be nice and unique name" result)
+        (should-contain "species must be a pet species" result)
+        (should-contain "birthday must be a date" result)
+        (should-contain "teeth must be between 0 and 999" result)
+        (should-contain "length must be unit in feet" result)
+        (should-contain "owner must be a valid reference format" result)))
+
+    (it "message-seq nested"
+      (let [invalid-household {:pets [valid-pet invalid-pet valid-pet invalid-pet]}
+            result (schema/message-seq (schema/conform household invalid-household))]
+        (should-contain "pets.1.parent.age can't coerce :foo to int" result)
+        (should-contain "pets.1.name must be nice and unique name" result)
+        (should-contain "pets.3.parent.age can't coerce :foo to int" result)
+        (should-contain "pets.3.name must be nice and unique name" result)))
+    )
 
   (context "presentation"
 
@@ -885,7 +915,7 @@
 
     (it "is enforced on validate!"
       (let [result (schema/validate pet (assoc valid-pet :kind :beast))
-            kind (:kind result)]
+            kind   (:kind result)]
         (should= true (schema/field-error? kind))
         (should= true (schema/error? result))
         (should= ["kind mismatch; must be :pet"] (schema/messages result))))

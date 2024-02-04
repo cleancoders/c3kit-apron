@@ -276,8 +276,13 @@
 
 (defn- validation-ex [message value] (ex-info "invalid" {:invalid? true :message (or message "is invalid") :value value}))
 
-(defn failure->exception [failure]
-  (ex-info (.-message failure) {}))
+(defn error-exception
+  "Return the exception attached to a FieldError if any, otherwise nil."
+  [field-error]
+  (-> field-error meta :exception))
+
+(defn- error->exception [error]
+  (ex-info (:message error) {}))
 
 (defprotocol FieldError
   (as-exception [this])
@@ -285,36 +290,34 @@
 
 (defrecord CoerceError [message]
   FieldError
-  (as-exception [this] (failure->exception this))
+  (as-exception [this] (error->exception this))
   (error-message [_] message)
   Object
   (toString [_] (str "Coerce FAILURE : " message)))
 
 (defrecord ValidateError [message]
   FieldError
-  (as-exception [this] (failure->exception this))
+  (as-exception [this] (error->exception this))
   (error-message [_] message)
   Object
   (toString [_] (str "Validate FAILURE : " message)))
 
 (defrecord PresentError [message]
   FieldError
-  (as-exception [this] (failure->exception this))
+  (as-exception [this] (error->exception this))
   (error-message [_] message)
   Object
   (toString [_] (str "Present FAILURE: " message)))
 
-(defn- -create-field-error [ctor default-message ex-or-message]
-  (if (ccc/ex? ex-or-message)
-    (let [ex      ex-or-message
-          message (or (:message (ex-data ex-or-message)) (ex-message ex-or-message) default-message)]
-      (with-meta (ctor message) {:exception ex}))
-    (ctor ex-or-message)))
+(defn- -create-field-error [ctor default-message options]
+  (let [ex      (:exception options)
+        message (or (:message options) (:message (ex-data ex)) (ex-message ex) default-message)]
+    (with-meta (ctor message) (dissoc options :message))))
 
 (defn field-error?
   "Returns true if the value is a FieldError, false otherwise."
   [value]
-  #?(:clj (instance? c3kit.apron.schema.FieldError value)
+  #?(:clj  (instance? c3kit.apron.schema.FieldError value)
      :cljs (satisfies? FieldError value)))
 
 (defn error-seq
@@ -327,44 +330,53 @@
 
 (defn error?
   "Return true if the processed entity has errors, false otherwise."
-  [entity]                                     ;; TODO - MDM: optimize, maybe store failure as metadata on entity?
+  [entity]                                                  ;; TODO - MDM: optimize, maybe store failure as metadata on entity?
   (not (empty? (error-seq entity))))
 
 (defmulti -process-field (fn [process _spec _value] process))
 (defmulti -process-entity (fn [process _key _spec _entity] process))
-(defmulti -process-error (fn [process _ex-or-message] process))
+(defmulti -process-error (fn [process options] process))
 
-(defmethod -process-error :coerce [_ ex-or-message]
-  (-create-field-error ->CoerceError "coercion failed" ex-or-message))
-(defmethod -process-error :validate [_ ex-or-message]
-  (-create-field-error ->ValidateError "is invalid" ex-or-message))
-(defmethod -process-error :present [_ ex-or-message]
-  (-create-field-error ->PresentError "present failed" ex-or-message))
+(defmethod -process-error :coerce [_ options]
+  (-create-field-error ->CoerceError "coercion failed" options))
+(defmethod -process-error :validate [_ options]
+  (-create-field-error ->ValidateError "is invalid" options))
+(defmethod -process-error :present [_ options]
+  (-create-field-error ->PresentError "present failed" options))
 
 (defn- field-result-or-error [process spec value]
   (try
     (-process-field process spec value)
     (catch #?(:clj Exception :cljs :default) e
-      (-process-error process e))))
+      (-process-error process {:exception e}))))
 
 (defn- entity-result-or-error [process key spec entity]
   (try
     (-process-entity process key spec entity)
     (catch #?(:clj Exception :cljs :default) e
-      (-process-error process e))))
+      (-process-error process {:exception e}))))
 
 (defn- coerce-map [m]
   (cond (nil? m) m
         (map? m) m
-        (sequential? m) (into {} m) ;; TODO - MDM: TEST ME
+        (sequential? m) (into {} m)
         :else (throw (coerce-ex m "map"))))
 
 (defmethod -process-field :coerce [_ spec value]
-  ;; TODO - MDM: Should we be using the message from the spec
-  (let [type         (:type spec)
+  (let [{:keys [type message]} spec
         type-coercer (if (map? type) coerce-map (type-coercer! type))
         coerce-fns   (conj (->vec (:coerce spec)) type-coercer)]
-    (reduce (fn [result coerce-fn] (coerce-fn result)) value coerce-fns)))
+    (try
+      (reduce (fn [result coerce-fn] (coerce-fn result)) value coerce-fns)
+      (catch #?(:clj Exception :cljs :default) e
+        (-process-error :coerce {:message message :exception e})))))
+
+(defn- process-validations [validations value]
+  (doseq [{:keys [validate message]} validations]
+    (let [validate-fns (if (multiple? validate) validate [validate])]
+      (doseq [v-fn validate-fns]
+        (when-not (v-fn value)
+          (throw (validation-ex message value)))))))
 
 (defmethod -process-field :validate [_ spec value]
   (let [{:keys [type validate validations message]} spec
@@ -372,11 +384,7 @@
         validations    (concat [{:validate type-validator :message message}]
                                (if validate [{:validate validate :message message}] [])
                                validations)]
-    (doseq [{:keys [validate message]} validations]         ;; TODO - MDM: duplicated below in process-entity
-      (let [validate-fns (if (multiple? validate) validate [validate])]
-        (doseq [v-fn validate-fns]
-          (when-not (v-fn value)
-            (throw (validation-ex message value))))))
+    (process-validations validations value)
     value))
 
 (defmethod -process-field :conform [_ spec value]
@@ -387,24 +395,23 @@
         field-result-or-failure))))
 
 (defmethod -process-field :present [_ spec value]
-  (let [present-fns  (->vec (:present spec))]
+  (let [present-fns (->vec (:present spec))]
     (reduce (fn [result present-fn] (present-fn result)) value present-fns)))
 
 (defmethod -process-entity :coerce [_ key spec entity]
-  (let [{:keys [coerce message]} spec                       ;; TODO - MDM: Are we using the message here?
-        coerce-fns (->vec coerce)
-        coerced-entity (reduce (fn [result coerce-fn] (assoc result key (coerce-fn result))) entity coerce-fns)]
-    (get coerced-entity key)))
+  (let [{:keys [coerce message]} spec
+        coerce-fns (->vec coerce)]
+    (try
+      (let [coerced-entity (reduce (fn [result coerce-fn] (assoc result key (coerce-fn result))) entity coerce-fns)]
+        (get coerced-entity key))
+      (catch #?(:clj Exception :cljs :default) e
+        (-process-error :coerce {:message message :exception e})))))
 
 (defmethod -process-entity :validate [_ key spec entity]
   (let [{:keys [validate validations message]} spec
         validations (concat (if validate [{:validate validate :message message}] [])
                             validations)]
-    (doseq [{:keys [validate message]} validations]
-      (let [validate-fns (if (multiple? validate) validate [validate])]
-        (doseq [v-fn validate-fns]
-          (when-not (v-fn entity)
-            (throw (validation-ex message entity))))))
+    (process-validations validations entity)
     (get entity key)))
 
 (defmethod -process-entity :conform [_ key spec entity]
@@ -414,25 +421,25 @@
       (entity-result-or-error :validate key spec (assoc entity key coerce-result)))))
 
 (defmethod -process-entity :present [_ key spec entity]
-  (let [present-fns (->vec (:present spec))
+  (let [present-fns      (->vec (:present spec))
         presented-entity (reduce (fn [result present-fn] (assoc result key (present-fn result))) entity present-fns)]
     (get presented-entity key)))
 
 (declare process-entity)
 
 (defn- -process-value [process spec value]
-  (let [type (:type spec)
+  (let [type   (:type spec)
         ?seq   (multiple? type)
         type   (if ?seq (first type) type)
         schema (when (map? type) type)]
     (if ?seq
       (cond (nil? value) nil
-            (multiple? value) (let [spec  (assoc spec :type (if (some? schema) schema type))
+            (multiple? value) (let [spec   (assoc spec :type (if (some? schema) schema type))
                                     result (mapv #(-process-value process spec %) value)]
-                                (if (= :present process)    ;; TODO - MDM: ugh... OCP violation.  Would a multimethod be better?
+                                (if (= :present process)    ;; MDM - I know.  OCP violation.  Maybe better than multi-methods though.
                                   (ccc/removev nil? result)
                                   result))
-            :else (-process-error process (str "[" type "] expected")))
+            :else (-process-error process {:message (str "[" type "] expected")}))
       (if (and (some? schema) (map? value))
         (let [entity (process-entity process schema value)]
           (if (error? entity)
@@ -516,7 +523,7 @@
   (process-entity :conform schema entity))
 
 (defn present
-  "Returns presentable entity or SchemaError upon any presentation failure. Use error? to check result."
+  "Returns presented entity with FieldErrors where the process failed. Use error? to check result."
   [schema entity]
   (process-entity :present schema entity))
 
@@ -543,11 +550,23 @@
 
 (def ^{:doc "Same as message-map.  Exists for backwards compatibility."} error-message-map message-map)
 
-(defn messages                                              ;; TODO - MDM: test me
-  "Sequence of error messages in a validate/coerce/conform result; nil if none."
+(defn message-seq
+  "seq of 'friendly' error messages; nil if none."
   [result]
   (when-let [errors (message-map result)]
-    (mapv (fn [[k v]] (str (name k) " " v)) errors)))
+    (loop [errors errors stack () path () result []]
+      (if (empty? errors)
+        (if (empty? stack)
+          result
+          (recur (first stack) (rest stack) (rest path) result))
+        (let [[k v] (first errors)
+              new-path (cons (if (int? k) (str k) (name k)) path)]
+          (if (map? v)
+            (recur v (conj stack (rest errors)) new-path result)
+            (let [value (str (str/join "." (reverse new-path)) " " v)]
+              (recur (rest errors) stack path (conj result value)))))))))
+
+(def ^{:doc "Same as message-seq.  Exists for backwards compatibility."} messages message-seq)
 
 (defn coerce-errors
   "Runs coerce on the entity and returns a map of error message, or nil if none."
