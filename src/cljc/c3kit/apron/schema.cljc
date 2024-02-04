@@ -334,8 +334,9 @@
 
 (defn error?
   "Return true if the processed entity has errors, false otherwise."
-  [entity]                                                  ;; TODO - MDM: optimize, maybe store failure as metadata on entity?
-  (not (empty? (error-seq entity))))
+  [entity]
+  ;; MDM: optimizing by storing :error? in metadata on entity did not improve performance noticeably.
+  (boolean (seq (error-seq entity))))
 
 (defmulti -process-field (fn [process _spec _value] process))
 (defmulti -process-entity (fn [process _key _spec _entity] process))
