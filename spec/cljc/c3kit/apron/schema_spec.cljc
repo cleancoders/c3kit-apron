@@ -345,6 +345,16 @@
             result (schema/coerce schema valid-pet)]
         (should= "boom!" (:name (schema/message-map result)))
         (should= "blah" (-> result :name schema/error-exception ex-message))))
+
+    (it "error info"
+      (let [result (schema/coerce pet {:length "foo"})
+            error  (:length result)]
+        (should= true (schema/field-error? error))
+        (should= "must be unit in feet" (schema/error-message error))
+        (should= "can't coerce \"foo\" to float" (-> error schema/error-exception ex-message))
+        (should= "foo" (schema/error-value error))
+        (should= "float" (schema/error-type error))
+        (should= #{:exception :type :value} (set (keys (schema/error-data error))))))
     )
 
   (context "validation"
@@ -603,6 +613,17 @@
           (should= true (schema/error? result2))
           (should= "Snakes are not fluffy!" (:species (schema/message-map result2)))))
       )
+
+    (it "error info"
+      (let [result (schema/validate pet {:species "frog"})
+            error  (:species result)]
+        (should= true (schema/field-error? error))
+        (should= "must be a pet species" (schema/error-message error))
+        (should= "must be a pet species" (-> error schema/error-exception ex-message))
+        (should= "frog" (schema/error-value error))
+        (should= nil (schema/error-type error))
+        (should= #{:exception :value} (set (keys (schema/error-data error))))))
+
     )
 
   (context "conforming"
@@ -816,7 +837,7 @@
 
     (it "message-seq nested"
       (let [invalid-household {:pets [valid-pet invalid-pet valid-pet invalid-pet]}
-            result (schema/message-seq (schema/conform household invalid-household))]
+            result            (schema/message-seq (schema/conform household invalid-household))]
         (should-contain "pets.1.parent.age can't coerce :foo to int" result)
         (should-contain "pets.1.name must be nice and unique name" result)
         (should-contain "pets.3.parent.age can't coerce :foo to int" result)

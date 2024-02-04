@@ -24,12 +24,13 @@
   #?(:clj  clojure.lang.ExceptionInfo
      :cljs cljs.core/ExceptionInfo))
 
-(defn coerce-ex [v type]
-  (let [value-str (pr-str v)
+(defn- coerce-ex [value type]
+  (let [value-str (pr-str value)
         value-str (if (< 50 (count value-str))
                     (str (subs value-str 0 45) "...")
                     value-str)]
-    (ex-info (str "can't coerce " value-str " to " type) {:coerce? true :value v :type type})))
+    (ex-info (str "can't coerce " value-str " to " type) {:value value :type type})))
+(defn- validation-ex [message value] (ex-info (or message "is invalid") {:value value}))
 
 (def date #?(:clj java.util.Date :cljs js/Date))
 
@@ -209,8 +210,7 @@
    :string    (nil-or string?)
    :uri       (nil-or uri?)
    :uuid      (nil-or uuid?)
-   :ignore    (constantly true)
-   :schema    (nil-or map?)})
+   :ignore    (constantly true)})
 
 (def type-coercers
   {:bigdec    ->bigdec
@@ -228,8 +228,7 @@
    :string    ->string
    :uri       ->uri
    :uuid      ->uuid
-   :ignore    identity
-   :schema    identity})
+   :ignore    identity})
 
 ;; endregion ^^^^^ Type Tables ^^^^^
 ;; region ----- Common Schema Attributes -----
@@ -274,45 +273,50 @@
   (or (get type-validators type)
       (throw (ex-info (str "unhandled validation type: " (pr-str type)) {}))))
 
-(defn- validation-ex [message value] (ex-info "invalid" {:invalid? true :message (or message "is invalid") :value value}))
+(defprotocol FieldError)
+
+(defrecord CoerceError [message]
+  FieldError)
+
+(defrecord ValidateError [message]
+  FieldError)
+
+(defrecord PresentError [message]
+  FieldError)
+
+(defn- -create-field-error [ctor default-message options]
+  (let [ex      (:exception options)
+        data    (ex-data ex)
+        message (or (:message options) (:message data) (ex-message ex) default-message)]
+    (with-meta (ctor message) (merge data (dissoc options :message)))))
+
+(defn error-message
+  "Return the message of an error."
+  [error]
+  (:message error))
 
 (defn error-exception
   "Return the exception attached to a FieldError if any, otherwise nil."
   [field-error]
   (-> field-error meta :exception))
 
+(defn error-value
+  "Return the value that caused the FieldError, if any, otherwise nil."
+  [field-error]
+  (-> field-error meta :value))
+
+(defn error-type
+  "Return the target type of a CoerceError, if any, otherwise nil."
+  [field-error]
+  (-> field-error meta :type))
+
+(defn error-data
+  "Return the data map associated with the FieldError."
+  [field-error]
+  (-> field-error meta))
+
 (defn- error->exception [error]
   (ex-info (:message error) {}))
-
-(defprotocol FieldError
-  (as-exception [this])
-  (error-message [this]))
-
-(defrecord CoerceError [message]
-  FieldError
-  (as-exception [this] (error->exception this))
-  (error-message [_] message)
-  Object
-  (toString [_] (str "Coerce FAILURE : " message)))
-
-(defrecord ValidateError [message]
-  FieldError
-  (as-exception [this] (error->exception this))
-  (error-message [_] message)
-  Object
-  (toString [_] (str "Validate FAILURE : " message)))
-
-(defrecord PresentError [message]
-  FieldError
-  (as-exception [this] (error->exception this))
-  (error-message [_] message)
-  Object
-  (toString [_] (str "Present FAILURE: " message)))
-
-(defn- -create-field-error [ctor default-message options]
-  (let [ex      (:exception options)
-        message (or (:message options) (:message (ex-data ex)) (ex-message ex) default-message)]
-    (with-meta (ctor message) (dissoc options :message))))
 
 (defn field-error?
   "Returns true if the value is a FieldError, false otherwise."
@@ -335,7 +339,7 @@
 
 (defmulti -process-field (fn [process _spec _value] process))
 (defmulti -process-entity (fn [process _key _spec _entity] process))
-(defmulti -process-error (fn [process options] process))
+(defmulti -process-error (fn [process _options] process))
 
 (defmethod -process-error :coerce [_ options]
   (-create-field-error ->CoerceError "coercion failed" options))
@@ -439,7 +443,7 @@
                                 (if (= :present process)    ;; MDM - I know.  OCP violation.  Maybe better than multi-methods though.
                                   (ccc/removev nil? result)
                                   result))
-            :else (-process-error process {:message (str "[" type "] expected")}))
+            :else (-process-error process {:message (str "[" (if (map? type) "schema" type) "] expected")}))
       (if (and (some? schema) (map? value))
         (let [entity (process-entity process schema value)]
           (if (error? entity)
@@ -469,8 +473,8 @@
 
 (defn- process-value-or-error [process spec value]
   (let [result (-process-value process spec value)]
-    (if-let [failure (first (error-seq result))]
-      (throw (as-exception failure))
+    (if-let [error (first (error-seq result))]
+      (throw (error->exception error))
       result)))
 
 ;; endregion ^^^^^ Processing ^^^^^
