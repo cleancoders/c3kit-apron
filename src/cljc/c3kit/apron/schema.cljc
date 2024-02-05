@@ -20,6 +20,11 @@
     :present     [#(str %)]                                 ;; single/list of presentation fns
     }})
 
+;; TODO - MDM: [{:type :long}] - seq fields should contain a spec.  Processes on the seq field should act on the
+;;   seq value, not the values in the seq.  The spec will specify what processes act on the values in the seq.
+;; TODO - MDM: Deprecation print message on deprecated fns
+
+
 (defn- coerce-ex [value type]
   (let [value-str (pr-str value)
         value-str (if (< 50 (count value-str))
@@ -596,11 +601,13 @@
 
 (def ^{:doc "Same as message-seq.  Exists for backwards compatibility."} messages message-seq)
 
+;; TODO - MDM: rename to coerce-message-map
 (defn coerce-errors
   "Runs coerce on the entity and returns a map of error message, or nil if none."
   [schema entity]
   (message-map (coerce schema entity)))
 
+;; TODO - MDM: rename to validate-message-map
 (defn validate-errors
   "Runs validate on the entity and returns a map of error message, or nil if none."
   [schema entity]
@@ -608,6 +615,7 @@
 
 (def ^{:doc "Same as validate-errors.  Exists for backwards compatibility."} validation-errors validate-errors)
 
+;; TODO - MDM: rename to conform-message-map
 (defn conform-errors
   "Runs conform on the entity and returns a map of error message, or nil if none."
   [schema entity]
