@@ -12,6 +12,10 @@
      (:import (java.net URI)
               (java.util UUID))))
 
+(def stdex
+  #?(:clj  clojure.lang.ExceptionInfo
+     :cljs cljs.core/ExceptionInfo))
+
 (def pet
   {:kind        (schema/kind :pet)
    :id          schema/id
@@ -114,7 +118,7 @@
       (should= 42.0 (schema/->float "42") 0.00001)
       (should= 3.14 (schema/->float 3.14M) 0.00001)
       (should-throw (schema/->float \a))
-      (should-throw schema/stdex (schema/->float "fooey")))
+      (should-throw stdex (schema/->float "fooey")))
 
     (it "to int"
       (should= nil (schema/->int nil))
@@ -128,8 +132,8 @@
       (should= 3 (schema/->int "3.14"))
       (should= 3 (schema/->int 3.14M))
       (should-throw (schema/->int \a))
-      (should-throw schema/stdex (schema/->int "fooey"))
-      (should-throw schema/stdex (schema/->int :foo)))
+      (should-throw stdex (schema/->int "fooey"))
+      (should-throw stdex (schema/->int :foo)))
 
     (it "to bigdec"
       (should= nil (schema/->bigdec nil))
@@ -143,7 +147,7 @@
       (should= 3.14M (schema/->bigdec "3.14"))
       (should= 3.14M (schema/->bigdec 3.14M))
       (should-throw (schema/->bigdec \a))
-      (should-throw schema/stdex (schema/->bigdec "fooey")))
+      (should-throw stdex (schema/->bigdec "fooey")))
 
     (it "to date"
       (should= nil (schema/->date nil))
@@ -151,7 +155,7 @@
       (should= now (schema/->date now))
       (should= now (schema/->date (.getTime now)))
       (should-be-a #?(:clj java.util.Date :cljs js/Date) (schema/->date now))
-      (should-throw schema/stdex (schema/->date "now"))
+      (should-throw stdex (schema/->date "now"))
       (should= now (schema/->date (pr-str now))))
 
     (it "to sql date"
@@ -160,7 +164,7 @@
       (should= #?(:clj (java.sql.Date. (.getTime now)) :cljs now) (schema/->sql-date now))
       (should= #?(:clj (java.sql.Date. (.getTime now)) :cljs now) (schema/->sql-date (.getTime now)))
       (should-be-a #?(:clj java.sql.Date :cljs js/Date) (schema/->sql-date now))
-      (should-throw schema/stdex (schema/->sql-date "now"))
+      (should-throw stdex (schema/->sql-date "now"))
       (should= #?(:clj (java.sql.Date. (.getTime now)) :cljs now) (schema/->sql-date (pr-str now))))
 
     (it "to sql timestamp"
@@ -170,14 +174,14 @@
       (should= #?(:clj (java.sql.Timestamp. (.getTime now)) :cljs now) (schema/->timestamp (.getTime now)))
       (should-be-a #?(:clj java.sql.Timestamp :cljs js/Date) (schema/->timestamp now))
       #?(:clj (should-be-a java.sql.Timestamp (schema/->timestamp (java.sql.Date. (.getTime now)))))
-      (should-throw schema/stdex (schema/->timestamp "now"))
+      (should-throw stdex (schema/->timestamp "now"))
       (should= #?(:clj (java.sql.Timestamp. (.getTime now)) :cljs now) (schema/->timestamp (pr-str now))))
 
     (it "to uri"
       (should= nil (schema/->uri nil))
       (should= home (schema/->uri home))
       (should= home (schema/->uri "http://apron.co"))
-      (should-throw schema/stdex (schema/->uri 123)))
+      (should-throw stdex (schema/->uri 123)))
 
     (it "to uuid"
       (should= nil (schema/->uuid nil))
@@ -187,7 +191,7 @@
       (let [uuid2        (ccc/new-uuid)
             transit-uuid (utilc/<-transit (utilc/->transit uuid2))]
         (should= uuid2 (schema/->uuid transit-uuid)))
-      (should-throw schema/stdex (schema/->uuid 123)))
+      (should-throw stdex (schema/->uuid 123)))
 
     (it "to seq"
       (should= [] (schema/->seq nil))
@@ -198,78 +202,77 @@
     (context "from spec"
 
       (it "with missing type"
-        (should-throw schema/stdex "unhandled coercion type: nil" (schema/coerce-value {} 123)))
+        (should-throw stdex "unhandled coercion type: nil" (schema/coerce-value! {} 123)))
 
       (it "of boolean"
-        (should= true (schema/coerce-value {:type :boolean} 123)))
+        (should= true (schema/coerce-value! {:type :boolean} 123)))
 
       (it "of string"
-        (should= "123" (schema/coerce-value {:type :string} 123)))
+        (should= "123" (schema/coerce-value! {:type :string} 123)))
 
       (it "of int"
-        (should= 123 (schema/coerce-value {:type :int} "123.4")))
+        (should= 123 (schema/coerce-value! {:type :int} "123.4")))
 
       (it "of ref"
-        (should= 123 (schema/coerce-value {:type :ref} "123.4")))
+        (should= 123 (schema/coerce-value! {:type :ref} "123.4")))
 
       (it "of float"
-        (should= 123.4 (schema/coerce-value {:type :float} "123.4") 0.0001)
-        (should= 123.4 (schema/coerce-value {:type :double} "123.4") 0.0001))
+        (should= 123.4 (schema/coerce-value! {:type :float} "123.4") 0.0001)
+        (should= 123.4 (schema/coerce-value! {:type :double} "123.4") 0.0001))
 
       (it "of bigdec"
-        (should= 123.4M (schema/coerce-value {:type :bigdec} "123.4")))
+        (should= 123.4M (schema/coerce-value! {:type :bigdec} "123.4")))
 
       (it "with custom coercions"
-        (let [spec {:type :string :coerce [str/trim reverse #(apply str %)]}]
-          (should= "321" (schema/coerce-value spec " 123\t"))))
+        (let [spec {:type :int :coerce [str/trim reverse #(apply str %)]}]
+          (should= 321 (schema/coerce-value! spec " 123\t"))))
 
       (it "of schema"
         (let [spec  {:type {:name {:type :string :coerce str/trim}}}
               value {:name "  fred "}]
-          (should= {:name "fred"} (schema/coerce-value spec value))))
+          (should= {:name "fred"} (schema/coerce-value! spec value))))
 
       (it "of multi schema"
         (let [spec  {:type [{:name {:type :string :coerce str/trim}}]}
               value {:name "  fred "}]
-          (should= [{:name "fred"}] (schema/coerce-value spec [value]))))
+          (should= [{:name "fred"}] (schema/coerce-value! spec [value]))))
 
       (it "of object with custom coercions"
         (let [spec  {:type   {:name {:type :string}}
                      :coerce (constantly {:name "billy"})}
               value "blah"]
-          (should= {:name "billy"} (schema/coerce-value spec value))))
+          (should= {:name "billy"} (schema/coerce-value! spec value))))
 
       (it "of object with nested coercions"
         (let [spec  {:type   {:name {:type :string :coerce str/trim}}
-                     :coerce (constantly {:name "  billy "})}
-              value "blah"]
-          (should= {:name "  billy "} (schema/coerce-value spec value))))
+                     :coerce (constantly {:name "  billy "})}]
+          (should= {:name "billy"} (schema/coerce-value! spec "blah"))))
 
       (it ", custom coercions happen before type coercion"
         (let [spec {:type :string :coerce #(* % %)}]
-          (should= "16" (schema/coerce-value spec 4))))
+          (should= "16" (schema/coerce-value! spec 4))))
 
       (it "of sequentials"
-        (let [result (schema/coerce-value {:type [:float]} ["123.4" 321 3.1415])]
+        (let [result (schema/coerce-value! {:type [:float]} ["123.4" 321 3.1415])]
           (should= 123.4 (first result) 0.0001)
           (should= 321.0 (second result) 0.0001)
           (should= 3.1415 (last result) 0.0001)))
 
       (it "of sets (sequentials)"
-        (let [result (schema/coerce-value {:type [:long]} #{"123" 321 3.14})]
+        (let [result (schema/coerce-value! {:type [:long]} #{"123" 321 3.14})]
           (should-contain 123 result)
           (should-contain 321 result)
           (should-contain 3 result)))
 
       (it "of sequentials with customs"
-        (let [result (schema/coerce-value {:type [:float] :coerce inc} [321 3.1415])]
+        (let [result (schema/coerce-value! {:type [:float] :coerce inc} [321 3.1415])]
           (should= 322.0 (first result) 0.0001)
           (should= 4.1415 (last result) 0.0001)))
 
       (it "missing multiple type coercer"
-        (should= nil (schema/coerce-value {:type [:blah]} nil))
-        (should-throw schema/stdex "[:long] expected" (schema/coerce-value {:type [:long]} "foo"))
-        (should-throw schema/stdex "unhandled coercion type: :blah" (schema/coerce-value {:type [:blah]} ["foo"])))
+        (should= nil (schema/coerce-value! {:type [:blah]} nil))
+        (should-throw stdex "[:long] expected" (schema/coerce-value! {:type [:long]} "foo"))
+        (should-throw stdex "unhandled coercion type: :blah" (schema/coerce-value! {:type [:blah]} ["foo"])))
 
       (it "of entity"
         (let [result (schema/coerce pet {:species  "dog"
@@ -321,10 +324,10 @@
     (context "multi field"
 
       (it "with nil value"
-        (should= nil (schema/coerce-value {:type [:int]} nil)))
+        (should= nil (schema/coerce-value! {:type [:int]} nil)))
 
       (it "with empty list"
-        (should= () (schema/coerce-value {:type [:int]} ())))
+        (should= () (schema/coerce-value! {:type [:int]} ())))
 
       (it "entity - with an empty seq value"
         (let [result (schema/coerce pet {:colors []})]
@@ -332,7 +335,7 @@
       )
 
     (it "nested entity as a seq is coerced into a map"
-      (let [result (schema/coerce pet {:parent [[:name "Fido"] [:age 12]]})]
+      (let [result (schema/coerce pet {:parent [[:name "Fido"] [:age "12"]]})]
         (should= {:name "Fido" :age 12} (:parent result))))
 
     (it "message is used"
@@ -384,7 +387,7 @@
     (context "from spec"
 
       (it "with missing type"
-        (should-throw schema/stdex "unhandled validation type: nil" (schema/validate-value! {} 123)))
+        (should-throw stdex "unhandled validation type: nil" (schema/validate-value! {} 123)))
 
       (it "of booleans"
         (should= true (schema/valid-value? {:type :boolean} true))
@@ -534,8 +537,8 @@
 
       (it "missing multiple type coercer"
         (should= nil (schema/validate-value! {:type [:blah]} nil))
-        (should-throw schema/stdex "[:int] expected" (schema/validate-value! {:type [:int]} :foo))
-        (should-throw schema/stdex "unhandled validation type: :blah" (schema/validate-value! {:type [:blah]} [:foo])))
+        (should-throw stdex "[:int] expected" (schema/validate-value! {:type [:int]} :foo))
+        (should-throw stdex "unhandled validation type: :blah" (schema/validate-value! {:type [:blah]} [:foo])))
 
       (it "of invalid entity"
         (let [result (schema/validate pet invalid-pet)
@@ -612,6 +615,12 @@
           (should= false (schema/error? result1))
           (should= true (schema/error? result2))
           (should= "Snakes are not fluffy!" (:species (schema/message-map result2)))))
+
+      (it "nested required field"
+        (let [child  {:value {:type :string}}
+              parent {:child {:type child :validations [{:validate some? :message "is required"}]}}]
+          (should= {:child "is required"} (schema/validation-errors parent {}))))
+
       )
 
     (it "error info"
@@ -629,39 +638,40 @@
   (context "conforming"
 
     (it "with failed coercion"
-      (should-throw schema/stdex "can't coerce \"foo\" to int" (schema/conform-value {:type :int} "foo"))
-      (should-throw schema/stdex "oh no!" (schema/conform-value {:type :int :message "oh no!"} "foo")))
+      (should-throw stdex "can't coerce \"foo\" to int" (schema/conform-value! {:type :int} "foo"))
+      (should-throw stdex "oh no!" (schema/conform-value! {:type :int :message "oh no!"} "foo")))
 
     (it "with failed validation"
-      (should-throw schema/stdex "oh no!"
-                    (schema/conform-value {:type :int :validate even? :message "oh no!"} "123")))
+      (should-throw stdex "oh no!"
+                    (schema/conform-value! {:type :int :validate even? :message "oh no!"} "123")))
 
     (it "of int the must be present"
-      (should-throw schema/stdex "is invalid"
-                    (schema/conform-value {:type :int :validate [schema/present?]} ""))
-      (should-throw schema/stdex "is invalid"
-                    (schema/conform-value {:type :long :validate schema/present?} "")))
+      (should-throw stdex "is invalid"
+                    (schema/conform-value! {:type :int :validate [schema/present?]} ""))
+      (should-throw stdex "is invalid"
+                    (schema/conform-value! {:type :long :validate schema/present?} "")))
 
     (it "success"
-      (should= 123 (schema/conform-value {:type :int :message "oh no!"} "123")))
+      (should= 123 (schema/conform-value! {:type :int :message "oh no!"} "123")))
 
     (it "of sequentials"
-      (should= [123 321 3] (schema/conform-value {:type [:int]} ["123.4" 321 3.1415])))
+      (should= [123 321 3] (schema/conform-value! {:type [:int]} ["123.4" 321 3.1415])))
 
     (it "of sequentials - empty"
-      (should= [] (schema/conform-value {:type [:int]} []))
-      (should= nil (schema/conform-value {:type [:int]} nil)))
+      (should= [] (schema/conform-value! {:type [:int]} []))
+      (should= nil (schema/conform-value! {:type [:int]} nil))
+      (should-throw stdex "[:int] expected" (schema/conform-value! {:type [:int]} "foo")))
 
     (it "of object"
       (let [spec {:type {:foo {:type :keyword}}}]
-        (should= {} (schema/conform-value spec {}))
-        (should= {:foo :bar} (schema/conform-value spec {:foo :bar :hello "world"}))))
+        (should= {} (schema/conform-value! spec {}))
+        (should= {:foo :bar} (schema/conform-value! spec {:foo :bar :hello "world"}))))
 
     (it "of multi object"
       (let [spec {:type [{:foo {:type :keyword}}]}]
-        (should= [{}] (schema/conform-value spec [{}]))
-        (should= [{:foo :bar}] (schema/conform-value spec [{:foo :bar :hello "world"}]))
-        (should= nil (schema/conform-value spec nil))))
+        (should= [{}] (schema/conform-value! spec [{}]))
+        (should= [{:foo :bar}] (schema/conform-value! spec [{:foo :bar :hello "world"}]))
+        (should= nil (schema/conform-value! spec nil))))
 
     (it "a valid entity"
       (let [result (schema/conform pet {:species  "dog"
@@ -847,65 +857,65 @@
   (context "presentation"
 
     (it "of int"
-      (should= 123 (schema/present-value {:type :int} 123))
-      (should= 123 (schema/present-value {:type :long} 123)))
+      (should= 123 (schema/present-value! {:type :int} 123))
+      (should= 123 (schema/present-value! {:type :long} 123)))
 
     (it "of float"
-      (should= 12.34 (schema/present-value {:type :float} 12.34))
-      (should= 12.34 (schema/present-value {:type :double} 12.34)))
+      (should= 12.34 (schema/present-value! {:type :float} 12.34))
+      (should= 12.34 (schema/present-value! {:type :double} 12.34)))
 
     (it "of string"
-      (should= "foo" (schema/present-value {:type :string} "foo")))
+      (should= "foo" (schema/present-value! {:type :string} "foo")))
 
     (it "of date"
-      (should= now (schema/present-value {:type :instant} now)))
+      (should= now (schema/present-value! {:type :instant} now)))
 
     (it "applies custom presenter"
-      (should= 124 (schema/present-value {:type :long :present inc} 123)))
+      (should= 124 (schema/present-value! {:type :long :present inc} 123)))
 
     (it "ommited"
-      (should-be-nil (schema/present-value {:type :long :present schema/omit} 123)))
+      (should-be-nil (schema/present-value! {:type :long :present schema/omit} 123)))
 
     (it "applies multiple custom presenters"
-      (should= 62 (schema/present-value {:type :long :present [inc #(/ % 2)]} 123)))
+      (should= 62 (schema/present-value! {:type :long :present [inc #(/ % 2)]} 123)))
 
     (it "of sequentials"
-      (should= [123 456] (schema/present-value {:type [:int]} [123 456])))
+      (should= [123 456] (schema/present-value! {:type [:int]} [123 456])))
 
     (it "of sequentials - empty"
-      (should= [] (schema/present-value {:type [:int]} [])))
+      (should= [] (schema/present-value! {:type [:int]} [])))
 
     (it "of sequentials - nil"
-      (should-be-nil (schema/present-value {:type [:int]} nil)))
+      (should-be-nil (schema/present-value! {:type [:int]} nil)))
 
     (it "of sequentials with customs"
-      (should= ["123" "456"] (schema/present-value {:type [:int] :present str} [123 456]))
-      (should= ["2" "3" "4" "5"] (schema/present-value {:type [:float] :present [inc str]} [1 2 3 4])))
+      (should= ["123" "456"] (schema/present-value! {:type [:int] :present str} [123 456]))
+      (should= ["2" "3" "4" "5"] (schema/present-value! {:type [:float] :present [inc str]} [1 2 3 4])))
 
     (it "of sequentials when omitted"
-      (should= [] (schema/present-value {:type [:int] :present schema/omit} [123 456])))
+      (should= [] (schema/present-value! {:type [:int] :present schema/omit} [123 456])))
 
     (it "of object"
       (let [spec  {:type {:age {:type :int :present str}}}
             value {:age 10}]
-        (should= {:age "10"} (schema/present-value spec value))))
+        (should= {:age "10"} (schema/present-value! spec value))))
 
     (it "of sequential object"
       (let [spec  {:type [{:age {:type :int :present str}}]}
             value [{:age 10}]]
-        (should= [{:age "10"}] (schema/present-value spec value))))
+        (should= [{:age "10"}] (schema/present-value! spec value))))
 
     (it "of object with customs"
       (let [spec  {:type    {:age {:type :int}}
                    :present pr-str}
             value {:age 10}]
-        (should= "{:age 10}" (schema/present-value spec value))))
+        (should= "{:age 10}" (schema/present-value! spec value))))
 
     (it "of object with presentable attributes"
       (let [spec  {:type    {:age {:type :int :present str}}
                    :present pr-str}
             value {:age 10}]
-        (should= "{:age \"10\"}" (schema/present-value spec value))))
+        (should= "{:age \"10\"}" (schema/present-value! spec value))))
 
     (context "of entity"
 
@@ -926,7 +936,7 @@
           (should-contain :stage-name (schema/error-map result))))
 
       (it "with error on entity level presentation!"
-        (should-throw schema/stdex
+        (should-throw stdex
                       (schema/present!
                         (assoc pet :* {:stage-name {:present #(throw (ex-info "blah" {:x %}))}}) valid-pet)))
       )
@@ -948,6 +958,24 @@
       (let [result (schema/conform pet (dissoc valid-pet :kind))]
         (should= false (schema/error? result))
         (should= :pet (:kind result))))
+
+    )
+
+  (context "entity level"
+
+    (it "must be maps"
+      (should= "can't coerce \"foo\" to map" (schema/error-message (schema/coerce pet "foo")))
+      (should= "can't coerce \"foo\" to map" (schema/error-message (schema/validate pet "foo")))
+      (should= "can't coerce \"foo\" to map" (schema/error-message (schema/conform pet "foo")))
+      (should= "can't coerce \"foo\" to map" (schema/error-message (schema/present pet "foo"))))
+
+    (it "errors don't get added until after"
+      (let [schema {:foo {:type :string}
+                    :bar {:type :string}
+                    :* {:foo {:validate seq}
+                        :bar {:validate seq}}}]
+        (should= {:foo "is invalid" :bar "is invalid"} (schema/validate-errors schema {})))
+      )
 
     )
 

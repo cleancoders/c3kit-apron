@@ -20,10 +20,6 @@
     :present     [#(str %)]                                 ;; single/list of presentation fns
     }})
 
-(def stdex
-  #?(:clj  clojure.lang.ExceptionInfo
-     :cljs cljs.core/ExceptionInfo))
-
 (defn- coerce-ex [value type]
   (let [value-str (pr-str value)
         value-str (if (< 50 (count value-str))
@@ -281,6 +277,9 @@
 (defrecord ValidateError [message]
   FieldError)
 
+(defrecord ConformError [message]
+  FieldError)
+
 (defrecord PresentError [message]
   FieldError)
 
@@ -346,6 +345,8 @@
   (-create-field-error ->CoerceError "coercion failed" options))
 (defmethod -process-error :validate [_ options]
   (-create-field-error ->ValidateError "is invalid" options))
+(defmethod -process-error :conform [_ options]
+  (-create-field-error ->ConformError "conform failed" options))
 (defmethod -process-error :present [_ options]
   (-create-field-error ->PresentError "present failed" options))
 
@@ -372,7 +373,8 @@
         type-coercer (if (map? type) coerce-map (type-coercer! type))
         coerce-fns   (conj (->vec (:coerce spec)) type-coercer)]
     (try
-      (reduce (fn [result coerce-fn] (coerce-fn result)) value coerce-fns)
+      (let [result (reduce (fn [result coerce-fn] (coerce-fn result)) value coerce-fns)]
+        result)
       (catch #?(:clj Exception :cljs :default) e
         (-process-error :coerce {:message message :exception e})))))
 
@@ -431,6 +433,7 @@
     (get presented-entity key)))
 
 (declare process-entity)
+(declare coerce-and-process-entity)
 
 (defn- -process-value [process spec value]
   (let [type   (:type spec)
@@ -445,12 +448,17 @@
                                   (ccc/removev nil? result)
                                   result))
             :else (-process-error process {:message (str "[" (if (map? type) "schema" type) "] expected")}))
-      (if (and (some? schema) (map? value))
-        (let [entity (process-entity process schema value)]
-          (if (error? entity)
-            entity
-            (field-result-or-error process spec entity)))
-        (field-result-or-error process spec value)))))
+      (if (= :coerce process)
+        (let [value (field-result-or-error process spec value)]
+          (if (and (some? schema) (not (error? value)))
+            (process-entity process schema value)
+            value))
+        (if (and (some? schema) (map? value))
+          (let [entity (process-entity process schema value)]
+            (if (error? entity)
+              entity
+              (field-result-or-error process spec entity)))
+          (field-result-or-error process spec value))))))
 
 (defn- -process-spec [process entity [key spec]]
   (let [value     (get entity key)
@@ -459,18 +467,27 @@
       (assoc entity key new-value)
       (dissoc entity key))))
 
-(defn- -process-spec-on-entity [process entity [key spec]]
-  (let [result (entity-result-or-error process key spec entity)]
-    (if (some? result)
-      (assoc entity key result)
-      (dissoc entity key))))
+(defn- -process-spec-on-entity [process result [key spec]]
+  (let [value (entity-result-or-error process key spec (:entity result))]
+    (if (some? value)
+      (if (error? value)
+        (assoc-in result [:errors key] value)
+        (assoc-in result [:entity key] value))
+      (update result :entity dissoc key))))
 
 (defn- process-entity [process schema entity]
   (let [entity (select-keys entity (keys schema))
         entity (reduce (partial -process-spec process) entity (dissoc schema :*))]
     (if (error? entity)
       entity
-      (reduce (partial -process-spec-on-entity process) entity (:* schema)))))
+      (let [{:keys [entity errors]} (reduce (partial -process-spec-on-entity process) {:entity entity} (:* schema))]
+        (merge entity errors)))))
+
+(defn- coerce-and-process-entity [process schema entity]
+  (try
+    (process-entity process schema (coerce-map entity))
+    (catch #?(:clj Exception :cljs :default) e
+      (-process-error process {:value entity :exception e}))))
 
 (defn- process-value-or-error [process spec value]
   (let [result (-process-value process spec value)]
@@ -482,10 +499,12 @@
 
 ;; region ----- API -----
 
-(defn coerce-value
+(defn coerce-value!
   "returns coerced value or throws an exception"
-  ([schema key value] (coerce-value (get schema key) value))
+  ([schema key value] (coerce-value! (get schema key) value))
   ([spec value] (process-value-or-error :coerce spec value)))
+
+(def ^{:doc "Same as coerce-value!.  Exists for backwards compatibility."} coerce-value coerce-value!)
 
 (defn validate-value!
   "throws an exception when validation fails, value otherwise"
@@ -497,27 +516,31 @@
   ([schema key value] (valid-value? (get schema key) value))
   ([spec value] (try (validate-value! spec value) true (catch #?(:clj Exception :cljs :default) _ false))))
 
-(defn conform-value
+(defn conform-value!
   "coerce and validate, returns coerced value or throws"
-  ([schema key value] (conform-value (get schema key) value))
+  ([schema key value] (conform-value! (get schema key) value))
   ([spec value] (process-value-or-error :conform spec value)))
 
-(defn present-value
-  "returns a presentable representation of the value"
-  ([schema key value] (present-value (get schema key) value))
+(def ^{:doc "Same as conform-value!.  Exists for backwards compatibility."} conform-value conform-value!)
+
+(defn present-value!
+  "returns a presentable representation of the value, or throws"
+  ([schema key value] (present-value! (get schema key) value))
   ([spec value] (process-value-or-error :present spec value)))
+
+(def ^{:doc "Same as present-value!.  Exists for backwards compatibility."} present-value present-value!)
 
 (defn coerce
   "Returns coerced entity or SchemaError if any coercion failed. Use error? to check result.
   Use Case: 'I want to change my data into the types specified by the schema.'"
   [schema entity]
-  (process-entity :coerce schema entity))
+  (coerce-and-process-entity :coerce schema entity))
 
 (defn validate
   "Returns entity with all values true, or SchemaError when one or more invalid fields. Use error? to check result.
   Use Case: 'I want to make sure all the data is valid according to the schema.'"
   [schema entity]
-  (process-entity :validate schema entity))
+  (coerce-and-process-entity :validate schema entity))
 
 (defn conform
   "Returns coerced entity or SchemaError upon any coercion or validation failure. Use error? to check result.
@@ -525,12 +548,12 @@
   Use Case: Data comes in from a web-form so strings have to be coerced into numbers, etc., then
             we need to validate that the data is good."
   [schema entity]
-  (process-entity :conform schema entity))
+  (coerce-and-process-entity :conform schema entity))
 
 (defn present
   "Returns presented entity with FieldErrors where the process failed. Use error? to check result."
   [schema entity]
-  (process-entity :present schema entity))
+  (coerce-and-process-entity :present schema entity))
 
 (defn- as-map-or-nil [thing]
   (when (seq thing)
@@ -578,10 +601,12 @@
   [schema entity]
   (message-map (coerce schema entity)))
 
-(defn validation-errors
+(defn validate-errors
   "Runs validate on the entity and returns a map of error message, or nil if none."
   [schema entity]
   (message-map (validate schema entity)))
+
+(def ^{:doc "Same as validate-errors.  Exists for backwards compatibility."} validation-errors validate-errors)
 
 (defn conform-errors
   "Runs conform on the entity and returns a map of error message, or nil if none."
