@@ -233,6 +233,17 @@
       (should= 0 (sec utc))
       (should= "2020-03-31" (unparse :webform date))))
 
+  (it "parses and formats :web-local datas"
+    (let [date (parse :web-local "2024-02-29T01:23")
+          utc  (sut/->utc date)]
+      (should= 2024 (year utc))
+      (should= 2 (month utc))
+      (should= 29 (day utc))
+      (should= 1 (hour utc))
+      (should= 23 (minute utc))
+      (should= 0 (sec utc))
+      (should= "2024-02-29T01:23" (unparse :web-local date))))
+
   (it "time range"
     (let [time1 (sut/local 1939 9 1)
           time2 (sut/local 1945 9 2)

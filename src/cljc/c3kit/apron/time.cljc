@@ -268,6 +268,7 @@
    :dense      (formatter "yyyyMMddHHmmss")
    :ymd        (formatter "yyyyMMdd")
    :webform    (formatter "yyyy-MM-dd")
+   :web-local  (formatter "yyyy-MM-dd'T'HH:mm")
    :friendly   (formatter "EEE - MMM d, yyyy")
    :short      (formatter "MMM d, yyyy")
    })
