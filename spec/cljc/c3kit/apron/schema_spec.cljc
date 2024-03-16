@@ -37,8 +37,8 @@
    :owner       {:type     :ref
                  :validate [schema/present?]
                  :message  "must be a valid reference format"}
-   :colors      {:type    [:string]
-                 :message "must be a string"}
+   :colors      {:type    [{:type :string
+                            :message "must be a string"}]}
    :uuid        {:type :uuid
                  :db   [:unique-identity]}
    :parent      {:type {:name {:type :string}

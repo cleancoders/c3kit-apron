@@ -20,10 +20,32 @@
     :present     [#(str %)]                                 ;; single/list of presentation fns
     }})
 
+(def process-spec-schema {:type :one-of :specs [{:type :fn} {:type :seq :spec {:type :fn}}]})
+
+(def validation-schema
+  {:validate process-spec-schema
+   :message  {:type :string}})
+
+(def spec-schema
+  {:type        {:type :one-of :specs [{:type :keyword} {:type :ignore :coerce 'normalize-shorthand}]}
+   :validate    process-spec-schema
+   :coerce      process-spec-schema
+   :present     process-spec-schema
+   :message     {:type :string}
+   :validations {:type :seq :spec {:type :map :schema validation-schema}}})
+
+(comment
+  ;; Shorthands
+  {:type [:int] :validate even?} {:type :seq :spec {:type :int :validate even?}}
+  {:type [{:type :int}] :validate seq} {:type :seq :spec {:type :int} :validate seq}
+  {:type {...}} {:type :map :schema {...}}
+  {:type #{:string :int}} {:type :one-of :specs [{:type :string} {:type :int}]}
+  ;; consider :any synonymous with :ignore
+  )
+
 ;; TODO - MDM: [{:type :long}] - seq fields should contain a spec.  Processes on the seq field should act on the
 ;;   seq value, not the values in the seq.  The spec will specify what processes act on the values in the seq.
 ;; TODO - MDM: Deprecation print message on deprecated fns
-
 
 (defn- coerce-ex [value type]
   (let [value-str (pr-str value)
