@@ -206,7 +206,7 @@
     (context "from spec"
 
       (it "with missing type"
-        (should-throw stdex "unhandled coercion type: nil" (schema/coerce-value! {} 123)))
+        (should-throw stdex "invalid spec: {}" (schema/coerce-value! {} 123)))
 
       (it "of boolean"
         (should= true (schema/coerce-value! {:type :boolean} 123)))
@@ -256,7 +256,7 @@
         (let [spec {:type :string :coerce #(* % %)}]
           (should= "16" (schema/coerce-value! spec 4))))
 
-      (it "of seq "
+      (it "of seq"
         (let [result (schema/coerce-value! {:type [:float]} ["123.4" 321 3.1415])]
           (should= 123.4 (first result) 0.0001)
           (should= 321.0 (second result) 0.0001)
@@ -269,18 +269,21 @@
           (should-contain 3 result)))
 
       (it "of seq with inner coercion"
-        (let [result (schema/coerce-value! {:type [:float] :coerce inc} [321 3.1415])]
+        (let [result (schema/coerce-value! {:type :seq :spec {:type :float :coerce inc}} [321 3.1415])]
           (should= 322.0 (first result) 0.0001)
           (should= 4.1415 (last result) 0.0001)))
 
       (it "missing multiple type coercer"
         (should= nil (schema/coerce-value! {:type [:blah]} nil))
-        (should-throw stdex "[:long] expected" (schema/coerce-value! {:type [:long]} "foo"))
+        (should-throw stdex "[:long] expected" (schema/coerce-value! {:type [:long]} :foo))
         (should-throw stdex "unhandled coercion type: :blah" (schema/coerce-value! {:type [:blah]} ["foo"])))
 
-      (it "of seq with outer coersion"
-        (let [result (schema/coerce-value! {:type :seq :spec {:type :int} :coerce set} ["123.4" 321 3.1415])]
-          (should= #{123 321 3} result 0.0001)))
+      (it "of seq with outer coercion happens before inner coercion"
+        (let [result (schema/coerce-value! {:type :seq :spec {:type :int} :coerce seq} "123")]
+          (should= [1 2 3] result))
+        (let [result (schema/coerce-value! {:type :seq :spec {:type :int} :coerce schema/->seq} "123")]
+          (should= [123] result))
+        (should-throw (schema/coerce-value! {:type :seq :spec {:type :int} :coerce #(map inc %)} :123))) ;; cljs will map over a string
 
       (it "of entity"
         (let [result (schema/coerce pet {:species  "dog"
@@ -290,7 +293,6 @@
                                          :name     "Fluff"
                                          :owner    "12345"
                                          :uuid     a-uuid})]
-          (prn "result: " result)
           (should= false (schema/error? result))
           (should= "dog" (:species result))
           (should= now (:birthday result))
@@ -302,7 +304,6 @@
 
       (it "of entity, nil values omitted"
         (let [result (schema/coerce pet {:name "Fido"})]
-          (prn "result: " result)
           (should= false (schema/error? result))
           (should= "Fidoy" (:name result))
           (should-not-contain :length result)
@@ -395,7 +396,7 @@
     (context "from spec"
 
       (it "with missing type"
-        (should-throw stdex "unhandled validation type: nil" (schema/validate-value! {} 123)))
+        (should-throw stdex "invalid spec: {}" (schema/validate-value! {} 123)))
 
       (it "of booleans"
         (should= true (schema/valid-value? {:type :boolean} true))
@@ -503,13 +504,13 @@
         (should= true (schema/valid-value? {:type :instant} nil))
         (should= false (schema/valid-value? {:type :instant :validate [schema/present?]} nil)))
 
-      (it "of sequentials"
+      (it "of seq with default validations"
         (should= true (schema/valid-value? {:type [:float]} [32.1 3.1415]))
         (should= false (schema/valid-value? {:type [:float]} 3.1415))
         (should= false (schema/valid-value? {:type [:float]} ["3.1415"]))
         (should= true (schema/valid-value? {:type [:float]} nil)))
 
-      (it "of sequentials with customs"
+      (it "of seq with custom validations"
         (should= true (schema/valid-value? {:type [:float] :validate pos?} [32.1 3.1415]))
         (should= false (schema/valid-value? {:type [:float] :validate pos?} [32.1 -3.1415])))
 
@@ -517,7 +518,7 @@
         (let [spec {:type {:foo {:type :keyword}}}]
           (should= true (schema/valid-value? spec {:foo :bar}))))
 
-      (it "of multiple object"
+      (it "of seq of objects"
         (let [spec {:type [{:age {:type :int}}]}]
           (should= true (schema/valid-value? spec [{:age 1} {:age 2}]))
           (should= false (schema/valid-value? spec [{:age :foo}]))))
@@ -543,6 +544,12 @@
           (should= false (schema/valid-value? spec {:foo :bar :hello "worlds"}))
           (should= true (schema/valid-value? spec {:foo :bar :hello "world"}))))
 
+      (it "of seq with outer validation happens after inner validation"
+        (let [spec {:type :seq :spec {:type :int :validate pos? :message "neg"} :validate seq :message "empty"}]
+          (should= [123] (schema/-process-spec-on-value :validate spec [123]))
+          (should= "neg" (->> [-123] (schema/-process-spec-on-value :validate spec) first :message))
+          (should= "empty" (->> [] (schema/-process-spec-on-value :validate spec) :message))))
+
       (it "missing multiple type coercer"
         (should= nil (schema/validate-value! {:type [:blah]} nil))
         (should-throw stdex "[:int] expected" (schema/validate-value! {:type [:int]} :foo))
@@ -562,7 +569,6 @@
 
       (it "of valid entity"
         (let [result (schema/validate pet valid-pet)]
-          (prn (schema/message-map result))
           (should= false (schema/error? result))))
 
       (it "of entity with missing(required) fields"
@@ -627,7 +633,7 @@
       (it "nested required field"
         (let [child  {:value {:type :string}}
               parent {:child {:type child :validations [{:validate some? :message "is required"}]}}]
-          (should= {:child "is required"} (schema/validation-errors parent {}))))
+          (should= {:child "is required"} (schema/validate-message-map parent {}))))
 
       )
 
@@ -957,7 +963,7 @@
             kind   (:kind result)]
         (should= true (schema/field-error? kind))
         (should= true (schema/error? result))
-        (should= ["kind mismatch; must be :pet"] (schema/messages result))))
+        (should= ["kind mismatch; must be :pet"] (schema/message-seq result))))
 
     (it "can be left out"
       (should= false (schema/error? (schema/validate pet (dissoc valid-pet :kind)))))
@@ -982,7 +988,7 @@
                     :bar {:type :string}
                     :*   {:foo {:validate seq}
                           :bar {:validate seq}}}]
-        (should= {:foo "is invalid" :bar "is invalid"} (schema/validate-errors schema {})))
+        (should= {:foo "is invalid" :bar "is invalid"} (schema/validate-message-map schema {})))
       )
 
     )
@@ -1096,6 +1102,8 @@
       (it "with schema"
         (let [result (schema/normalize-spec {:type [{:foo "bar"}]})]
           (should= {:type :seq :spec {:type :map :schema {:foo "bar"}}} result))
+        (let [result (schema/normalize-spec {:type [{:foo "bar"}] :validate :foo})]
+          (should= {:type :seq :spec {:type :map :schema {:foo "bar"} :validate :foo}} result))
         (let [result (schema/normalize-spec {:type [{:foo "bar"}] :foo "bar"})]
           (should= {:type :seq :spec {:type :map :schema {:foo "bar"}} :foo "bar"} result)))
       )

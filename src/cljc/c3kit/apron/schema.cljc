@@ -50,8 +50,8 @@
   (not (or (nil? v)
            (and (string? v) (str/blank? v)))))
 
-(defn nil-or [f] (log/warn "schema/nil-or deprecated.  Use nil-or? instead") (some-fn nil? f))
-(defn nil-or? [f] (some-fn nil? f))
+(defn nil-or [f] (log/warn "schema/nil-or deprecated.  Use nil?-or instead") (some-fn nil? f))
+(defn nil?-or [f] (some-fn nil? f))
 
 (def email-pattern #"[A-Za-z0-9!#$%&'*+/=?^_`{|}~-]+(?:\.[A-Za-z0-9!#$%&'*+/=?^_`{|}~-]+)*@(?:[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?\.)+[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?")
 
@@ -191,6 +191,11 @@
     (string? v) #?(:clj (java.net.URI/create v) :cljs v)
     :else (throw (coerce-ex v "uri"))))
 
+(defn- ->map [m]
+  (cond (nil? m) m
+        (map? m) m
+        (sequential? m) (into {} m)
+        :else (throw (coerce-ex m "map"))))
 
 ;; MDM : https://github.com/cognitect/transit-cljs/issues/41
 #?(:cljs (extend-type com.cognitect.transit.types/UUID IUUID))
@@ -202,25 +207,43 @@
     (string? v) #?(:clj (java.util.UUID/fromString v) :cljs (uuid v))
     :else (throw (coerce-ex v "uuid"))))
 
+(defn- multiple? [thing]
+  (or (sequential? thing)
+      (set? thing)))
+
+(defn- ->vec [v]
+  (cond
+    (nil? v) []
+    (multiple? v) (vec v)
+    :else [v]))
+
+(defn ->seq [v]
+  (cond
+    (nil? v) []
+    (multiple? v) v
+    :else (list v)))
+
 ;; endregion ^^^^^ Common Coercions ^^^^^
 ;; region ----- Type Tables -----
 
 (def type-validators
-  {:bigdec    (nil-or bigdec?)
-   :boolean   (nil-or boolean?)
-   :double    (nil-or #?(:clj float? :cljs number?))
-   :float     (nil-or #?(:clj float? :cljs number?))
-   :instant   (nil-or #(instance? date %))
-   :date      (nil-or #?(:clj #(instance? java.sql.Date %) :cljs #(instance? date %)))
-   :timestamp (nil-or #?(:clj #(instance? java.sql.Timestamp %) :cljs #(instance? date %)))
-   :int       (nil-or integer?)
-   :keyword   (nil-or keyword?)
-   :kw-ref    (nil-or keyword?)
-   :long      (nil-or integer?)
-   :ref       (nil-or integer?)
-   :string    (nil-or string?)
-   :uri       (nil-or uri?)
-   :uuid      (nil-or uuid?)
+  {:bigdec    (nil?-or bigdec?)
+   :boolean   (nil?-or boolean?)
+   :double    (nil?-or #?(:clj float? :cljs number?))
+   :float     (nil?-or #?(:clj float? :cljs number?))
+   :instant   (nil?-or #(instance? date %))
+   :date      (nil?-or #?(:clj #(instance? java.sql.Date %) :cljs #(instance? date %)))
+   :timestamp (nil?-or #?(:clj #(instance? java.sql.Timestamp %) :cljs #(instance? date %)))
+   :int       (nil?-or integer?)
+   :keyword   (nil?-or keyword?)
+   :kw-ref    (nil?-or keyword?)
+   :long      (nil?-or integer?)
+   :map       (nil?-or map?)
+   :ref       (nil?-or integer?)
+   :seq       (nil?-or multiple?)
+   :string    (nil?-or string?)
+   :uri       (nil?-or uri?)
+   :uuid      (nil?-or uuid?)
    :ignore    (constantly true)})
 
 (def type-coercers
@@ -235,7 +258,9 @@
    :keyword   ->keyword
    :kw-ref    ->keyword
    :long      ->int
+   :map       ->map
    :ref       ->int
+   :seq       identity
    :string    ->string
    :uri       ->uri
    :uuid      ->uuid
@@ -258,7 +283,9 @@
                                  (-> (apply dissoc spec spec-keys)
                                      (assoc :type :seq :spec entry-spec)))
           (and (map? spec-type) (contains? spec-type :type)) (assoc spec :type :seq :spec (normalize-spec spec-type))
-          :else (assoc spec :type :seq :spec (normalize-spec {:type spec-type})))))
+          :else (let [entry-spec (normalize-spec (assoc (select-keys spec spec-keys) :type spec-type))]
+                  (-> (apply dissoc spec spec-keys)
+                      (assoc :type :seq :spec entry-spec))))))
 
 (defn- normalize-map-shorthand [{:keys [type] :as spec}]
   (assoc spec :type :map :schema type))
@@ -268,18 +295,20 @@
 
 (defn normalized? [schema-or-spec] (::normalized? (meta schema-or-spec)))
 
-(defn- spec-normalized? [spec]
-  (or (normalized? spec) (and (map? spec) (keyword? (:type spec)))))
+(defn- normal-spec-form? [spec]
+  (and (map? spec) (keyword? (:type spec))))
 
 (defn normalize-spec [spec]
-  (with-meta
-    (cond (spec-normalized? spec) spec
-          (keyword? spec) {:type spec}
-          (sequential? (:type spec)) (normalize-seq-shorthand spec)
-          (map? (:type spec)) (normalize-map-shorthand spec)
-          (set? (:type spec)) (normalize-set-shorthand spec)
-          :else (throw (ex-info "invalid spec" {:spec spec})))
-    {::normalized? true}))
+  (if (normalized? spec)
+    spec
+    (with-meta
+      (cond (normal-spec-form? spec) spec
+            (keyword? spec) {:type spec}
+            (sequential? (:type spec)) (normalize-seq-shorthand spec)
+            (map? (:type spec)) (normalize-map-shorthand spec)
+            (set? (:type spec)) (normalize-set-shorthand spec)
+            :else (throw (ex-info (str "invalid spec: " (pr-str spec)) {:spec spec})))
+      {::normalized? true})))
 
 (defn normalize-schema [schema]
   (if (normalized? schema)
@@ -324,22 +353,6 @@
 
 ;; endregion ^^^^^ Common Schema Attributes ^^^^^
 ;; region ----- Processing -----
-
-(defn- multiple? [thing]
-  (or (sequential? thing)
-      (set? thing)))
-
-(defn- ->vec [v]
-  (cond
-    (nil? v) []
-    (multiple? v) (vec v)
-    :else [v]))
-
-(defn ->seq [v]
-  (cond
-    (nil? v) []
-    (multiple? v) v
-    :else (list v)))
 
 (defn type-coercer! [type]
   (or (get type-coercers type)
@@ -417,8 +430,8 @@
   ;; MDM: optimizing by storing :error? in metadata on entity did not improve performance noticeably.
   (boolean (seq (error-seq entity))))
 
-(defmulti -process-field (fn [process _spec _value] process))
-(defmulti -process-entity (fn [process _key _spec _entity] process))
+(defmulti -process-field-spec (fn [process _spec _value] process))
+(defmulti -process-entity-level-spec (fn [process _key _spec _entity] process))
 (defmulti -process-error (fn [process _options] process))
 
 (defmethod -process-error :coerce [_ options]
@@ -432,26 +445,19 @@
 
 (defn- field-result-or-error [process spec value]
   (try
-    (-process-field process spec value)
+    (-process-field-spec process spec value)
     (catch #?(:clj Exception :cljs :default) e
       (-process-error process {:exception e}))))
 
 (defn- entity-result-or-error [process key spec entity]
   (try
-    (-process-entity process key spec entity)
+    (-process-entity-level-spec process key spec entity)
     (catch #?(:clj Exception :cljs :default) e
       (-process-error process {:exception e}))))
 
-(defn- coerce-map [m]
-  (cond (nil? m) m
-        (map? m) m
-        (sequential? m) (into {} m)
-        :else (throw (coerce-ex m "map"))))
-
-(defmethod -process-field :coerce [_ spec value]
+(defmethod -process-field-spec :coerce [_ spec value]
   (let [{:keys [type message]} spec
-        type-coercer (if (map? type) coerce-map (type-coercer! type))
-        coerce-fns   (conj (->vec (:coerce spec)) type-coercer)]
+        coerce-fns (conj (->vec (:coerce spec)) (type-coercer! type))]
     (try
       (let [result (reduce (fn [result coerce-fn] (coerce-fn result)) value coerce-fns)]
         result)
@@ -465,27 +471,26 @@
         (when-not (v-fn value)
           (throw (validation-ex message value)))))))
 
-(defmethod -process-field :validate [_ spec value]
+(defmethod -process-field-spec :validate [_ spec value]
   (let [{:keys [type validate validations message]} spec
-        type-validator (if (map? type) (nil-or map?) (type-validator! type))
-        validations    (concat [{:validate type-validator :message message}]
-                               (if validate [{:validate validate :message message}] [])
-                               validations)]
+        validations (concat [{:validate (type-validator! type) :message message}]
+                            (if validate [{:validate validate :message message}] [])
+                            validations)]
     (process-validations validations value)
     value))
 
-(defmethod -process-field :conform [_ spec value]
+(defmethod -process-field-spec :conform [_ spec value]
   (let [coerce-result (field-result-or-error :coerce spec value)]
     (if (field-error? coerce-result)
       coerce-result
       (let [field-result-or-failure (field-result-or-error :validate spec coerce-result)]
         field-result-or-failure))))
 
-(defmethod -process-field :present [_ spec value]
+(defmethod -process-field-spec :present [_ spec value]
   (let [present-fns (->vec (:present spec))]
     (reduce (fn [result present-fn] (present-fn result)) value present-fns)))
 
-(defmethod -process-entity :coerce [_ key spec entity]
+(defmethod -process-entity-level-spec :coerce [_ key spec entity]
   (let [{:keys [coerce message]} spec
         coerce-fns (->vec coerce)]
     (try
@@ -494,60 +499,75 @@
       (catch #?(:clj Exception :cljs :default) e
         (-process-error :coerce {:message message :exception e})))))
 
-(defmethod -process-entity :validate [_ key spec entity]
+(defmethod -process-entity-level-spec :validate [_ key spec entity]
   (let [{:keys [validate validations message]} spec
         validations (concat (if validate [{:validate validate :message message}] [])
                             validations)]
     (process-validations validations entity)
     (get entity key)))
 
-(defmethod -process-entity :conform [_ key spec entity]
+(defmethod -process-entity-level-spec :conform [_ key spec entity]
   (let [coerce-result (entity-result-or-error :coerce key spec entity)]
     (if (field-error? coerce-result)
       coerce-result
       (entity-result-or-error :validate key spec (assoc entity key coerce-result)))))
 
-(defmethod -process-entity :present [_ key spec entity]
+(defmethod -process-entity-level-spec :present [_ key spec entity]
   (let [present-fns      (->vec (:present spec))
         presented-entity (reduce (fn [result present-fn] (assoc result key (present-fn result))) entity present-fns)]
     (get presented-entity key)))
 
-(declare process-entity)
-(declare coerce-and-process-entity)
+(declare process-schema-on-entity)
+(declare -process-spec-on-value)
 
-(defn- -process-value [process spec value]
-  (let [type   (:type spec)
-        ?seq   (multiple? type)
-        type   (if ?seq (first type) type)
-        schema (when (map? type) type)]
-    (if ?seq
-      (cond (nil? value) nil
-            (multiple? value) (let [spec   (assoc spec :type (if (some? schema) schema type))
-                                    result (mapv #(-process-value process spec %) value)]
-                                (if (= :present process)    ;; MDM - I know.  OCP violation.  Maybe better than multi-methods though.
-                                  (ccc/removev nil? result)
-                                  result))
-            :else (-process-error process {:message (str "[" (if (map? type) "schema" type) "] expected")}))
-      (if (= :coerce process)
-        (let [value (field-result-or-error process spec value)]
-          (if (and (some? schema) (not (error? value)))
-            (process-entity process schema value)
-            value))
-        (if (and (some? schema) (map? value))
-          (let [entity (process-entity process schema value)]
-            (if (error? entity)
-              entity
-              (field-result-or-error process spec entity)))
+(defn- process-spec-on-seq-entries [process spec value]
+  (cond (nil? value) nil
+        (not (multiple? value)) (-process-error process {:message (str "[" (:type spec) "] expected")})
+        :else (let [result (mapv #(-process-spec-on-value process spec %) value)]
+                (if (= :present process)
+                  (ccc/removev nil? result)
+                  result))))
+
+(defn- process-seq-spec-on-value [process spec value]
+  (let [entry-spec (:spec spec)]
+    (if (= :coerce process)
+      (let [value (field-result-or-error process spec value)]
+        (if (error? value)
+          value
+          (process-spec-on-seq-entries process entry-spec value)))
+      (let [value (process-spec-on-seq-entries process entry-spec value)]
+        (if (error? value)
+          value
           (field-result-or-error process spec value))))))
 
-(defn- -process-spec [process entity [key spec]]
+(defn process-map-spec-on-value [process spec value]
+  (let [schema (:schema spec)]
+    (cond (= :coerce process) (let [value (field-result-or-error process spec value)]
+                                (if (error? value)
+                                  value
+                                  (process-schema-on-entity process schema value)))
+          (map? value) (let [entity (process-schema-on-entity process schema value)]
+                         (if (error? entity)
+                           entity
+                           (field-result-or-error process spec entity)))
+          :else (field-result-or-error process spec value))))
+
+(defn -process-spec-on-value [process spec value]
+  (let [spec (normalize-spec spec)
+        type (:type spec)]
+    (case type
+      :seq (process-seq-spec-on-value process spec value)
+      :map (process-map-spec-on-value process spec value)
+      (field-result-or-error process spec value))))
+
+(defn- process-entity-key-spec [process entity [key spec]]
   (let [value     (get entity key)
-        new-value (-process-value process spec value)]
+        new-value (-process-spec-on-value process spec value)]
     (if (some? new-value)
       (assoc entity key new-value)
       (dissoc entity key))))
 
-(defn- -process-spec-on-entity [process result [key spec]]
+(defn- process-entity-level-spec [process result [key spec]]
   (let [value (entity-result-or-error process key spec (:entity result))]
     (if (some? value)
       (if (error? value)
@@ -555,22 +575,22 @@
         (assoc-in result [:entity key] value))
       (update result :entity dissoc key))))
 
-(defn- process-entity [process schema entity]
+(defn- process-schema-on-entity [process schema entity]
   (let [entity (select-keys entity (keys schema))
-        entity (reduce (partial -process-spec process) entity (dissoc schema :*))]
+        entity (reduce (partial process-entity-key-spec process) entity (dissoc schema :*))]
     (if (error? entity)
       entity
-      (let [{:keys [entity errors]} (reduce (partial -process-spec-on-entity process) {:entity entity} (:* schema))]
+      (let [{:keys [entity errors]} (reduce (partial process-entity-level-spec process) {:entity entity} (:* schema))]
         (merge entity errors)))))
 
-(defn- coerce-and-process-entity [process schema entity]
+(defn- coerce-entity-and-process-schema [process schema entity]
   (try
-    (process-entity process schema (coerce-map entity))
+    (process-schema-on-entity process schema (->map entity))
     (catch #?(:clj Exception :cljs :default) e
       (-process-error process {:value entity :exception e}))))
 
 (defn- process-value-or-error [process spec value]
-  (let [result (-process-value process spec value)]
+  (let [result (-process-spec-on-value process spec value)]
     (if-let [error (first (error-seq result))]
       (throw (error->exception error))
       result)))
@@ -584,7 +604,12 @@
   ([schema key value] (coerce-value! (get schema key) value))
   ([spec value] (process-value-or-error :coerce spec value)))
 
-(def ^{:doc "Same as coerce-value!.  Exists for backwards compatibility."} coerce-value coerce-value!)
+(defn coerce-value
+  "DEPRECATED"
+  ([schema key value] (coerce-value (get schema key) value))
+  ([spec value]
+   (log/warn "schema/coerce-value is DEPRECATED.  Use schema/coerce-value! instead.")
+   (process-value-or-error :coerce spec value)))
 
 (defn validate-value!
   "throws an exception when validation fails, value otherwise"
@@ -601,26 +626,36 @@
   ([schema key value] (conform-value! (get schema key) value))
   ([spec value] (process-value-or-error :conform spec value)))
 
-(def ^{:doc "Same as conform-value!.  Exists for backwards compatibility."} conform-value conform-value!)
+(defn conform-value
+  "DEPRECATED"
+  ([schema key value] (conform-value (get schema key) value))
+  ([spec value]
+   (log/warn "schema/conform-value is DEPRECATED.  Use schema/conform-value! instead.")
+   (process-value-or-error :conform spec value)))
 
 (defn present-value!
   "returns a presentable representation of the value, or throws"
   ([schema key value] (present-value! (get schema key) value))
   ([spec value] (process-value-or-error :present spec value)))
 
-(def ^{:doc "Same as present-value!.  Exists for backwards compatibility."} present-value present-value!)
+(defn present-value
+  "DEPRECATED"
+  ([schema key value] (present-value (get schema key) value))
+  ([spec value]
+   (log/warn "schema/present-value is DEPRECATED.  Use schema/present-value! instead.")
+   (process-value-or-error :present spec value)))
 
 (defn coerce
   "Returns coerced entity or SchemaError if any coercion failed. Use error? to check result.
   Use Case: 'I want to change my data into the types specified by the schema.'"
   [schema entity]
-  (coerce-and-process-entity :coerce schema entity))
+  (coerce-entity-and-process-schema :coerce schema entity))
 
 (defn validate
   "Returns entity with all values true, or SchemaError when one or more invalid fields. Use error? to check result.
   Use Case: 'I want to make sure all the data is valid according to the schema.'"
   [schema entity]
-  (coerce-and-process-entity :validate schema entity))
+  (coerce-entity-and-process-schema :validate schema entity))
 
 (defn conform
   "Returns coerced entity or SchemaError upon any coercion or validation failure. Use error? to check result.
@@ -628,12 +663,12 @@
   Use Case: Data comes in from a web-form so strings have to be coerced into numbers, etc., then
             we need to validate that the data is good."
   [schema entity]
-  (coerce-and-process-entity :conform schema entity))
+  (coerce-entity-and-process-schema :conform schema entity))
 
 (defn present
   "Returns presented entity with FieldErrors where the process failed. Use error? to check result."
   [schema entity]
-  (coerce-and-process-entity :present schema entity))
+  (coerce-entity-and-process-schema :present schema entity))
 
 (defn- as-map-or-nil [thing]
   (when (seq thing)
@@ -656,7 +691,11 @@
      (when-let [errors (error-map result)]
        (walk/postwalk (fn [v] (if (field-error? v) (error-message v) v)) errors)))))
 
-(def ^{:doc "Same as message-map.  Exists for backwards compatibility."} error-message-map message-map)
+(defn error-message-map
+  "DEPRECATED"
+  ([result]
+   (log/warn "schema/error-message-map is DEPRECATED.  Use schema/message-map instead.")
+   (message-map result)))
 
 (defn message-seq
   "seq of 'friendly' error messages; nil if none."
@@ -674,26 +713,49 @@
             (let [value (str (str/join "." (reverse new-path)) " " v)]
               (recur (rest errors) stack path (conj result value)))))))))
 
-(def ^{:doc "Same as message-seq.  Exists for backwards compatibility."} messages message-seq)
+(defn messages
+  "DEPRECATED"
+  ([result]
+   (log/warn "schema/messages is DEPRECATED.  Use schema/message-seq instead.")
+   (message-seq result)))
 
-;; TODO - MDM: rename to coerce-message-map
-(defn coerce-errors
+(defn coerce-message-map
   "Runs coerce on the entity and returns a map of error message, or nil if none."
   [schema entity]
   (message-map (coerce schema entity)))
 
-;; TODO - MDM: rename to validate-message-map
-(defn validate-errors
+(defn coerce-errors
+  "DEPRECATED"
+  [schema entity]
+  (log/warn "schema/coerce-errors is DEPRECATED.  Use schema/coerce-message-map instead.")
+  (message-map (coerce schema entity)))
+
+(defn validate-message-map
   "Runs validate on the entity and returns a map of error message, or nil if none."
   [schema entity]
   (message-map (validate schema entity)))
 
-(def ^{:doc "Same as validate-errors.  Exists for backwards compatibility."} validation-errors validate-errors)
+(defn validate-errors
+  "DEPRECATED"
+  [schema entity]
+  (log/warn "schema/validate-errors is DEPRECATED.  Use schema/validate-message-map instead.")
+  (validate-message-map schema entity))
 
-;; TODO - MDM: rename to conform-message-map
-(defn conform-errors
+(defn validation-errors
+  "DEPRECATED"
+  ([schema entity]
+   (log/warn "schema/validation-errors is DEPRECATED.  Use schema/validate-message-map instead.")
+   (validate-message-map schema entity)))
+
+(defn conform-message-map
   "Runs conform on the entity and returns a map of error message, or nil if none."
   [schema entity]
+  (message-map (conform schema entity)))
+
+(defn conform-errors
+  "DEPRECATED"
+  [schema entity]
+  (log/warn "schema/conform-errors is DEPRECATED.  Use schema/conform-message-map instead.")
   (message-map (conform schema entity)))
 
 (defn coerce!

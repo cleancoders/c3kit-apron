@@ -13,16 +13,6 @@
     (should-throw (deref (sut/resolve-var 'foo/bar)))
     (should= "Foo" (deref (sut/resolve-var 'c3kit.apron.util-spec/foo))))
 
-  (it "filename->ns"
-    (should= "foo" (sut/filename->ns "src/clj/foo.clj"))
-    (should= "foo" (sut/filename->ns "/src/clj/foo.clj"))
-    (should= "hello.world" (sut/filename->ns "src/clj/hello/world.clj"))
-    (should= "hello.cljwhatever" (sut/filename->ns "src/clj/hello/cljwhatever.clj"))
-    (should= "acme.foo.src.clj.hello" (sut/filename->ns "src/clj/acme/foo/src/clj/hello.clj"))
-    (should= "foo.bar.fizz-bang" (sut/filename->ns "foo/bar/fizz_bang"))
-    (should= "fizz-bang" (sut/filename->ns "fizz_bang.clj"))
-    (should= "foo.bar.fizz-bang" (sut/filename->ns "foo/bar/fizz_bang.clj")))
-
   (it "path->namespace"
     (should= "foo" (sut/path->namespace "foo.clj"))
     (should= "foo" (sut/path->namespace "foo.clj"))
