@@ -1,9 +1,11 @@
 (ns c3kit.apron.schema-spec
   (:require
     [c3kit.apron.schema :as schema]
+    [c3kit.apron.time :as time]
     [speclj.core #?(:clj :refer :cljs :refer-macros) [context focus-context describe focus-it it xit should=
                                                       should-contain should-not-contain should-throw should-be-a
-                                                      should should-not should-be-nil should-not-be-nil]]
+                                                      should should-not should-be-nil should-not-be-nil
+                                                      with-stubs stub should-not-have-invoked]]
     [clojure.string :as str]
     [c3kit.apron.utilc :as utilc]
     [c3kit.apron.corec :as ccc]
@@ -37,8 +39,10 @@
    :owner       {:type     :ref
                  :validate [schema/present?]
                  :message  "must be a valid reference format"}
-   :colors      {:type    [{:type :string
-                            :message "must be a string"}]}
+   :colors      {:type [:string] :message "must be a string"}
+   ;:ears        {:type     :seq
+   ;              :spec     {:type :keyword :validate #{:pointy :floppy} :message "bad ear type"}
+   ;              :validate (schema/nil-or? #(= 2 (count %))) :message "must have 2 types"}
    :uuid        {:type :uuid
                  :db   [:unique-identity]}
    :parent      {:type {:name {:type :string}
@@ -244,27 +248,27 @@
           (should= {:name "billy"} (schema/coerce-value! spec value))))
 
       (it "of object with nested coercions"
-        (let [spec  {:type   {:name {:type :string :coerce str/trim}}
-                     :coerce (constantly {:name "  billy "})}]
+        (let [spec {:type   {:name {:type :string :coerce str/trim}}
+                    :coerce (constantly {:name "  billy "})}]
           (should= {:name "billy"} (schema/coerce-value! spec "blah"))))
 
       (it ", custom coercions happen before type coercion"
         (let [spec {:type :string :coerce #(* % %)}]
           (should= "16" (schema/coerce-value! spec 4))))
 
-      (it "of sequentials"
+      (it "of seq "
         (let [result (schema/coerce-value! {:type [:float]} ["123.4" 321 3.1415])]
           (should= 123.4 (first result) 0.0001)
           (should= 321.0 (second result) 0.0001)
           (should= 3.1415 (last result) 0.0001)))
 
-      (it "of sets (sequentials)"
+      (it "of seq from a set"
         (let [result (schema/coerce-value! {:type [:long]} #{"123" 321 3.14})]
           (should-contain 123 result)
           (should-contain 321 result)
           (should-contain 3 result)))
 
-      (it "of sequentials with customs"
+      (it "of seq with inner coercion"
         (let [result (schema/coerce-value! {:type [:float] :coerce inc} [321 3.1415])]
           (should= 322.0 (first result) 0.0001)
           (should= 4.1415 (last result) 0.0001)))
@@ -273,6 +277,10 @@
         (should= nil (schema/coerce-value! {:type [:blah]} nil))
         (should-throw stdex "[:long] expected" (schema/coerce-value! {:type [:long]} "foo"))
         (should-throw stdex "unhandled coercion type: :blah" (schema/coerce-value! {:type [:blah]} ["foo"])))
+
+      (it "of seq with outer coersion"
+        (let [result (schema/coerce-value! {:type :seq :spec {:type :int} :coerce set} ["123.4" 321 3.1415])]
+          (should= #{123 321 3} result 0.0001)))
 
       (it "of entity"
         (let [result (schema/coerce pet {:species  "dog"
@@ -972,8 +980,8 @@
     (it "errors don't get added until after"
       (let [schema {:foo {:type :string}
                     :bar {:type :string}
-                    :* {:foo {:validate seq}
-                        :bar {:validate seq}}}]
+                    :*   {:foo {:validate seq}
+                          :bar {:validate seq}}}]
         (should= {:foo "is invalid" :bar "is invalid"} (schema/validate-errors schema {})))
       )
 
@@ -1044,5 +1052,85 @@
                                           {:validate :valid-entity-species2 :message "invalid entity species2"}]}}
                  (:* result))))
 
+    )
+
+  (context "shorthands"
+
+    (it "none"
+      (should= {:type :int} (schema/normalize-spec {:type :int}))
+      (should= {:type :string :message "foo"} (schema/normalize-spec {:type :string :message "foo"})))
+
+    (it "invalid"
+      (should-throw (schema/normalize-spec nil))
+      (should-throw (schema/normalize-spec 1))
+      (should-throw (schema/normalize-spec {:type nil}))
+      (should-throw (schema/normalize-spec {:type 1}))
+      (should-throw (schema/normalize-spec {:type (time/now)})))
+
+    (it "keyword"
+      (should= {:type :string} (schema/normalize-spec :string))
+      (should= {:type :long} (schema/normalize-spec :long))
+      (should= {:type :ignore} (schema/normalize-spec :ignore))
+      (should= {:type :instant} (schema/normalize-spec :instant))
+      (should= {:type :blah} (schema/normalize-spec :blah)))
+
+    (context "seq"
+
+      (it "errors"
+        (should-throw (schema/normalize-spec {:type [:int :int]}))
+        (should-throw (schema/normalize-spec {:type [:int :string]}))
+        (should-throw (schema/normalize-spec {:type []})))
+
+      (it "with type"
+        (let [result (schema/normalize-spec {:type [:int]})]
+          (should= {:type :seq :spec {:type :int}} result))
+        (let [result (schema/normalize-spec {:type [:int] :validate even? :foo "bar"})]
+          (should= {:type :seq :spec {:type :int :validate even?} :foo "bar"} result)))
+
+      (it "with spec"
+        (let [result (schema/normalize-spec {:type [{:type :int}] :message "foo"})]
+          (should= {:type :seq :spec {:type :int} :message "foo"} result))
+        (let [result (schema/normalize-spec {:type [{:type :int}] :message "foo" :foo "bar"})]
+          (should= {:type :seq :spec {:type :int} :message "foo" :foo "bar"} result)))
+
+      (it "with schema"
+        (let [result (schema/normalize-spec {:type [{:foo "bar"}]})]
+          (should= {:type :seq :spec {:type :map :schema {:foo "bar"}}} result))
+        (let [result (schema/normalize-spec {:type [{:foo "bar"}] :foo "bar"})]
+          (should= {:type :seq :spec {:type :map :schema {:foo "bar"}} :foo "bar"} result)))
+      )
+
+    (it "map"
+      (let [result (schema/normalize-spec {:type {:foo {:type :string}}})]
+        (should= {:type :map :schema {:foo {:type :string}}} result))
+      (let [result (schema/normalize-spec {:type {:foo {:type :string}} :validate map?})]
+        (should= {:type :map :schema {:foo {:type :string}} :validate map?} result)))
+
+    (it "set"
+      (let [result (schema/normalize-spec {:type #{:int :string}})]
+        (should= {:type :one-of :specs [{:type :int} {:type :string}]} result)))
+
+    (context "normalize-schema"
+
+      (with-stubs)
+
+      (it "pet"
+        (let [result (schema/normalize-schema pet)]
+          (should= (dissoc pet :colors :parent) (dissoc result :colors :parent))
+          (should= {:type :seq :spec {:type :string :message "must be a string"}} (:colors result))
+          (should= {:type :map, :schema {:name {:type :string}, :age {:type :int}}} (:parent result))))
+
+      (it "with entity level spec"
+        (let [pet    (assoc pet :* {:name {:validate :name}})
+              result (schema/normalize-schema pet)]
+          (should= {:name {:validate :name}} (:* result))))
+
+      (it "meta-data, skipping normalization"
+        (let [result (schema/normalize-schema pet)]
+          (should= {:c3kit.apron.schema/normalized? true} (meta result))
+          (with-redefs [update-vals (stub :update-vals)]
+            (should= result (schema/normalize-schema result))
+            (should-not-have-invoked :update-vals))))
+      )
     )
   )

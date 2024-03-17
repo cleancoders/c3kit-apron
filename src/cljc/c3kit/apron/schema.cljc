@@ -3,6 +3,7 @@
   (:refer-clojure :exclude [uri?])
   (:require
     [c3kit.apron.corec :as ccc]
+    [c3kit.apron.log :as log]
     [clojure.edn :as edn]
     [clojure.string :as str]
     #?(:cljs [com.cognitect.transit.types])                 ;; https://github.com/cognitect/transit-cljs/issues/41
@@ -20,25 +21,11 @@
     :present     [#(str %)]                                 ;; single/list of presentation fns
     }})
 
-(def process-spec-schema {:type :one-of :specs [{:type :fn} {:type :seq :spec {:type :fn}}]})
-
-(def validation-schema
-  {:validate process-spec-schema
-   :message  {:type :string}})
-
-(def spec-schema
-  {:type        {:type :one-of :specs [{:type :keyword} {:type :ignore :coerce 'normalize-shorthand}]}
-   :validate    process-spec-schema
-   :coerce      process-spec-schema
-   :present     process-spec-schema
-   :message     {:type :string}
-   :validations {:type :seq :spec {:type :map :schema validation-schema}}})
-
 (comment
   ;; Shorthands
   {:type [:int] :validate even?} {:type :seq :spec {:type :int :validate even?}}
   {:type [{:type :int}] :validate seq} {:type :seq :spec {:type :int} :validate seq}
-  {:type {...}} {:type :map :schema {...}}
+  {:type {:foo {}}} {:type :map :schema {:foo {}}}
   {:type #{:string :int}} {:type :one-of :specs [{:type :string} {:type :int}]}
   ;; consider :any synonymous with :ignore
   )
@@ -63,7 +50,8 @@
   (not (or (nil? v)
            (and (string? v) (str/blank? v)))))
 
-(defn nil-or [f] (some-fn nil? f))
+(defn nil-or [f] (log/warn "schema/nil-or deprecated.  Use nil-or? instead") (some-fn nil? f))
+(defn nil-or? [f] (some-fn nil? f))
 
 (def email-pattern #"[A-Za-z0-9!#$%&'*+/=?^_`{|}~-]+(?:\.[A-Za-z0-9!#$%&'*+/=?^_`{|}~-]+)*@(?:[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?\.)+[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?")
 
@@ -254,6 +242,71 @@
    :ignore    identity})
 
 ;; endregion ^^^^^ Type Tables ^^^^^
+
+;; region ----- Schema-schema & shorthands -----
+
+(def spec-keys #{:type :validate :coerce :present :message :validations})
+
+(def process-spec-schema {:type :one-of :specs [{:type :fn} {:type :seq :spec {:type :fn}}]})
+
+(declare normalize-spec)
+
+(defn normalize-seq-shorthand [{:keys [type] :as spec}]
+  (when (not= 1 (count type)) (throw (ex-info "seq shorthand type must contain 1 type" spec)))
+  (let [spec-type (first type)]
+    (cond (keyword? spec-type) (let [entry-spec (assoc (select-keys spec spec-keys) :type spec-type)]
+                                 (-> (apply dissoc spec spec-keys)
+                                     (assoc :type :seq :spec entry-spec)))
+          (and (map? spec-type) (contains? spec-type :type)) (assoc spec :type :seq :spec (normalize-spec spec-type))
+          :else (assoc spec :type :seq :spec (normalize-spec {:type spec-type})))))
+
+(defn- normalize-map-shorthand [{:keys [type] :as spec}]
+  (assoc spec :type :map :schema type))
+
+(defn- normalize-set-shorthand [{:keys [type] :as spec}]
+  (assoc spec :type :one-of :specs (mapv normalize-spec type)))
+
+(defn normalized? [schema-or-spec] (::normalized? (meta schema-or-spec)))
+
+(defn- spec-normalized? [spec]
+  (or (normalized? spec) (and (map? spec) (keyword? (:type spec)))))
+
+(defn normalize-spec [spec]
+  (with-meta
+    (cond (spec-normalized? spec) spec
+          (keyword? spec) {:type spec}
+          (sequential? (:type spec)) (normalize-seq-shorthand spec)
+          (map? (:type spec)) (normalize-map-shorthand spec)
+          (set? (:type spec)) (normalize-set-shorthand spec)
+          :else (throw (ex-info "invalid spec" {:spec spec})))
+    {::normalized? true}))
+
+(defn normalize-schema [schema]
+  (if (normalized? schema)
+    schema
+    (-> (dissoc schema :*)
+        (update-vals normalize-spec)
+        (merge (select-keys schema [:*]))
+        (with-meta {::normalized? true}))))
+
+(def validation-schema
+  {:validate process-spec-schema
+   :message  {:type :string}})
+
+(def spec-schema
+  {:type        {:type :one-of :specs [{:type :keyword} {:type :ignore :coerce 'normalize-spec}]}
+   :validate    process-spec-schema
+   :coerce      process-spec-schema
+   :present     process-spec-schema
+   :message     {:type :string}
+   :validations {:type :seq :spec {:type :map :schema validation-schema}}
+   ;:spec        spec-schema
+   ;:specs       {:type :seq :spec spec-schema}
+   ;:schema      {:type :map}
+   })
+
+;; endregion ^^^^^ Schema-schema & shorthands ^^^^^
+
 ;; region ----- Common Schema Attributes -----
 
 (def omit
