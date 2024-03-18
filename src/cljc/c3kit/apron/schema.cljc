@@ -27,7 +27,6 @@
   {:type [{:type :int}] :validate seq} {:type :seq :spec {:type :int} :validate seq}
   {:type {:foo {}}} {:type :map :schema {:foo {}}}
   {:type #{:string :int}} {:type :one-of :specs [{:type :string} {:type :int}]}
-  ;; consider :any synonymous with :ignore
   )
 
 ;; TODO - MDM: [{:type :long}] - seq fields should contain a spec.  Processes on the seq field should act on the
@@ -49,6 +48,8 @@
 (defn present? [v]
   (not (or (nil? v)
            (and (string? v) (str/blank? v)))))
+
+(def required {:validate present? :message "is required"})
 
 (defn nil-or [f] (log/warn "schema/nil-or deprecated.  Use nil?-or instead") (some-fn nil? f))
 (defn nil?-or [f] (some-fn nil? f))
@@ -227,13 +228,15 @@
 ;; region ----- Type Tables -----
 
 (def type-validators
-  {:bigdec    (nil?-or bigdec?)
+  {:any       (constantly true)
+   :bigdec    (nil?-or bigdec?)
    :boolean   (nil?-or boolean?)
+   :date      (nil?-or #?(:clj #(instance? java.sql.Date %) :cljs #(instance? date %)))
    :double    (nil?-or #?(:clj float? :cljs number?))
    :float     (nil?-or #?(:clj float? :cljs number?))
+   :fn        (nil?-or ifn?)
+   :ignore    (constantly true)
    :instant   (nil?-or #(instance? date %))
-   :date      (nil?-or #?(:clj #(instance? java.sql.Date %) :cljs #(instance? date %)))
-   :timestamp (nil?-or #?(:clj #(instance? java.sql.Timestamp %) :cljs #(instance? date %)))
    :int       (nil?-or integer?)
    :keyword   (nil?-or keyword?)
    :kw-ref    (nil?-or keyword?)
@@ -242,18 +245,20 @@
    :ref       (nil?-or integer?)
    :seq       (nil?-or multiple?)
    :string    (nil?-or string?)
+   :timestamp (nil?-or #?(:clj #(instance? java.sql.Timestamp %) :cljs #(instance? date %)))
    :uri       (nil?-or uri?)
-   :uuid      (nil?-or uuid?)
-   :ignore    (constantly true)})
+   :uuid      (nil?-or uuid?)})
 
 (def type-coercers
-  {:bigdec    ->bigdec
+  {:any       identity
+   :bigdec    ->bigdec
    :boolean   ->boolean
+   :date      ->sql-date
    :double    ->float
    :float     ->float
+   :fn        identity
+   :ignore    identity
    :instant   ->date
-   :date      ->sql-date
-   :timestamp ->timestamp
    :int       ->int
    :keyword   ->keyword
    :kw-ref    ->keyword
@@ -262,29 +267,28 @@
    :ref       ->int
    :seq       identity
    :string    ->string
+   :timestamp ->timestamp
    :uri       ->uri
-   :uuid      ->uuid
-   :ignore    identity})
+   :uuid      ->uuid})
+
+(def valid-types (set (concat (keys type-coercers) [:one-of])))
 
 ;; endregion ^^^^^ Type Tables ^^^^^
 
-;; region ----- Schema-schema & shorthands -----
-
-(def spec-keys #{:type :validate :coerce :present :message :validations})
-
-(def process-spec-schema {:type :one-of :specs [{:type :fn} {:type :seq :spec {:type :fn}}]})
+;; region ----- shorthands -----
 
 (declare normalize-spec)
 
-(defn normalize-seq-shorthand [{:keys [type] :as spec}]
+(defn- normalize-seq-shorthand [{:keys [type] :as spec}]
   (when (not= 1 (count type)) (throw (ex-info "seq shorthand type must contain 1 type" spec)))
-  (let [spec-type (first type)]
-    (cond (keyword? spec-type) (let [entry-spec (assoc (select-keys spec spec-keys) :type spec-type)]
-                                 (-> (apply dissoc spec spec-keys)
+  (let [spec-type      (first type)
+        base-spec-keys #{:type :validate :coerce :present :message :validations}]
+    (cond (keyword? spec-type) (let [entry-spec (assoc (select-keys spec base-spec-keys) :type spec-type)]
+                                 (-> (apply dissoc spec base-spec-keys)
                                      (assoc :type :seq :spec entry-spec)))
           (and (map? spec-type) (contains? spec-type :type)) (assoc spec :type :seq :spec (normalize-spec spec-type))
-          :else (let [entry-spec (normalize-spec (assoc (select-keys spec spec-keys) :type spec-type))]
-                  (-> (apply dissoc spec spec-keys)
+          :else (let [entry-spec (normalize-spec (assoc (select-keys spec base-spec-keys) :type spec-type))]
+                  (-> (apply dissoc spec base-spec-keys)
                       (assoc :type :seq :spec entry-spec))))))
 
 (defn- normalize-map-shorthand [{:keys [type] :as spec}]
@@ -293,12 +297,16 @@
 (defn- normalize-set-shorthand [{:keys [type] :as spec}]
   (assoc spec :type :one-of :specs (mapv normalize-spec type)))
 
-(defn normalized? [schema-or-spec] (::normalized? (meta schema-or-spec)))
+(defn normalized?
+  "Returns true if the schema-or-spec has been normalized, false otherwise."
+  [schema-or-spec] (::normalized? (meta schema-or-spec)))
 
 (defn- normal-spec-form? [spec]
   (and (map? spec) (keyword? (:type spec))))
 
-(defn normalize-spec [spec]
+(defn normalize-spec
+  "If the spec is using a shorthand, it will be expanded."
+  [spec]
   (if (normalized? spec)
     spec
     (with-meta
@@ -310,7 +318,9 @@
             :else (throw (ex-info (str "invalid spec: " (pr-str spec)) {:spec spec})))
       {::normalized? true})))
 
-(defn normalize-schema [schema]
+(defn normalize-schema
+  "Returns the schema with all shorthand specs expanded."
+  [schema]
   (if (normalized? schema)
     schema
     (-> (dissoc schema :*)
@@ -318,23 +328,7 @@
         (merge (select-keys schema [:*]))
         (with-meta {::normalized? true}))))
 
-(def validation-schema
-  {:validate process-spec-schema
-   :message  {:type :string}})
-
-(def spec-schema
-  {:type        {:type :one-of :specs [{:type :keyword} {:type :ignore :coerce 'normalize-spec}]}
-   :validate    process-spec-schema
-   :coerce      process-spec-schema
-   :present     process-spec-schema
-   :message     {:type :string}
-   :validations {:type :seq :spec {:type :map :schema validation-schema}}
-   ;:spec        spec-schema
-   ;:specs       {:type :seq :spec spec-schema}
-   ;:schema      {:type :map}
-   })
-
-;; endregion ^^^^^ Schema-schema & shorthands ^^^^^
+;; endregion ^^^^^ shorthands ^^^^^
 
 ;; region ----- Common Schema Attributes -----
 
@@ -501,8 +495,7 @@
 
 (defmethod -process-entity-level-spec :validate [_ key spec entity]
   (let [{:keys [validate validations message]} spec
-        validations (concat (if validate [{:validate validate :message message}] [])
-                            validations)]
+        validations (concat (if validate [{:validate validate :message message}] []) validations)]
     (process-validations validations entity)
     (get entity key)))
 
@@ -529,7 +522,7 @@
                   result))))
 
 (defn- process-seq-spec-on-value [process spec value]
-  (let [entry-spec (:spec spec)]
+  (let [entry-spec (or (:spec spec) {:type :any})]
     (if (= :coerce process)
       (let [value (field-result-or-error process spec value)]
         (if (error? value)
@@ -552,12 +545,23 @@
                            (field-result-or-error process spec entity)))
           :else (field-result-or-error process spec value))))
 
+(defn process-one-of-on-value [process spec value]
+  (let [specs (:specs spec)]
+    (if (seq specs)
+      (let [results           (mapv #(-process-spec-on-value process % value) specs)
+            non-error-results (filter #(not (error? %)) results)]
+        (if (seq non-error-results)
+          (first non-error-results)
+          (-process-error process {:message (or (:message spec) "one-of: no matching spec") :errors results})))
+      (-process-error process {:message "one-of: empty specs"}))))
+
 (defn -process-spec-on-value [process spec value]
   (let [spec (normalize-spec spec)
         type (:type spec)]
     (case type
       :seq (process-seq-spec-on-value process spec value)
       :map (process-map-spec-on-value process spec value)
+      :one-of (process-one-of-on-value process spec value)
       (field-result-or-error process spec value))))
 
 (defn- process-entity-key-spec [process entity [key spec]]
@@ -815,3 +819,48 @@
       attr-specs)))
 
 ;; endregion ^^^^^ Merging Schemas ^^^^^
+
+;; region ----- spec schema -----
+
+(def ^:private validate-type {:validate #(contains? valid-types %) :message "must be one of schema/valid-types"})
+(def process-spec-schema {:type    :one-of
+                          :specs   [{:type :fn} {:type :seq :spec {:type :fn}}]
+                          :message "must be an ifn or seq of ifn"})
+
+(def validation-schema
+  {:validate {:type    :one-of
+              :specs   [{:type :fn :validations [required] :message "must be an ifn"}
+                        {:type :seq :spec {:type :fn} :validate seq :message "must not be empty"}]
+              :message "must be an ifn or seq of ifn"}
+   :message  {:type :string}})
+
+(def spec-schema
+  {:type        {:type :keyword :validations [required validate-type]}
+   :validate    process-spec-schema
+   :coerce      process-spec-schema
+   :present     process-spec-schema
+   :message     {:type :string}
+   :validations {:type :seq :spec {:type :map :schema validation-schema :message "must be schema/validation-schema"}}})
+
+(def spec-schema
+  (assoc spec-schema
+    :spec {:type :map :schema spec-schema :message "must be schema/spec-schema"}
+    :specs {:type :seq :spec {:type :map :schema spec-schema}}
+    :schema {:type :map :message "must be a map"}
+    :* {:spec   {:validate #(if (:spec %) (= :seq (:type %)) true) :message "only used with type :seq"}
+        :specs  {:validate #(if (:specs %) (= :one-of (:type %)) true) :message "only used with type :one-of"}
+        :schema {:validate #(if (:schema %) (= :map (:type %)) true) :message "only used with type :map"}}))
+(def entity-spec-schema (assoc spec-schema :type {:type    :keyword :validate (nil?-or #(contains? valid-types %))
+                                                  :message "must be one of schema/valid-types"}))
+
+(defn conform-schema!
+  "Normalizes, coerces, and validates all the specs in the schema.  Any problems in the schema will throw an exception."
+  [schema]
+  (let [schema        (normalize-schema schema)
+        field-schema  (update-vals (dissoc schema :*) #(conform! spec-schema %))
+        entity-schema (when-let [s (:* schema)] (update-vals s #(conform! entity-spec-schema %)))]
+    (if entity-schema
+      (assoc field-schema :* entity-schema)
+      field-schema)))
+
+;; endregion ^^^^^ spec schema ^^^^^

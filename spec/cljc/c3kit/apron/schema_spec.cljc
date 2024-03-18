@@ -268,6 +268,11 @@
           (should-contain 321 result)
           (should-contain 3 result)))
 
+      (it "of seq with missing spec"
+        (let [result (schema/coerce-value! {:type :seq} [1 "2"])]
+          (should= 1 (first result))
+          (should= "2" (last result))))
+
       (it "of seq with inner coercion"
         (let [result (schema/coerce-value! {:type :seq :spec {:type :float :coerce inc}} [321 3.1415])]
           (should= 322.0 (first result) 0.0001)
@@ -1060,6 +1065,51 @@
 
     )
 
+  (context "one-of"
+
+    (it "no specs"
+      (let [spec          {:type :one-of}
+            coerce-result (schema/-process-spec-on-value :coerce spec 1)]
+        (should= true (schema/error? coerce-result))
+        (should= "one-of: empty specs" (:message coerce-result))))
+
+    (it "no choice"
+      (let [spec          {:type :one-of :specs []}
+            coerce-result (schema/-process-spec-on-value :coerce spec 1)]
+        (should= true (schema/error? coerce-result))
+        (should= "one-of: empty specs" (:message coerce-result))))
+
+    (it "one choice - coerce"
+      (let [spec {:type :one-of :specs [{:type :int}]}]
+        (should= nil (schema/-process-spec-on-value :coerce spec nil))
+        (should= 1 (schema/-process-spec-on-value :coerce spec 1))
+        (should= 2 (schema/-process-spec-on-value :coerce spec "2"))
+        (should= "one-of: no matching spec" (:message (schema/-process-spec-on-value :coerce spec "blah")))))
+
+    (it "one choice - validate"
+      (let [spec {:type :one-of :specs [{:type :int :validate pos?}]}]
+        (should= 1 (schema/-process-spec-on-value :validate spec 1))
+        (should= 2 (schema/-process-spec-on-value :validate spec 2))
+        (should= "one-of: no matching spec" (:message (schema/-process-spec-on-value :validate spec -3)))))
+
+    (it "multiple choices"
+      (let [spec {:type :one-of :specs [{:type :int :validate even?}
+                                        {:type :int :validate pos?}
+                                        {:type :string :validate #{"foo" "bar"}}]}]
+        (should= 1 (schema/-process-spec-on-value :conform spec 1))
+        (should= -2 (schema/-process-spec-on-value :conform spec -2))
+        (should= 3 (schema/-process-spec-on-value :conform spec "3"))
+        (should= "one-of: no matching spec" (:message (schema/-process-spec-on-value :conform spec -5)))
+        (should= "one-of: no matching spec" (:message (schema/-process-spec-on-value :conform spec "blah")))))
+
+    ;(focus-it "process-spec-schema"
+    ;  (let [result (schema/-process-spec-on-value :conform schema/process-spec-schema nil)]
+    ;    (prn "result: " result)
+    ;    (prn "(meta result): " (meta result))
+    ;    (should= 1 result))
+    ;  )
+    )
+
   (context "shorthands"
 
     (it "none"
@@ -1139,6 +1189,85 @@
           (with-redefs [update-vals (stub :update-vals)]
             (should= result (schema/normalize-schema result))
             (should-not-have-invoked :update-vals))))
+      )
+    )
+
+  (context "ignore/any"
+
+    (it "ignore"
+      (should= :blah (schema/coerce-value! {:type :ignore} :blah)))
+
+    (it "any"
+      (should= :blah (schema/coerce-value! {:type :any} :blah)))
+
+    )
+
+  (context "spec-schema"
+
+    (it "pets"
+      (doseq [[field spec] pet]
+        (let [spec   (schema/normalize-spec spec)
+              result (schema/conform schema/spec-schema spec)]
+          (should= nil (schema/message-map result)))))
+
+    (it "type"
+      (should= {:type "is required"} (schema/validate-message-map schema/spec-schema {:type nil}))
+      (should= {:type "must be one of schema/valid-types"} (schema/validate-message-map schema/spec-schema {:type :blah})))
+
+    (it "validate"
+      (should= {:validate "must be an ifn or seq of ifn"}
+               (schema/validate-message-map schema/spec-schema {:type :string :validate "blah"})))
+
+    (it "coerce"
+      (should= {:coerce "must be an ifn or seq of ifn"}
+               (schema/validate-message-map schema/spec-schema {:type :string :coerce "blah"})))
+
+    (it "present"
+      (should= {:present "must be an ifn or seq of ifn"}
+               (schema/validate-message-map schema/spec-schema {:type :string :present "blah"})))
+
+    (it "message"
+      (should= ":blah" (:message (schema/coerce schema/spec-schema {:type :string :message :blah}))))
+
+    (it "validations"
+      (should= {:validations "[:map] expected"}
+               (schema/validate-message-map schema/spec-schema {:type :string :validations "blah"}))
+      (should= nil (schema/validate-message-map schema/spec-schema {:type :string :validations []}))
+      (should= {:validations {0 "must be schema/validation-schema"}}
+               (schema/validate-message-map schema/spec-schema {:type :string :validations [:blah]}))
+      (should= {:validations {0 {:validate "must be an ifn or seq of ifn"}}}
+               (schema/validate-message-map schema/spec-schema {:type :string :validations [{:validate "blah"}]})))
+
+    (it "spec"
+      (should= {:spec "only used with type :seq"}
+               (schema/validate-message-map schema/spec-schema {:type :string :spec {:type :string}}))
+      (should= {:spec "must be schema/spec-schema"}
+               (schema/validate-message-map schema/spec-schema {:type :seq :spec "blah"})))
+
+    (it "specs"
+      (should= {:specs "only used with type :one-of"}
+               (schema/validate-message-map schema/spec-schema {:type :string :specs [{:type :string}]}))
+      (should= {:specs "[:map] expected"}
+               (schema/validate-message-map schema/spec-schema {:type :one-of :specs "blah"})))
+
+    (it "schema"
+      (should= {:schema "only used with type :map"}
+               (schema/validate-message-map schema/spec-schema {:type :string :schema {:foo {:type :string}}}))
+      (should= {:schema "must be a map"}
+               (schema/validate-message-map schema/spec-schema {:type :map :schema "blah"})))
+
+    (context "conform-schema"
+
+      (it "pets with entity-level"
+        (let [new-pet (assoc pet :* {:species {:validate #(not (and (= "snake" (:species %)) (= "Fluffy" (:name %))))
+                                               :message  "Snakes are not fluffy!"}})
+              schema  (schema/conform-schema! new-pet)]
+          (should-contain :species (:* schema))))
+
+      (it "specs are normalized"
+        (let [schema (schema/conform-schema! pet)]
+          (should= :seq (:type (:colors schema)))))
+
       )
     )
   )

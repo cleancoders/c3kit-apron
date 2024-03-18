@@ -1,11 +1,13 @@
-### x.x.x (Feb 7, 2024)
- * MAJOR BREAKING CHANGES - c3kit.apron.schema
-   * Fields with seq types are now treated as first class.
-     * `{:names {:type [:string]}}` is no longer allowed.  
-     * Seq fields must have specs: `{:names {:type [{:type :int}]}}`
-     * process fns defined on the seq field are now applied to the seq field instead of the values in the seq.
-     * process fns defined on the seq field spec (first and only value of the seq field type) will be applied to each value in the seq
+### 2.1.3 (Mar 18, 2024)
+ * c3kit.apron.schema changed
+   * c3kit.apron.schema is now self defining. Schema provides a schema for schema definitions.
+   * new :seq type allows more clear specification of sequential values, but also allows the processing of the seq itself
+   * new :map type clarifies the use of nested schemas
+   * new :one-of type allows a field to take any number of shapes
+   * adds normalize-schema and normalize-spec to expand shorthands (backwards compatibility)
+   * adds conform-schema to normalize, coerce, and validate schemas
    * rename `<process>-errors` to `<process>-message-map`
+   * backwards compatible fns have been DEPRECATED 
 
 ### 2.1.0 (Feb 3, 2024)
  * c3kit.apron.schema overhaul - minor breaking changes
