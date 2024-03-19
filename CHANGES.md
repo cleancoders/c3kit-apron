@@ -6,6 +6,7 @@
    * new :one-of type allows a field to take any number of shapes
    * adds normalize-schema and normalize-spec to expand shorthands (backwards compatibility)
    * adds conform-schema to normalize, coerce, and validate schemas
+   * legend build will conform-schema! on all schema
    * rename `<process>-errors` to `<process>-message-map`
    * backwards compatible fns have been DEPRECATED 
 

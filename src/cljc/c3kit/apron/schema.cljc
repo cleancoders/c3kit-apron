@@ -853,12 +853,18 @@
 (def entity-spec-schema (assoc spec-schema :type {:type    :keyword :validate (nil?-or #(contains? valid-types %))
                                                   :message "must be one of schema/valid-types"}))
 
+(defn- conform-preserving-extras! [schema spec]
+  (let [extra (apply dissoc spec (keys schema))
+        conformed (conform! schema spec)]
+    (merge conformed extra)))
+
 (defn conform-schema!
-  "Normalizes, coerces, and validates all the specs in the schema.  Any problems in the schema will throw an exception."
+  "Normalizes, coerces, and validates all the specs in the schema.  Any problems in the schema will throw an exception.
+  Any extra fields in the spec (:value, :db, ...) will be preserved."
   [schema]
   (let [schema        (normalize-schema schema)
-        field-schema  (update-vals (dissoc schema :*) #(conform! spec-schema %))
-        entity-schema (when-let [s (:* schema)] (update-vals s #(conform! entity-spec-schema %)))]
+        field-schema  (update-vals (dissoc schema :*) #(conform-preserving-extras! spec-schema %))
+        entity-schema (when-let [s (:* schema)] (update-vals s #(conform-preserving-extras! entity-spec-schema %)))]
     (if entity-schema
       (assoc field-schema :* entity-schema)
       field-schema)))

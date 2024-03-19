@@ -1,7 +1,6 @@
 (ns c3kit.apron.legend
   (:require
-    [c3kit.apron.schema :as schema]
-    ))
+    [c3kit.apron.schema :as schema]))
 
 (def retract {:kind (schema/kind :db/retract) :id schema/id})
 
@@ -10,6 +9,7 @@
 (defn build [schemas]
   (->> (flatten schemas)
        (filter :kind)
+       (map schema/conform-schema!)
        (reduce #(assoc %1 (-> %2 :kind :value) %2) {})))
 
 (defn init!

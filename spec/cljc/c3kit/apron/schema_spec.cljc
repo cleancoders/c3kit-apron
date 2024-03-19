@@ -1268,6 +1268,10 @@
         (let [schema (schema/conform-schema! pet)]
           (should= :seq (:type (:colors schema)))))
 
+      (it "extra spec attributes are not removed"
+        (let [schema (schema/conform-schema! pet)]
+          (should= :pet (-> schema :kind :value))))
+
       )
     )
   )
