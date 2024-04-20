@@ -333,6 +333,13 @@
         (let [schema (assoc pet :* {:name {:type :string :coerce (constantly nil)}})
               result (schema/coerce schema valid-pet)]
           (should-not-contain :name result)))
+
+      (it "removes extra fields"
+        (let [crufty (assoc valid-pet :garbage "yuk!")
+              result (schema/coerce pet crufty)]
+          (should= nil (:garbage result))
+          (should-not-contain :garbage result)))
+
       )
 
     (context "multi field"
@@ -640,6 +647,12 @@
               parent {:child {:type child :validations [{:validate some? :message "is required"}]}}]
           (should= {:child "is required"} (schema/validate-message-map parent {}))))
 
+      (it "removes extra fields"
+        (let [crufty (assoc valid-pet :garbage "yuk!")
+              result (schema/validate pet crufty)]
+          (should= nil (:garbage result))
+          (should-not-contain :garbage result)))
+
       )
 
     (it "error info"
@@ -751,7 +764,7 @@
         (should= "must be a valid reference format" (schema/error-message (:owner result)))
         (should= "can't coerce :foo to int" (schema/error-message (:age (:parent result))))))
 
-    (it "removed extra fields"
+    (it "removes extra fields"
       (let [crufty (assoc valid-pet :garbage "yuk!")
             result (schema/conform pet crufty)]
         (should= nil (:garbage result))
