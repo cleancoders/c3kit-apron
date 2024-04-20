@@ -6,14 +6,14 @@
 
 The `schema` library aims to solve the following problems:
 
-* What is expected shape of the data?
+* What is the expected shape of the data?
 * How can I `coerce` data into the desired shape?
 * How can I `validate` data?
 * How can I `present` data?
 
 ## Example
 
-Consider this map that represent a point.
+Consider this map that represents a point.
 
 ``` clojure
 {:kind :point
@@ -37,7 +37,7 @@ Let's start using this schema.
 
 ## Coercion
 
-Assume we were given the data below, and told the data represents a `point`.
+Assume we were given the data below, with the assertion that the data represents a `point`.
 
 ``` clojure
 (def data {:kind :point
@@ -45,7 +45,7 @@ Assume we were given the data below, and told the data represents a `point`.
            :y    "2"})
 ```
 
-Note that the `:x` and `:y` values are strings.  That's not right.  They're supposed to be integers. No worries. Using our `point` schema, we can `coerce` the data in the shape we want.
+Notice that the `:x` and `:y` values are strings.  That's not right.  They're supposed to be integers. No worries. Using our `point` schema, we can `coerce` the data in the shape we want.
 
 ``` clojure
 (require '[c3kit.apron.schema :as schema])
@@ -71,7 +71,7 @@ When we try to `coerce` this, we get the following.
  :y #c3kit.apron.schema.CoerceError{:message "can't coerce [\"2\"] to int"}}
 ```
 
-Note how the `:x` and `:y` keys map to `CoerceError`s containing friendly messages.  We'll use those later.
+Notice how the `:x` and `:y` keys map to `CoerceError` objects containing friendly messages.  We'll use those later.
 
 With some enhancements to our `point` schema, we can handle this type of `point` data.
 
@@ -84,7 +84,7 @@ With some enhancements to our `point` schema, we can handle this type of `point`
 => {:kind :point, :x 1, :y 2}
 ```
 
-For `:x` we add `:coerce` to the `spec` mapping to a **coerce function**, and we are very explicit about how to handle the data.  But we take shortcuts for `:y`.  The value for `:coerce` can be a **coerce function** or a list of **coerce function**s.  Each **coerce function** must take the value as a parameter, and return the coerced value.  So by using the function `first` for `:y` we'll end up with the string `"2"`, yet our result has the integer `2`. The final step of the `coerce` operation is **type-coercion**, using the `:type` of the spec.  `schema` knows how to convert a string to an int, so it takes care of that for you.
+For `:x` we add `:coerce` to the `spec` mapping to a **coerce function**, and we are very explicit about how to handle the data.  But for `:y` we take a shortcut.  The value for `:coerce` must be a **coerce function** or a list of **coerce function**s.  Each **coerce function** must take the value as a parameter, and return the coerced value.  So by using the function `first` for `:y` we end up with the string `"2"`... yet our result has the integer `2`. The final step of the `coerce` operation is **type-coercion**, using the `:type` of the spec.  `schema` knows how to convert a string to an int, so it takes care of that for you.
 
 ## Validation
 
@@ -114,7 +114,7 @@ Let's use `schema` to validate them.
 
 `data1` looks good but `data2` has problems.  `:x` and `:y` are strings, not ints!  `schema` is performing **type-validation** on the values based on the `:type` of the spec.
 
-Again you can see the problematic fields are mapped to errors, `ValidationError`s this time.  However, the errors message "is invalid" is not terribly useful.  Let's improve that.
+Again you can see the problematic fields are mapped to errors, `ValidationError` objects this time.  However, the error message `"is invalid"` is not terribly useful.  Let's improve that.
 
 ``` clojure
 (def point {:kind {:type :keyword}
@@ -128,7 +128,7 @@ Again you can see the problematic fields are mapped to errors, `ValidationError`
  :y #c3kit.apron.schema.ValidateError{:message "must be an int"}}
 ```
 
-We added a `:message` string to the spec and now that is being used for `coerce` and `validate` error messages.
+We added a `:message` string to the spec. Now the `:message` value is being used for `coerce` and `validate` error messages.
 
 Let's be more restrictive about our points.  For the fun of it, `:x` must be even and `:y` must be odd. 
 
@@ -156,9 +156,9 @@ Let's be more restrictive about our points.  For the fun of it, `:x` must be eve
 
 We added new validations using the `:validate` entry in the spec that maps to a **validate function**.  `:validate` can also map to a list of **validate function**s that will be performed in order.  Each **validate function** must take the value as a parameter and return a truthy value if the input is valid, and falsy otherwise.   
 
-This example demonstrates that there are two validations being performed on both `:x` and `:y`; the `even?`/`odd?` validations specified by the `:validate` entry in the spec, and that the automatic **type-validation**.  The **type-validation** is the first step in the `validate` operation, whereas **type-coercion** is that last step of the `coerce` operation.  The is demonstrated in the example below.  
+This example demonstrates that there are two validations being performed on both `:x` and `:y`; the `even?`/`odd?` validations specified by the `:validate` entry in the spec, and the automatic **type-validation**.  The **type-validation** is the first step in the `validate` operation, whereas **type-coercion** is that last step of the `coerce` operation.  This demonstrated in the example below.  
 
-Also, what if we wanted different error messages for each validation?
+Also, let's make sure we get a descriptive error messages for each validation?
 
 ```clojure
 (def point {:kind {:type :keyword}
@@ -209,11 +209,11 @@ Often, we need to `coerce` data and then `validate` the coerced data.  'schema' 
  :y #c3kit.apron.schema.ValidateError{:message "must be odd"}}
 ```
 
-That first point is perfect and the result of `conform` is map shaped just how we like it.  The second point has a couple problems and the result of `conform` separates them nicely. `:x` cannot be coerced and `:y` is invalid.
+That first `point` is perfect and the result of `conform` is a map shaped just how we like it.  The second point has a couple problems and the result of `conform` identifies them nicely. `:x` cannot be coerced and `:y` is invalid.
 
 ## Present
 
-`schema` also provides a `present` operation to make our data presentable to a user, or an API, or whatever.   
+`schema` provides a `present` operation to make our data presentable to a user, or an API, or whatever.   
 
 ``` clojure
 (schema/present point {:kind :point :x 1 :y 2})
@@ -234,7 +234,7 @@ The `:present` entry of the spec must map to a **present function** that takes t
 
 ## Entity Level Specs
 
-We have a new requirements.  A `point` may not be close to the origin (0, 0).  If a `point` has a distance from the origin of less than 5 it is invalid.  So far we've only been able to validate a single field.  Now we need both `:x` and `:y` for this validation.  We need to add an **entity level spec**.
+We have a new requirement for our geometry data.  A `point` may not be close to the origin (0, 0).  If a `point` has a distance from the origin of less than 5, it is invalid.  So far, we've only been able to validate a single field.  We need both `:x` and `:y` to calculate distance, and **entity level spec** give that ability.
 
 ``` clojure
 (defn square [n] (* n n))
@@ -267,7 +267,7 @@ Also notice that we added a new field, `:distance`, in the **entity level spec**
 
 ### Maps
 
-What would a `line` data structure look like?  A `line` consists of two `point`s; a start and an end.
+What would a `line` data structure look like?  A `line` consists of two `points`; a start and an end.
 
 ```clojure
 (def point {:kind {:type :keyword}
@@ -284,7 +284,7 @@ What would a `line` data structure look like?  A `line` consists of two `point`s
 => {:kind :line, :start {:kind :point, :x 1, :y 2}, :end {:kind :point, :x 3, :y 6}}
 ```
 
-Take a close look at the `:start` and `:end` of 'line'.  The `:type` is set to `:map`.  `schema` will happily dive into nested data structures, however it needs to know what to expect.  So also included in the spec is the `:schema`.  For a `line`, we want both `:start` and `:end` to be `points`.
+Take a close look at the `:start` and `:end` of `line`.  The `:type` is set to `:map`.  `schema` will happily dive into nested data structures, however it needs to know what to expect.  So included in the spec is the `:schema`.  For a `line`, we want both `:start` and `:end` to be `points`.
 
 ### Seq
 
@@ -344,7 +344,7 @@ We've got all these cool geometry data structures.  Wouldn't it be nice if we co
                                                 {:type :map :schema circle}]}})
 ```
 
-First, we set the `:kind` of each schema using `schema/kind`.  This helper function returns a `spec` that conforms and validates the value such that it must be specified keyword.  Here's the implementation:
+First, we set the `:kind` of each schema using `schema/kind`.  This helper function returns a `spec` that conforms and validates the value such that it must be the specified keyword.  Here's the implementation:
 
 ```clojure
 (defn kind [key]
@@ -357,7 +357,7 @@ First, we set the `:kind` of each schema using `schema/kind`.  This helper funct
 
 Second, we added a `circle` schema.
 
-And lastly, we have `geometry` and the `:type` of it's `:geometry` field is `:one-of`.  This allows the value to take on any "one of" the shaped specified by the `:specs` list.  `schema` will run the operation (`conform` in the case below) on the value against each `spec` in the `:specs` list until one succeeds.  If none of the operations succeed, the result will be an error.
+And lastly, we have `geometry`. The `:type` of it's `:geometry` field is `:one-of`.  This allows the value to take on any "one of" the geometries specified by the `:specs` list.  `schema` will run the operation (`conform` in the case below) on the value against each `spec` in the `:specs` list until one succeeds.  If none of the operations succeed, the result will be an error.
 
 ```clojure
 (schema/conform geometry {:kind :geometry :geometry {:kind :point :x "1" :y "2"}})
@@ -379,7 +379,7 @@ And lastly, we have `geometry` and the `:type` of it's `:geometry` field is `:on
 
 ## Dealing With Errors
 
-We've seen that when errors occur during `schema` operations, they appear as the value the offending field in the result. `schema/error?` makes it easy to tell if an error occurred.
+We've seen that when errors occur during `schema` operations, they appear as the value the offending field in the result. `schema/error?` makes it easy to tell if a result has an error.
 
 ``` clojure
 (schema/error? (schema/validate point {:kind :point :x 1 :y 2}))
@@ -450,7 +450,7 @@ Any extra data you have in your maps, that is not specified in the schema, will 
 
 ### Merging Schema
 
-There are myriad ways to validating data, or coerce data.  For example, validating form data on the client demands different validations than on the backend where we may need to check for uniqueness in the database. It'd be a shame to duplicate the schemas.  So `schema` provides a `merge-schemas` function that allows you to easily patch or modify existing schemas.
+There are myriad ways to validating or coerce data.  For example, validating form data on the client demands different validations than on the backend where we may need to check for uniqueness in the database. It'd be a shame to duplicate the schemas.  `schema/merge-schemas` allows you to easily patch or modify existing schemas.
 
 ``` clojure
 (def point {:kind {:type :keyword}
@@ -483,11 +483,11 @@ Execution error (ExceptionInfo) at c3kit.apron.schema/conform! (schema.cljc:786)
 Unconformable entity
 ```
 
-One caveat here is that `schema` can only validate one level deep.  Because the `schema` schema is recursive, but it's impossible to make an infinitely nested data structure.
+One caveat here is that `schema` can only validate one level deep.  This is because the `schema` schema is theoretically infinitely recursive, but in reality it's impossible to make an infinitely nested data structure.
 
 ### Shorthands
 
-There are several "shorthands" that make it more convenient to define specs, but they are technically invalid according to the `spec` definition.  `schema/normalize-spec` can be used to expand a single spec and `schema/normalize-schema` will expand all shorthands in the schema.  `schema/conform-schema!` will also normalize shorthands.
+There are several "shorthands" that abbreviate spec definitions, but they are technically invalid according to the `spec` schema.  `schema/normalize-spec` can be used to expand a single spec and `schema/normalize-schema` will expand all shorthands in the schema.  `schema/conform-schema!` will also normalize shorthands.
 
 ```clojure
 (schema/normalize-spec {:type [:int] :validate even?})
@@ -516,6 +516,8 @@ Using these shorthands we could define `line` and `polygon` like so:
 (def polygon {:kind   {:type :keyword}
               :points {:type [point]}})
 ```
+
+This is smaller.  But, as mentioned, it is not valid schema data, and its intent is less clear.  `schema` will accept these shorthands and expand them on the fly. 
 
 ### Types
 
@@ -549,4 +551,7 @@ Here is a list of all the possible `:type` values.
 
 One of the original uses of `schema` was to move data in and out of databases.  You can see this legacy in several of the `:types` like `:date`, `:timestamp`, `:kw-ref`, and `:ref`.  
 
-[c3kit.bucket](https://github.com/cleancoders/c3kit-bucket) is a library that provides a simple abstract interface that works with a variety of databases including Datomic, Postgresql, MSSQL, H2 or any other JDBC database.  It also includes an in-memory database implementation that makes unit tests screaming fast.  Of course, `bucket` uses `schema` to make sure the data is in the right shape. 
+[c3kit.bucket](https://github.com/cleancoders/c3kit-bucket) is a library that provides a simple abstract interface that works with a variety of databases including Datomic, Postgresql, MSSQL, H2 or any other JDBC database.  It also includes an in-memory database implementation that makes unit tests screaming fast.  Of course, `bucket` uses `schema` to make sure the data is in the right shape.
+
+![Bucket](https://github.com/cleancoders/c3kit/blob/master/img/bucket_200.png?raw=true)
+
