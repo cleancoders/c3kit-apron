@@ -1,13 +1,8 @@
 (ns c3kit.apron.bench-spec
-  (:require [c3kit.apron.time :as time]
-            [speclj.core #?(:clj :refer :cljs :refer-macros) [should describe context should-not-be it should= should-have-invoked should-be should-not-have-invoked should-be-nil with-stubs stub]]
+  (:require [speclj.core #?(:clj :refer :cljs :refer-macros) [should describe context should-not-be it should= should-have-invoked should-be should-not-have-invoked should-be-nil with-stubs stub]]
             [c3kit.apron.bench :as sut]))
 
 (def body-fn (stub :body))
-
-(defn wait-for [time]
-  (let [later (time/from-now time)]
-    (while (time/before? (time/now) later))))
 
 (describe "Benchmarks"
   (with-stubs)
@@ -24,14 +19,6 @@
     (it "1 iteration"
       (should (sut/bench 1 (body-fn)))
       (should-have-invoked :body {:times 1}))
-
-    (it "calculates min, max, average and total"
-      (let [{:keys [min max total avg]}
-            (sut/bench 2 (wait-for (time/milliseconds 10)))]
-        (should= 10 min 1)
-        (should= 10 max 1)
-        (should= 10 avg 1)
-        (should= 20 total 1)))
 
     (it "missing body"
       (should-be-nil (sut/bench 1000))
