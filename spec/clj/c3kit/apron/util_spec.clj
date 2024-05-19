@@ -1,9 +1,9 @@
 (ns c3kit.apron.util-spec
-  (:import (java.io ByteArrayInputStream))
   (:require
+    [c3kit.apron.log :as log]
     [c3kit.apron.util :as sut]
-    [speclj.core :refer :all]
-    [c3kit.apron.log :as log]))
+    [speclj.core :refer :all])
+  (:import (java.io ByteArrayInputStream)))
 
 (def foo "Foo")
 

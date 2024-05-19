@@ -59,30 +59,27 @@
 
 (defn parse-captured-logs []
   (map
-    (fn [[config level ?ns-str ?file ?line msg-type ?err vargs_ ?base-data callsite-id spying?]]
-      {:level level :message (apply str @vargs_)})
+    #(hash-map :level (nth % 1) :message (apply str @(nth % 8)))
     @captured-logs))
 
 (defn captured-logs-str []
-  (str/join "\n"
-            (map #(str/join " " %)
-                 (map #(deref (nth % 7)) @captured-logs))))
+  (->> (map #(str/join " " @(nth % 8)) @captured-logs)
+       (str/join "\n")))
 
 (defn table-spec [& cols]
-   (let [width      (+ (apply + (map second cols)) (count cols))
-         format-str (str/join " " (map #(str "%-" (second %) "s") cols))]
-     {:cols     cols
-      :format   format-str
-      :width    width
-      :title-fn (fn [title]
-                  (let [pad (/ (- width (.length title)) 2)]
-                    (str (str/join "" (take pad (repeat " "))) title "\n")))
-      :header   (str (apply (partial ccc/formats format-str) (map first cols)) "\n"
-                     (str/join "" (take width (repeat "-"))) "\n")
-      }))
+  (let [width      (+ (apply + (map second cols)) (count cols))
+        format-str (str/join " " (map #(str "%-" (second %) "s") cols))]
+    {:cols     cols
+     :format   format-str
+     :width    width
+     :title-fn (fn [title]
+                 (let [pad (/ (- width (.length title)) 2)]
+                   (str (str/join "" (take pad (repeat " "))) title "\n")))
+     :header   (str (apply (partial ccc/formats format-str) (map first cols)) "\n"
+                    (str/join "" (take width (repeat "-"))) "\n")
+     }))
 
 (defn color-pr
   "For ANSI color codes: https://en.wikipedia.org/wiki/ANSI_escape_code"
   [message color]
   (println (str "\u001b[" color "m" message "\u001b[0m")))
-
