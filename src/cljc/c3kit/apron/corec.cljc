@@ -63,6 +63,24 @@
        (js-obj (name k) v)
        (do (gobj/set o (name k) v) o))))
 
+(defn- k-name [k]
+  (if (number? k) k (name k)))
+
+#?(:cljs
+   (defn- o-name [obj]
+     (cond (vector? obj) "vector"
+           (list? obj) "list"
+           (set? obj) "set"
+           (keyword? obj) "keyword"
+           :else (str/lower-case (gobj/get (type obj) "name")))))
+
+#?(:cljs
+   (defn- maybe-type-error [k obj]
+     (when (some #(% obj) [string? number? keyword? sequential? set?])
+       (let [type-name (o-name obj)
+             k         (k-name k)]
+         (throw (new js/TypeError (str "Cannot create property '" k "' on " type-name " '" obj "'")))))))
+
 #?(:cljs
    (defn oset-in
      "assoc-in for js objects"
@@ -70,12 +88,12 @@
      (if-not (seq ks)
        o
        (let [o (if (nil? o) (js-obj) o)]
-         (loop [o o ks ks]
-           (let [[k & ks] ks
-                 k (if (number? k) k (name k))]
+         (loop [o o [k & ks] ks]
+           (let [k (k-name k)]
              (if (seq ks)
                (if-let [o-next (gobj/get o k)]
-                 (recur o-next ks)
+                 (or (maybe-type-error (first ks) o-next)
+                     (recur o-next ks))
                  (let [o-next (js-obj)]
                    (gobj/set o k o-next)
                    (recur o-next ks)))

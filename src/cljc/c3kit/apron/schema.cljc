@@ -6,19 +6,19 @@
     [c3kit.apron.log :as log]
     [clojure.edn :as edn]
     [clojure.string :as str]
-    #?(:cljs [com.cognitect.transit.types])                 ;; https://github.com/cognitect/transit-cljs/issues/41
+    #?(:cljs [com.cognitect.transit.types]) ;; https://github.com/cognitect/transit-cljs/issues/41
     [clojure.walk :as walk]))
 
 (comment
   "Schema Sample"
   {:field
-   {:type        :string                                    ;; see type-validators for list
-    :db          [:unique-value]                            ;; passed to database
-    :coerce      [#(str % "y")]                             ;; single/list of coerce fns
-    :validate    [#(> (count %) 1)]                         ;; single/list of validation fns
-    :message     "message describing the field"             ;; coerce failure message (or :validate failure message)
-    :validations [{:validate fn :message "msg"}]            ;; multiple validation/message pairs
-    :present     [#(str %)]                                 ;; single/list of presentation fns
+   {:type        :string ;; see type-validators for list
+    :db          [:unique-value] ;; passed to database
+    :coerce      [#(str % "y")] ;; single/list of coerce fns
+    :validate    [#(> (count %) 1)] ;; single/list of validation fns
+    :message     "message describing the field" ;; coerce failure message (or :validate failure message)
+    :validations [{:validate fn :message "msg"}] ;; multiple validation/message pairs
+    :present     [#(str %)] ;; single/list of presentation fns
     }})
 
 (comment
@@ -834,7 +834,7 @@
               :message "must be an ifn or seq of ifn"}
    :message  {:type :string}})
 
-(def spec-schema
+(def -spec-schema
   {:type        {:type :keyword :validations [required validate-type]}
    :validate    process-spec-schema
    :coerce      process-spec-schema
@@ -843,18 +843,21 @@
    :validations {:type :seq :spec {:type :map :schema validation-schema :message "must be schema/validation-schema"}}})
 
 (def spec-schema
-  (assoc spec-schema
-    :spec {:type :map :schema spec-schema :message "must be schema/spec-schema"}
-    :specs {:type :seq :spec {:type :map :schema spec-schema}}
+  (assoc -spec-schema
+    :spec {:type :map :schema -spec-schema :message "must be schema/spec-schema"}
+    :specs {:type :seq :spec {:type :map :schema -spec-schema}}
     :schema {:type :map :message "must be a map"}
     :* {:spec   {:validate #(if (:spec %) (= :seq (:type %)) true) :message "only used with type :seq"}
         :specs  {:validate #(if (:specs %) (= :one-of (:type %)) true) :message "only used with type :one-of"}
         :schema {:validate #(if (:schema %) (= :map (:type %)) true) :message "only used with type :map"}}))
-(def entity-spec-schema (assoc spec-schema :type {:type    :keyword :validate (nil?-or #(contains? valid-types %))
-                                                  :message "must be one of schema/valid-types"}))
+
+(def entity-spec-schema
+  (assoc spec-schema
+    :type {:type    :keyword :validate (nil?-or #(contains? valid-types %))
+           :message "must be one of schema/valid-types"}))
 
 (defn- conform-preserving-extras! [schema spec]
-  (let [extra (apply dissoc spec (keys schema))
+  (let [extra     (apply dissoc spec (keys schema))
         conformed (conform! schema spec)]
     (merge conformed extra)))
 

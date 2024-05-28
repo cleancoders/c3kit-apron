@@ -2,17 +2,11 @@
   (:require
     [c3kit.apron.corec :as ccc]
     [c3kit.apron.time :as time]
-    [speclj.core #?(:clj :refer :cljs :refer-macros) [context describe it should= should should-not should-be-nil with should-throw xit]]))
+    [speclj.core #?(:clj :refer :cljs :refer-macros) [context describe it should= should should-not should-be-nil should-not-throw with should-throw xit]]))
 
 (defn should-be-lazy [thing]
   (should= #?(:clj  clojure.lang.LazySeq
               :cljs cljs.core/LazySeq) (type thing)))
-
-(def e1)
-(def e2)
-(def e3)
-(def e4)
-(def items)
 
 (describe "Core Common"
 
@@ -605,22 +599,74 @@
            (should= "zero" (ccc/oget-in jsobj [:b1 :b2 :b3 0]))
            (should= "two" (ccc/oget-in jsobj [:b1 :b2 :b3 2]))))
 
-       (xit "oset-in"
-         (should= {"a" "a"} (js->clj (ccc/oset-in nil [:a] "a")))
-         (let [jsobj (js-obj)]
-           (should= jsobj (ccc/oset-in jsobj [] "a"))
-           (should= {"a1" "a1"} (js->clj (ccc/oset-in jsobj [:a1] "a1")))
-           ;; TODO [BAC]: This throws with none/whitespace optimizations,
-           ;;   but does not throw with :simple optimizations,
-           ;;   and therefore probably not :advanced
-           (should-throw (ccc/oset-in jsobj [:a1 :a1] "stomp"))
-           (ccc/oset-in jsobj [:b1 :b2 :b3] "b3")
-           (ccc/oset-in jsobj [:c1 2] "c1-2")
-           (should= {"a1" "a1"
-                     "b1" {"b2" {"b3" "b3"}}
-                     "c1" {"2" "c1-2"}}
-                    (js->clj jsobj))))
+       (context "oset-in"
 
-       ))
+         (it "assigns values"
+           (should= {"a" "a"} (js->clj (ccc/oset-in nil [:a] "a")))
+           (let [jsobj (js-obj)]
+             (should= jsobj (ccc/oset-in jsobj [] "a"))
+             (should= {"a1" "a1"} (js->clj (ccc/oset-in jsobj [:a1] "a1")))
+             (ccc/oset-in jsobj [:b1 :b2 :b3] "b3")
+             (ccc/oset-in jsobj [:c1 2] "c1-2")
+             (should= {"a1" "a1"
+                       "b1" {"b2" {"b3" "b3"}}
+                       "c1" {"2" "c1-2"}}
+                      (js->clj jsobj))))
+
+         (it "vectors"
+           (let [obj (js-obj "vector" [])]
+             (should-throw js/TypeError "Cannot create property '0' on vector '[]'"
+               (ccc/oset-in obj ["vector" 0] "I am lost"))
+             (should-throw js/TypeError "Cannot create property 'a1' on vector '[]'"
+               (ccc/oset-in obj ["vector" "a1"] "Me too"))
+             (should= {"vector" []} (js->clj obj))))
+
+         (it "js Arrays"
+           (let [obj (js-obj "array" (js/Array.))]
+             (should-not-throw (ccc/oset-in obj ["array" 0] "I am NOT lost"))
+             (should-not-throw (ccc/oset-in obj ["array" 3] "I also work"))
+             (should= {"array" ["I am NOT lost" nil nil "I also work"]} (js->clj obj))))
+
+         (it "sets"
+           (let [obj (js-obj "set" #{})]
+             (should-throw js/TypeError "Cannot create property '0' on set '#{}'"
+               (ccc/oset-in obj ["set" 0] "SETting zero"))
+             (should-throw js/TypeError "Cannot create property 'a1' on set '#{}'"
+               (ccc/oset-in obj ["set" "a1"] "SETting a1"))
+             (should= {"set" #{}} (js->clj obj))))
+
+         (it "lists"
+           (let [obj (js-obj "list" (list))]
+             (should-throw js/TypeError "Cannot create property '0' on list '()'"
+               (ccc/oset-in obj ["list" 0] "I am lost"))
+             (should-throw js/TypeError "Cannot create property 'a1' on list '()'"
+               (ccc/oset-in obj ["list" "a1"] "Me too"))
+             (should= {"list" (list)} (js->clj obj))))
+
+         (it "keywords"
+           (let [obj (js-obj "keyword" :k)]
+             (should-throw js/TypeError "Cannot create property 'k1' on keyword ':k'"
+               (ccc/oset-in obj ["keyword" "k1"] "where did I go?"))
+             (should= {"keyword" :k} (js->clj obj))))
+
+         (it "numbers"
+           (let [obj (js-obj "number" 1)]
+             (should-throw js/TypeError "Cannot create property 'one' on number '1'"
+               (ccc/oset-in obj ["number" "one"] "oh no"))
+             (should= {"number" 1} (js->clj obj))))
+
+         (it "strings"
+           (let [obj (js-obj "string" "s")]
+             (should-throw js/TypeError "Cannot create property 's1' on string 's'"
+               (ccc/oset-in obj ["string" "s1"] "oh no"))
+             (should= {"string" "s"} (js->clj obj))))
+
+         (it "js Objects"
+           (let [obj (js-obj "obj" (js-obj))]
+             (should-not-throw (ccc/oset-in obj ["obj" "o1"] "hello"))
+             (should= {"obj" {"o1" "hello"}} (js->clj obj))))
+         )
+       )
+     )
 
   )

@@ -15,6 +15,21 @@
 
 (def captured-logs (atom []))
 
+(defn capture-log!
+  "Arity overrides for timbre/-log!"
+  ([config level ?ns-str ?file ?line msg-type ?err vargs_ ?base-data]
+   (swap! captured-logs conj [config level ?ns-str ?file ?line msg-type ?err vargs_ ?base-data])
+   nil)
+  ([config level ?ns-str ?file ?line msg-type ?err vargs_ ?base-data callsite-id]
+   (swap! captured-logs conj [config level ?ns-str ?file ?line msg-type ?err vargs_ ?base-data callsite-id])
+   nil)
+  ([config level ?ns-str ?file ?line msg-type ?err vargs_ ?base-data callsite-id spying?]
+   (swap! captured-logs conj [config level ?ns-str ?file ?line msg-type ?err vargs_ ?base-data callsite-id spying?])
+   nil)
+  ([config level ?ns-str ?file ?line ?column msg-type ?err vargs_ ?base-data callsite-id spying?]
+   (swap! captured-logs conj [config level ?ns-str ?file ?line ?column msg-type ?err vargs_ ?base-data callsite-id spying?])
+   nil))
+
 #?(:clj (defmacro trace [& args] `(timbre/trace ~@args)))
 #?(:clj (defmacro debug [& args] `(timbre/debug ~@args)))
 #?(:clj (defmacro info [& args] `(timbre/info ~@args)))
@@ -27,7 +42,7 @@
              (reset! captured-logs [])
              (try
                (timbre/set-min-level! :trace)
-               (with-redefs [timbre/-log! (fn [& args#] (swap! captured-logs conj args#) nil)]
+               (with-redefs [timbre/-log! capture-log!]
                  ~@body)
                (finally
                  (timbre/set-min-level! original-level#))))))

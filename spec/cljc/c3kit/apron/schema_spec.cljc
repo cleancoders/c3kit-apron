@@ -2,10 +2,8 @@
   (:require
     [c3kit.apron.schema :as schema]
     [c3kit.apron.time :as time]
-    [speclj.core #?(:clj :refer :cljs :refer-macros) [context focus-context describe focus-it it xit should=
-                                                      should-contain should-not-contain should-throw should-be-a
-                                                      should should-not should-be-nil should-not-be-nil
-                                                      with-stubs stub should-not-have-invoked]]
+    [speclj.core #?(:clj :refer :cljs :refer-macros) [context describe it should= should-contain should-not-contain should-throw should-be-a
+                                                      should should-not should-be-nil with-stubs stub should-not-have-invoked]]
     [clojure.string :as str]
     [c3kit.apron.utilc :as utilc]
     [c3kit.apron.corec :as ccc]
@@ -675,13 +673,13 @@
 
     (it "with failed validation"
       (should-throw stdex "oh no!"
-                    (schema/conform-value! {:type :int :validate even? :message "oh no!"} "123")))
+        (schema/conform-value! {:type :int :validate even? :message "oh no!"} "123")))
 
     (it "of int the must be present"
       (should-throw stdex "is invalid"
-                    (schema/conform-value! {:type :int :validate [schema/present?]} ""))
+        (schema/conform-value! {:type :int :validate [schema/present?]} ""))
       (should-throw stdex "is invalid"
-                    (schema/conform-value! {:type :long :validate schema/present?} "")))
+        (schema/conform-value! {:type :long :validate schema/present?} "")))
 
     (it "success"
       (should= 123 (schema/conform-value! {:type :int :message "oh no!"} "123")))
@@ -969,8 +967,8 @@
 
       (it "with error on entity level presentation!"
         (should-throw stdex
-                      (schema/present!
-                        (assoc pet :* {:stage-name {:present #(throw (ex-info "blah" {:x %}))}}) valid-pet)))
+          (schema/present!
+            (assoc pet :* {:stage-name {:present #(throw (ex-info "blah" {:x %}))}}) valid-pet)))
       )
     )
 
