@@ -1,3 +1,8 @@
+### 2.1.4 (May 28, 2024)
+ * Upgrades deps
+ * Passes all specs under advanced cljs optimizations
+ * Fixes discrepancy with `c3kit.apron.corec/oset-in` between `:none` and `:advanced` optimizations where it would throw in `:none`, but not `:advanced`.
+
 ### 2.1.3 (Mar 18, 2024)
  * c3kit.apron.schema changed
    * c3kit.apron.schema is now self defining. Schema provides a schema for schema definitions.
