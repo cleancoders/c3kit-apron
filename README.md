@@ -6,6 +6,8 @@ A library component of [c3kit - Clean Coders Clojure Kit](https://github.com/cle
 
 _"Where is thy leather apron and thy rule?"_ - Shakespeare
 
+[![Apron Build](https://github.com/cleancoders/c3kit-apron/actions/workflows/test.yml/badge.svg)](https://github.com/cleancoders/c3kit-apron/actions/workflows/test.yml)
+
 Apron consists of necessities that almost any clojure app would find useful.
 
  * __app.clj__ : application service and state management
