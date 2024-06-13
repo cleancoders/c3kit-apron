@@ -315,7 +315,7 @@
             (sequential? (:type spec)) (normalize-seq-shorthand spec)
             (map? (:type spec)) (normalize-map-shorthand spec)
             (set? (:type spec)) (normalize-set-shorthand spec)
-            :else (throw (ex-info (str "invalid spec: " (pr-str spec)) {:spec spec})))
+            :else (throw (ex-info (str "invalid spec: " (pr-str spec)) {:spec spec :invalid-spec true})))
       {::normalized? true})))
 
 (defn normalize-schema
@@ -591,7 +591,9 @@
   (try
     (process-schema-on-entity process schema (->map entity))
     (catch #?(:clj Exception :cljs :default) e
-      (-process-error process {:value entity :exception e}))))
+      (if (:invalid-spec (ex-data e))
+        (throw e)
+        (-process-error process {:value entity :exception e})))))
 
 (defn- process-value-or-error [process spec value]
   (let [result (-process-spec-on-value process spec value)]

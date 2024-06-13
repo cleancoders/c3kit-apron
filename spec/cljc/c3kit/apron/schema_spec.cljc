@@ -2,7 +2,7 @@
   (:require
     [c3kit.apron.schema :as schema]
     [c3kit.apron.time :as time]
-    [speclj.core #?(:clj :refer :cljs :refer-macros) [context describe it should= should-contain should-not-contain should-throw should-be-a
+    [speclj.core #?(:clj :refer :cljs :refer-macros) [focus-it context describe it should= should-contain should-not-contain should-throw should-be-a
                                                       should should-not should-be-nil with-stubs stub should-not-have-invoked]]
     [clojure.string :as str]
     [c3kit.apron.utilc :as utilc]
@@ -781,7 +781,9 @@
         (should= true (schema/error? result2))
         (should= "species not nil" (:species (schema/message-map result2)))
         (should= "bad name" (:name (schema/message-map result2)))))
-    )
+
+    (it "with invalid schema"
+      (should-throw stdex "invalid spec: {:type \"hi\"}" (schema/conform {:foo {:type "hi"}} {:foo "bar"}))))
 
   (context "error messages"
 
