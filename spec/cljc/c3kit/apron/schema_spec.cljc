@@ -673,13 +673,13 @@
 
     (it "with failed validation"
       (should-throw stdex "oh no!"
-        (schema/conform-value! {:type :int :validate even? :message "oh no!"} "123")))
+                    (schema/conform-value! {:type :int :validate even? :message "oh no!"} "123")))
 
     (it "of int the must be present"
       (should-throw stdex "is invalid"
-        (schema/conform-value! {:type :int :validate [schema/present?]} ""))
+                    (schema/conform-value! {:type :int :validate [schema/present?]} ""))
       (should-throw stdex "is invalid"
-        (schema/conform-value! {:type :long :validate schema/present?} "")))
+                    (schema/conform-value! {:type :long :validate schema/present?} "")))
 
     (it "success"
       (should= 123 (schema/conform-value! {:type :int :message "oh no!"} "123")))
@@ -783,7 +783,30 @@
         (should= "bad name" (:name (schema/message-map result2)))))
 
     (it "with invalid schema"
-      (should-throw stdex "invalid spec: {:type \"hi\"}" (schema/conform {:foo {:type "hi"}} {:foo "bar"}))))
+      (should-throw stdex "invalid spec: {:type \"hi\"}" (schema/conform {:foo {:type "hi"}} {:foo "bar"})))
+
+    ;(it "coercing a string to seq"
+    ;  (let [path-schema {:path {:type :seq :coerce utilc/<-edn :spec {:type :map :schema {:foo {:type :string}}}}}
+    ;        entity      {:path (pr-str [{:foo "foo"}])}
+    ;        result      (schema/conform path-schema entity)]
+    ;    (should= nil (schema/message-map result))))
+    ;
+    ;(it "coercing a string to map"
+    ;  (let [path-schema {:path {:type    :map
+    ;                            :coerce  utilc/<-edn
+    ;                            :message "oops"
+    ;                            :schema  {:foo {:type :string :validate str/blank? :coerce #(apply str (rest %))}}}}]
+    ;    (let [valid (schema/conform path-schema {:path (pr-str {:foo ""})})]
+    ;      (should= nil (schema/message-map valid))
+    ;      (should= {:foo ""} (:path valid)))
+    ;    (let [invalid (schema/conform path-schema {:path (pr-str {:foo "foo"})})]
+    ;      (should= "is invalid" (get-in (schema/message-map invalid) [:path :foo])))
+    ;    (let [not-a-map (schema/conform path-schema {:path (pr-str "im-not-a-map")})]
+    ;      (should= "oops" (get-in (schema/message-map not-a-map) [:path])))
+    ;    (let [valid-nested (schema/conform path-schema {:path (pr-str {:foo "f"})})]
+    ;      (should= nil (schema/message-map valid-nested)))))
+
+    )
 
   (context "error messages"
 
@@ -969,8 +992,8 @@
 
       (it "with error on entity level presentation!"
         (should-throw stdex
-          (schema/present!
-            (assoc pet :* {:stage-name {:present #(throw (ex-info "blah" {:x %}))}}) valid-pet)))
+                      (schema/present!
+                        (assoc pet :* {:stage-name {:present #(throw (ex-info "blah" {:x %}))}}) valid-pet)))
       )
     )
 
@@ -1288,3 +1311,4 @@
       )
     )
   )
+

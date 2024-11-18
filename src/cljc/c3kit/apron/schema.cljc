@@ -6,19 +6,19 @@
     [c3kit.apron.log :as log]
     [clojure.edn :as edn]
     [clojure.string :as str]
-    #?(:cljs [com.cognitect.transit.types]) ;; https://github.com/cognitect/transit-cljs/issues/41
+    #?(:cljs [com.cognitect.transit.types])                 ;; https://github.com/cognitect/transit-cljs/issues/41
     [clojure.walk :as walk]))
 
 (comment
   "Schema Sample"
   {:field
-   {:type        :string ;; see type-validators for list
-    :db          [:unique-value] ;; passed to database
-    :coerce      [#(str % "y")] ;; single/list of coerce fns
-    :validate    [#(> (count %) 1)] ;; single/list of validation fns
-    :message     "message describing the field" ;; coerce failure message (or :validate failure message)
-    :validations [{:validate fn :message "msg"}] ;; multiple validation/message pairs
-    :present     [#(str %)] ;; single/list of presentation fns
+   {:type        :string                                    ;; see type-validators for list
+    :db          [:unique-value]                            ;; passed to database
+    :coerce      [#(str % "y")]                             ;; single/list of coerce fns
+    :validate    [#(> (count %) 1)]                         ;; single/list of validation fns
+    :message     "message describing the field"             ;; coerce failure message (or :validate failure message)
+    :validations [{:validate fn :message "msg"}]            ;; multiple validation/message pairs
+    :present     [#(str %)]                                 ;; single/list of presentation fns
     }})
 
 (comment
@@ -424,18 +424,15 @@
   ;; MDM: optimizing by storing :error? in metadata on entity did not improve performance noticeably.
   (boolean (seq (error-seq entity))))
 
-(defmulti -process-field-spec (fn [process _spec _value] process))
-(defmulti -process-entity-level-spec (fn [process _key _spec _entity] process))
-(defmulti -process-error (fn [process _options] process))
+(defn -process-error [process options]
+  (case process
+    :coerce (-create-field-error ->CoerceError "coercion failed" options)
+    :validate (-create-field-error ->ValidateError "is invalid" options)
+    :conform (-create-field-error ->ConformError "conform failed" options)
+    :present (-create-field-error ->PresentError "present failed" options)))
 
-(defmethod -process-error :coerce [_ options]
-  (-create-field-error ->CoerceError "coercion failed" options))
-(defmethod -process-error :validate [_ options]
-  (-create-field-error ->ValidateError "is invalid" options))
-(defmethod -process-error :conform [_ options]
-  (-create-field-error ->ConformError "conform failed" options))
-(defmethod -process-error :present [_ options]
-  (-create-field-error ->PresentError "present failed" options))
+(declare -process-field-spec)
+(declare -process-entity-level-spec)
 
 (defn- field-result-or-error [process spec value]
   (try
@@ -449,7 +446,14 @@
     (catch #?(:clj Exception :cljs :default) e
       (-process-error process {:exception e}))))
 
-(defmethod -process-field-spec :coerce [_ spec value]
+(defn- process-validations [validations value]
+  (doseq [{:keys [validate message]} validations]
+    (let [validate-fns (if (multiple? validate) validate [validate])]
+      (doseq [v-fn validate-fns]
+        (when-not (v-fn value)
+          (throw (validation-ex message value)))))))
+
+(defn- coerce-field-spec [spec value]
   (let [{:keys [type message]} spec
         coerce-fns (conj (->vec (:coerce spec)) (type-coercer! type))]
     (try
@@ -458,14 +462,7 @@
       (catch #?(:clj Exception :cljs :default) e
         (-process-error :coerce {:message message :exception e})))))
 
-(defn- process-validations [validations value]
-  (doseq [{:keys [validate message]} validations]
-    (let [validate-fns (if (multiple? validate) validate [validate])]
-      (doseq [v-fn validate-fns]
-        (when-not (v-fn value)
-          (throw (validation-ex message value)))))))
-
-(defmethod -process-field-spec :validate [_ spec value]
+(defn- validate-field-spec  [spec value]
   (let [{:keys [type validate validations message]} spec
         validations (concat [{:validate (type-validator! type) :message message}]
                             (if validate [{:validate validate :message message}] [])
@@ -473,18 +470,25 @@
     (process-validations validations value)
     value))
 
-(defmethod -process-field-spec :conform [_ spec value]
+(defn- conform-field-spec  [spec value]
   (let [coerce-result (field-result-or-error :coerce spec value)]
     (if (field-error? coerce-result)
       coerce-result
       (let [field-result-or-failure (field-result-or-error :validate spec coerce-result)]
         field-result-or-failure))))
 
-(defmethod -process-field-spec :present [_ spec value]
+(defn- present-field-spec  [spec value]
   (let [present-fns (->vec (:present spec))]
     (reduce (fn [result present-fn] (present-fn result)) value present-fns)))
 
-(defmethod -process-entity-level-spec :coerce [_ key spec entity]
+(defn -process-field-spec [process spec value]
+  (case process
+    :coerce (coerce-field-spec spec value)
+    :validate (validate-field-spec spec value)
+    :conform (conform-field-spec spec value)
+    :present (present-field-spec spec value)))
+
+(defn- coerce-entity-level-spec  [key spec entity]
   (let [{:keys [coerce message]} spec
         coerce-fns (->vec coerce)]
     (try
@@ -493,22 +497,29 @@
       (catch #?(:clj Exception :cljs :default) e
         (-process-error :coerce {:message message :exception e})))))
 
-(defmethod -process-entity-level-spec :validate [_ key spec entity]
+(defn- validate-entity-level-spec [key spec entity]
   (let [{:keys [validate validations message]} spec
         validations (concat (if validate [{:validate validate :message message}] []) validations)]
     (process-validations validations entity)
     (get entity key)))
 
-(defmethod -process-entity-level-spec :conform [_ key spec entity]
+(defn- conform-entity-level-spec [key spec entity]
   (let [coerce-result (entity-result-or-error :coerce key spec entity)]
     (if (field-error? coerce-result)
       coerce-result
       (entity-result-or-error :validate key spec (assoc entity key coerce-result)))))
 
-(defmethod -process-entity-level-spec :present [_ key spec entity]
+(defn- present-entity-level-spec [key spec entity]
   (let [present-fns      (->vec (:present spec))
         presented-entity (reduce (fn [result present-fn] (assoc result key (present-fn result))) entity present-fns)]
     (get presented-entity key)))
+
+(defn -process-entity-level-spec [process key spec entity]
+  (case process
+    :coerce (coerce-entity-level-spec key spec entity)
+    :validate (validate-entity-level-spec key spec entity)
+    :conform (conform-entity-level-spec key spec entity)
+    :present (present-entity-level-spec key spec entity)))
 
 (declare process-schema-on-entity)
 (declare -process-spec-on-value)
@@ -535,6 +546,10 @@
 
 (defn process-map-spec-on-value [process spec value]
   (let [schema (:schema spec)]
+    #_(let [value (field-result-or-error process spec value)]
+        (if (error? value)
+          value
+          (process-schema-on-entity process schema value)))
     (cond (= :coerce process) (let [value (field-result-or-error process spec value)]
                                 (if (error? value)
                                   value
@@ -543,6 +558,10 @@
                          (if (error? entity)
                            entity
                            (field-result-or-error process spec entity)))
+          ;(= :conform process) (let [coerced (field-result-or-error :coerce spec value)]
+          ;                       (if (error? coerced)
+          ;                         coerced
+          ;                         (process-map-spec-on-value :validate spec coerced)))
           :else (field-result-or-error process spec value))))
 
 (defn process-one-of-on-value [process spec value]
