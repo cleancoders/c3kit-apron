@@ -32,7 +32,7 @@
    :name        {:type     :string
                  :db       [:unique-value]
                  :coerce   #(str % "y")
-                 :validate #(> (count %) 1)
+                 :validate #(> (count %) 2)
                  :message  "must be nice and unique name"}
    :owner       {:type     :ref
                  :validate [schema/present?]
@@ -785,28 +785,30 @@
     (it "with invalid schema"
       (should-throw stdex "invalid spec: {:type \"hi\"}" (schema/conform {:foo {:type "hi"}} {:foo "bar"})))
 
-    ;(it "coercing a string to seq"
-    ;  (let [path-schema {:path {:type :seq :coerce utilc/<-edn :spec {:type :map :schema {:foo {:type :string}}}}}
-    ;        entity      {:path (pr-str [{:foo "foo"}])}
-    ;        result      (schema/conform path-schema entity)]
-    ;    (should= nil (schema/message-map result))))
-    ;
-    ;(it "coercing a string to map"
-    ;  (let [path-schema {:path {:type    :map
-    ;                            :coerce  utilc/<-edn
-    ;                            :message "oops"
-    ;                            :schema  {:foo {:type :string :validate str/blank? :coerce #(apply str (rest %))}}}}]
-    ;    (let [valid (schema/conform path-schema {:path (pr-str {:foo ""})})]
-    ;      (should= nil (schema/message-map valid))
-    ;      (should= {:foo ""} (:path valid)))
-    ;    (let [invalid (schema/conform path-schema {:path (pr-str {:foo "foo"})})]
-    ;      (should= "is invalid" (get-in (schema/message-map invalid) [:path :foo])))
-    ;    (let [not-a-map (schema/conform path-schema {:path (pr-str "im-not-a-map")})]
-    ;      (should= "oops" (get-in (schema/message-map not-a-map) [:path])))
-    ;    (let [valid-nested (schema/conform path-schema {:path (pr-str {:foo "f"})})]
-    ;      (should= nil (schema/message-map valid-nested)))))
+    (it "coercing a string to seq"
+      (let [path-schema {:path {:type :seq :coerce utilc/<-edn :spec {:type :map :schema {:foo {:type :string}}}}}
+            entity      {:path (pr-str [{:foo "foo"}])}
+            result      (schema/conform path-schema entity)]
+        (should= nil (schema/message-map result))))
+
+    (it "coercing a string to map"
+      (let [path-schema {:path {:type    :map
+                                :coerce  utilc/<-edn
+                                :message "oops"
+                                :schema  {:foo {:type :string :validate str/blank? :coerce #(apply str (rest %))}}}}]
+        (let [valid (schema/conform path-schema {:path (pr-str {:foo ""})})]
+          (should= nil (schema/message-map valid))
+          (should= {:foo ""} (:path valid)))
+        (let [invalid (schema/conform path-schema {:path (pr-str {:foo "foo"})})]
+          (should= "is invalid" (get-in (schema/message-map invalid) [:path :foo])))
+        (let [not-a-map (schema/conform path-schema {:path (pr-str "im-not-a-map")})]
+          (should= "oops" (get-in (schema/message-map not-a-map) [:path])))
+        (let [valid-nested (schema/conform path-schema {:path (pr-str {:foo "f"})})]
+          (should= nil (schema/message-map valid-nested)))))
 
     )
+
+
 
   (context "error messages"
 
@@ -906,7 +908,8 @@
         (should-contain "pets.1.parent.age can't coerce :foo to int" result)
         (should-contain "pets.1.name must be nice and unique name" result)
         (should-contain "pets.3.parent.age can't coerce :foo to int" result)
-        (should-contain "pets.3.name must be nice and unique name" result)))
+        (should-contain "pets.3.name must be nice and unique name" result)
+        ))
     )
 
   (context "presentation"
@@ -967,10 +970,10 @@
         (should= "{:age 10}" (schema/present-value! spec value))))
 
     (it "of object with presentable attributes"
-      (let [spec  {:type    {:age {:type :int :present str}}
+      (let [spec  {:type    {:age {:type :int :present inc}}
                    :present pr-str}
             value {:age 10}]
-        (should= "{:age \"10\"}" (schema/present-value! spec value))))
+        (should= "{:age 11}" (schema/present-value! spec value))))
 
     (context "of entity"
 

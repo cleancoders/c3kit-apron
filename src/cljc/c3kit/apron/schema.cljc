@@ -462,7 +462,7 @@
       (catch #?(:clj Exception :cljs :default) e
         (-process-error :coerce {:message message :exception e})))))
 
-(defn- validate-field-spec  [spec value]
+(defn- validate-field-spec [spec value]
   (let [{:keys [type validate validations message]} spec
         validations (concat [{:validate (type-validator! type) :message message}]
                             (if validate [{:validate validate :message message}] [])
@@ -470,14 +470,14 @@
     (process-validations validations value)
     value))
 
-(defn- conform-field-spec  [spec value]
+(defn- conform-field-spec [spec value]
   (let [coerce-result (field-result-or-error :coerce spec value)]
     (if (field-error? coerce-result)
       coerce-result
       (let [field-result-or-failure (field-result-or-error :validate spec coerce-result)]
         field-result-or-failure))))
 
-(defn- present-field-spec  [spec value]
+(defn- present-field-spec [spec value]
   (let [present-fns (->vec (:present spec))]
     (reduce (fn [result present-fn] (present-fn result)) value present-fns)))
 
@@ -488,7 +488,7 @@
     :conform (conform-field-spec spec value)
     :present (present-field-spec spec value)))
 
-(defn- coerce-entity-level-spec  [key spec entity]
+(defn- coerce-entity-level-spec [key spec entity]
   (let [{:keys [coerce message]} spec
         coerce-fns (->vec coerce)]
     (try
@@ -534,34 +534,39 @@
 
 (defn- process-seq-spec-on-value [process spec value]
   (let [entry-spec (or (:spec spec) {:type :any})]
-    (if (= :coerce process)
-      (let [value (field-result-or-error process spec value)]
-        (if (error? value)
-          value
-          (process-spec-on-seq-entries process entry-spec value)))
-      (let [value (process-spec-on-seq-entries process entry-spec value)]
-        (if (error? value)
-          value
-          (field-result-or-error process spec value))))))
+    (cond (= :coerce process) (let [value (field-result-or-error :coerce spec value)]
+                                (if (error? value)
+                                  value
+                                  (process-spec-on-seq-entries :coerce entry-spec value)))
+          (= :conform process) (let [coerced (field-result-or-error :coerce spec value)]
+                                 (if (error? coerced)
+                                   coerced
+                                   (let [conformed (process-spec-on-seq-entries :conform entry-spec coerced)]
+                                     (if (error? conformed)
+                                       conformed
+                                       (field-result-or-error :validate spec conformed)))))
+          :else (let [value (process-spec-on-seq-entries process entry-spec value)]
+                  (if (error? value)
+                    value
+                    (field-result-or-error process spec value))))))
 
 (defn process-map-spec-on-value [process spec value]
   (let [schema (:schema spec)]
-    #_(let [value (field-result-or-error process spec value)]
-        (if (error? value)
-          value
-          (process-schema-on-entity process schema value)))
-    (cond (= :coerce process) (let [value (field-result-or-error process spec value)]
+    (cond (= :coerce process) (let [value (field-result-or-error :coerce spec value)]
                                 (if (error? value)
                                   value
-                                  (process-schema-on-entity process schema value)))
+                                  (process-schema-on-entity :coerce schema value)))
+          (= :conform process) (let [coerced (field-result-or-error :coerce spec value)]
+                                 (if (or (error? coerced) (nil? coerced))
+                                   coerced
+                                   (let [conformed (process-schema-on-entity :conform schema coerced)]
+                                     (if (error? conformed)
+                                       conformed
+                                       (field-result-or-error :validate spec conformed)))))
           (map? value) (let [entity (process-schema-on-entity process schema value)]
                          (if (error? entity)
                            entity
                            (field-result-or-error process spec entity)))
-          ;(= :conform process) (let [coerced (field-result-or-error :coerce spec value)]
-          ;                       (if (error? coerced)
-          ;                         coerced
-          ;                         (process-map-spec-on-value :validate spec coerced)))
           :else (field-result-or-error process spec value))))
 
 (defn process-one-of-on-value [process spec value]
