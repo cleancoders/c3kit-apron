@@ -1,3 +1,6 @@
+### 2.1.5 (Nov 18, 2024)
+ * schema conform can handle nested coercion
+
 ### 2.1.4 (May 28, 2024)
  * Upgrades deps
  * Passes all specs under advanced cljs optimizations

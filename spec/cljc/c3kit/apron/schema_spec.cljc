@@ -806,6 +806,10 @@
         (let [valid-nested (schema/conform path-schema {:path (pr-str {:foo "f"})})]
           (should= nil (schema/message-map valid-nested)))))
 
+    (it "required map field"
+      (let [schema {:thing {:type :map :schema {:field {:type :any}} :validations [schema/required]}}]
+        (should= "is required" (:thing (schema/conform-message-map schema {})))))
+
     )
 
 

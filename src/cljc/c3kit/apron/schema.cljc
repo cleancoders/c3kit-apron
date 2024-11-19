@@ -557,12 +557,12 @@
                                   value
                                   (process-schema-on-entity :coerce schema value)))
           (= :conform process) (let [coerced (field-result-or-error :coerce spec value)]
-                                 (if (or (error? coerced) (nil? coerced))
-                                   coerced
-                                   (let [conformed (process-schema-on-entity :conform schema coerced)]
-                                     (if (error? conformed)
-                                       conformed
-                                       (field-result-or-error :validate spec conformed)))))
+                                 (cond (error? coerced) coerced
+                                       (nil? coerced) (field-result-or-error :validate spec coerced)
+                                       :else (let [conformed (process-schema-on-entity :conform schema coerced)]
+                                               (if (error? conformed)
+                                                 conformed
+                                                 (field-result-or-error :validate spec conformed)))))
           (map? value) (let [entity (process-schema-on-entity process schema value)]
                          (if (error? entity)
                            entity
