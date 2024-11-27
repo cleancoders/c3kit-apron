@@ -611,7 +611,7 @@
       (let [{:keys [entity errors]} (reduce (partial process-entity-level-spec process) {:entity entity} (:* schema))]
         (merge entity errors)))))
 
-(defn- coerce-entity-and-process-schema [process schema entity]
+(defn- attempt-process-schema-on-entity [process schema entity]
   (try
     (process-schema-on-entity process schema (->map entity))
     (catch #?(:clj Exception :cljs :default) e
@@ -679,13 +679,13 @@
   "Returns coerced entity or SchemaError if any coercion failed. Use error? to check result.
   Use Case: 'I want to change my data into the types specified by the schema.'"
   [schema entity]
-  (coerce-entity-and-process-schema :coerce schema entity))
+  (attempt-process-schema-on-entity :coerce schema entity))
 
 (defn validate
   "Returns entity with all values true, or SchemaError when one or more invalid fields. Use error? to check result.
   Use Case: 'I want to make sure all the data is valid according to the schema.'"
   [schema entity]
-  (coerce-entity-and-process-schema :validate schema entity))
+  (attempt-process-schema-on-entity :validate schema entity))
 
 (defn conform
   "Returns coerced entity or SchemaError upon any coercion or validation failure. Use error? to check result.
@@ -693,12 +693,12 @@
   Use Case: Data comes in from a web-form so strings have to be coerced into numbers, etc., then
             we need to validate that the data is good."
   [schema entity]
-  (coerce-entity-and-process-schema :conform schema entity))
+  (attempt-process-schema-on-entity :conform schema entity))
 
 (defn present
   "Returns presented entity with FieldErrors where the process failed. Use error? to check result."
   [schema entity]
-  (coerce-entity-and-process-schema :present schema entity))
+  (attempt-process-schema-on-entity :present schema entity))
 
 (defn- as-map-or-nil [thing]
   (when (seq thing)
