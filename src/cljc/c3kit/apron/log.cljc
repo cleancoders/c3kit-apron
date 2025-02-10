@@ -98,3 +98,18 @@
   "For ANSI color codes: https://en.wikipedia.org/wiki/ANSI_escape_code"
   [message color]
   (println (str "\u001b[" color "m" message "\u001b[0m")))
+
+(defn -platform-time []
+  #?(:clj (. System (nanoTime)) :cljs (.getTime (js/Date.))))
+
+(defn -nanos []
+  #?(:clj (. System (nanoTime)) :cljs (* (.now js/performance) 1000.0)))
+
+(defmacro time
+  "Same as clojure.core/time but logs (info) instead of printing elapsed time."
+  [expr]
+  `(let [start#          (-nanos)
+         ret#            ~expr
+         millis# (/ (double (- (-nanos) start#)) 1000000.0)]
+     (info (str "Elapsed time: " millis# " msecs"))
+     ret#))

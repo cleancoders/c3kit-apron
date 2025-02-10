@@ -533,6 +533,7 @@
                   result))))
 
 (defn- process-seq-spec-on-value [process spec value]
+  ;(prn "process spec value: " process spec value)
   (let [entry-spec (or (:spec spec) {:type :any})]
     (cond (= :coerce process) (let [value (field-result-or-error :coerce spec value)]
                                 (if (error? value)

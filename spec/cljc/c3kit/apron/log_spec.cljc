@@ -1,9 +1,11 @@
 (ns c3kit.apron.log-spec
   #?(:cljs (:require-macros [c3kit.apron.log-spec :refer [test-log-arity]]))
   (:require
+    [c3kit.apron.log :as log]
     [c3kit.apron.log :as sut]
     [taoensso.timbre :as timbre]
-    [speclj.core #?(:clj :refer :cljs :refer-macros) [describe it should= should-be-nil after]]))
+    [speclj.core #?(:clj :refer :cljs :refer-macros) [describe it should= should-be-nil after
+                                                      should-start-with should-end-with]]))
 
 (defmacro test-log-arity [arity]
   `(let [args# (range ~arity)]
@@ -39,4 +41,13 @@
       (should= :info level)
       (should= ["hello"] @vargs_)
       (should= {:level :info :message "hello"} (first (sut/parse-captured-logs)))))
+
+  (it "time"
+    (log/capture-logs
+      (let [output (with-out-str (sut/time (println "foo")))]
+        (should= "foo\n" output)))
+    ;(prn "(log/captured-logs-str): " (log/captured-logs-str))
+    (should-start-with "Elapsed time:" (log/captured-logs-str))
+    (should-end-with " msecs" (log/captured-logs-str)))
+
   )
