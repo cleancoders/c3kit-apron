@@ -11,12 +11,18 @@
 
 (describe "cursor"
 
+  (it "not an atom"
+    (should-throw (cursor nil [:a]))
+    (should-throw (cursor 0 [:a]))
+    (should-throw (cursor "" [:a])))
+
   (it "pulling"
     (should= 0 (deref c))
     (should= 0 @c)
     (should= {:c 0} @b)
     (should= {:b {:c 0}} @a)
-    (should= nil (deref (cursor a [:blah]))))
+    (should= nil (deref (cursor a [:blah])))
+    (should= @base (deref (cursor base []))))
 
   (it "swapping"
     (swap! c inc)
@@ -59,10 +65,29 @@
 
   (it "watching"
     (let [change (atom nil)
-          a (atom {:b 0})
-          b (cursor a [:b])]
+          a      (atom {:b 0})
+          b      (cursor a [:b])]
       (add-watch b :test (fn [k r o n] (reset! change [k r o n])))
       (swap! b inc)
       (should= [:test b 0 1] @change)))
 
+  (it "stop watching"
+    (let [change (atom nil)
+          a      (atom {:b 0})
+          b      (cursor a [:b])]
+      (add-watch b :test (fn [k r o n] (reset! change [k r o n])))
+      (remove-watch b :test)
+      (swap! b inc)
+      (should= nil @change)))
+
+  (it "multiple watchers"
+    (let [change (atom nil)
+          a      (atom {:b 0})
+          b      (cursor a [:b])]
+      (add-watch b :test1 (fn [k r o n] (swap! change conj [k r o n])))
+      (add-watch b :test2 (fn [k r o n] (swap! change conj [k r o n])))
+      (swap! b inc)
+      (should= 2 (count @change))
+      (should-contain [:test1 b 0 1] @change)
+      (should-contain [:test2 b 0 1] @change)))
   )

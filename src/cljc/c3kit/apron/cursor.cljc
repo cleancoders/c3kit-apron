@@ -1,4 +1,7 @@
 (ns c3kit.apron.cursor
+  "Defines a Cursor that wraps an atom (or atom-like structure) and provides a way to focus on a
+  specific path within its nested data. It implements various Clojure interfaces to make it behave like an atom
+  itself, with dereferencing, swapping, resetting, and watching capabilities."
   #?(:clj (:import (clojure.lang IDeref IAtom IRef IAtom2))))
 
 (defn- do-swap!
@@ -84,8 +87,26 @@
           (.write writer (pr-str (.path cursor)))
           (.write writer ">")))
 
+(defn cursor
+  "Returns a cursor that focuses on a specific path within an atom-like reference.
+  The returned cursor implements deref, swap!, reset!, and watch,
+  allowing it to behave like an atom scoped to the given path.
 
-(defn cursor [a path]
+  Args:
+    a    - An atom-like reference (e.g., an atom) containing nested data.
+    path - A sequence of keys (e.g., [:user :name]) specifying the path to focus on.
+
+  Example:
+    (def state (atom {:user {:name \"Alice\"}}))
+    (def name-cursor (cursor state [:user :name]))
+    @name-cursor           ;; => \"Alice\"
+    (swap! name-cursor str \" Smith\") ;; Updates state to {:user {:name \"Alice Smith\"}}
+
+  Notes:
+    - The cursor delegates operations to the base atom, modifying its state at the given path.
+    - If the path becomes invalid (e.g., due to structural changes), dereferencing returns nil."
+  [a path]
+  (assert #?(:clj (instance? IAtom a) :cljs (satisfies? IAtom a)))
   (if (seq path)
     (Cursor. a path)
     a))
