@@ -1,5 +1,6 @@
-### NEXT 
+### 2.2.0 
  * adds log/time (Feb 10, 2025)
+ * pickle namespace (Apr 22, 2025)
 
 ### 2.1.5 (Nov 18, 2024)
  * schema conform can handle nested coercion
