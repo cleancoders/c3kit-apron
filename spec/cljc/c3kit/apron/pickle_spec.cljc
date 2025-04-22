@@ -11,22 +11,23 @@
                                                               should-not== should-start-with should-throw should<
                                                               should<= should= should== should> should>= stub tags
                                                               with with-all with-stubs xit redefs-around]]
+            [c3kit.apron.time :as time]
             [c3kit.apron.pickle :as sut]))
 
 (deftype Wallace [cheese invention]
-  sut/Custom
-  (custom-type [_] :pickle-spec/wallace)
-  (custom->map [_] {:cheese cheese :invention invention}))
+  sut/Pickleable
+  (pickleable-type [_] :pickle-spec/wallace)
+  (pickleable->map [_] {:cheese cheese :invention invention}))
 
-(defmethod sut/map->custom :pickle-spec/wallace [_ {:keys [cheese invention]}]
+(defmethod sut/map->pickleable :pickle-spec/wallace [_ {:keys [cheese invention]}]
   (Wallace. cheese invention))
 
 (defrecord Gromit [expression paper]
-  sut/Custom
-  (custom-type [_] :pickle-spec/gromit)
-  (custom->map [this] this))
+  sut/Pickleable
+  (pickleable-type [_] :pickle-spec/gromit)
+  (pickleable->map [this] this))
 
-(defmethod sut/map->custom :pickle-spec/gromit [_ m] (map->Gromit m))
+(defmethod sut/map->pickleable :pickle-spec/gromit [_ m] (map->Gromit m))
 
 (describe "Pickle"
 
@@ -53,21 +54,37 @@
   #_(it "long strings"
       (should= 16 sut/LONG_STRING_LENGTH)
       (let [s       "This ia a long string that might be duplicated in the graph so it gets pickled as a ref."
-            id      (sut/unique-id s)
+            id      (sut/-unique-id s)
             pickled (sut/pickle s)]
         (should= {:_refs {id s} :_object {:_t :ref :_v id}} pickled)
         (should= s (sut/unpickle pickled))))
 
+  (it "instant"
+    (let [s       (time/utc 2025 02 28 7 25 0)
+          id      (sut/-unique-id s)
+          pickled (sut/pickle s)]
+      (should= {:_refs {id {:_t :inst :_v (pr-str s)}} :_object {:_t :ref :_v id}} pickled)
+      (should= s (sut/unpickle pickled))))
+
   (it "list"
     (let [s       [1 2 3]
-          id      (sut/unique-id s)
+          id      (sut/-unique-id s)
           pickled (sut/pickle s)]
       (should= {:_refs {id {:_t :seq :_v [1 2 3]}} :_object {:_t :ref :_v id}} pickled)
       (should= s (sut/unpickle pickled))))
 
+  (it "set"
+    (let [s       #{1 2 3}
+          id      (sut/-unique-id s)
+          pickled (sut/pickle s)]
+      (should= :set (get-in pickled [:_refs id :_t]))
+      (should= s (set (get-in pickled [:_refs id :_v])))
+      ;(should= {:_refs {id {:_t :set :_v [1 2 3]}} :_object {:_t :ref :_v id}} pickled)
+      (should= s (sut/unpickle pickled))))
+
   (it "map"
     (let [m       {:foo "bar"}
-          id      (sut/unique-id m)
+          id      (sut/-unique-id m)
           pickled (sut/pickle m)]
       (should= {:_refs {id {:_t :map, :_v {:foo "bar"}}} :_object {:_t :ref :_v id}} pickled)
       (should= m (sut/unpickle pickled))))
@@ -77,41 +94,41 @@
           obj     [foobar]
           pickled (sut/pickle obj)]
       (should= obj (sut/unpickle pickled))
-      (should-contain (sut/unique-id foobar) (:_refs pickled))
-      (should-contain (sut/unique-id obj) (:_refs pickled))))
+      (should-contain (sut/-unique-id foobar) (:_refs pickled))
+      (should-contain (sut/-unique-id obj) (:_refs pickled))))
 
   (it "map with a list"
     (let [foobar  [:foo "bar"]
           obj     {:list foobar}
           pickled (sut/pickle obj)]
       (should= obj (sut/unpickle pickled))
-      (should-contain (sut/unique-id foobar) (:_refs pickled))
-      (should-contain (sut/unique-id obj) (:_refs pickled))))
+      (should-contain (sut/-unique-id foobar) (:_refs pickled))
+      (should-contain (sut/-unique-id obj) (:_refs pickled))))
 
   (it "duplicates maps in a list"
     (let [foobar  {:foo "bar"}
           obj     [foobar foobar]
           pickled (sut/pickle obj)]
       (should= obj (sut/unpickle pickled))
-      (should-contain (sut/unique-id foobar) (:_refs pickled))
-      (should-contain (sut/unique-id obj) (:_refs pickled))))
+      (should-contain (sut/-unique-id foobar) (:_refs pickled))
+      (should-contain (sut/-unique-id obj) (:_refs pickled))))
 
   (it "defrecord"
     (let [gromit  (->Gromit "annoyed" "times")
-          id      (sut/unique-id gromit)
+          id      (sut/-unique-id gromit)
           pickled (sut/pickle gromit)]
       (should= {:_refs {id {:_t :pickle-spec/gromit, :_v (into {} gromit)}} :_object {:_t :ref :_v id}} pickled)
       (should= gromit (sut/unpickle pickled))))
 
   (it "deftype"
     (let [wallace   (->Wallace "munster" "rocket")
-          id        (sut/unique-id wallace)
+          id        (sut/-unique-id wallace)
           pickled   (sut/pickle wallace)
           unpickled (sut/unpickle pickled)]
       (should= {:_refs   {id {:_t :pickle-spec/wallace :_v {:cheese "munster" :invention "rocket"}}}
                 :_object {:_t :ref :_v id}} pickled)
       (should= Wallace (type unpickled))
-      (should= (sut/custom->map wallace) (sut/custom->map unpickled))))
+      (should= (sut/pickleable->map wallace) (sut/pickleable->map unpickled))))
 
   ;; MDM - cycles are not currently supported.
   ;;  They should only be possible in CLJS or using non-Clojure types.
@@ -127,6 +144,6 @@
   ;                                 :_object {:_t :ref :_v id}}}
   ;                   :_object {:_t :ref :_v id}} pickled)
   ;       (should= Wallace (type unpickled))
-  ;       (should= (sut/custom->map wallace) (sut/custom->map unpickled)))))
+  ;       (should= (sut/pickleable->map wallace) (sut/pickleable->map unpickled)))))
 
   )
