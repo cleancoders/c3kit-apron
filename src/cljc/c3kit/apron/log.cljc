@@ -1,4 +1,5 @@
 (ns c3kit.apron.log
+  (:refer-clojure :exclude [time])
   #?(:cljs (:require-macros [c3kit.apron.log :refer [trace debug info warn error fatal report capture-logs]]))
   (:require [c3kit.apron.corec :as ccc]
             [clojure.string :as str]
