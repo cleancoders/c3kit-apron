@@ -1,3 +1,6 @@
+### 2.2.2
+ * Fixes case where test-fabric fails to query seqable attributes by pattern matching
+
 ### 2.2.1
  * Fixes c3kit.apron.log `time` override warning
 
