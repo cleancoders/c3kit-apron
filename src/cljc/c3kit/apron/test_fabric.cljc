@@ -8,36 +8,38 @@
       (str/replace "_" ".")
       re-pattern))
 
-(defn- pattern-comparator [v case-sensitive?]
-  (let [pattern (->pattern v)]
-    (fn [ev]
-      (when ev
-        (let [ev (if case-sensitive? ev (str/upper-case ev))]
-          (boolean (re-matches pattern ev)))))))
-
 (defn- multi? [v] (or (sequential? v) (set? v)))
 
+(defn- make-tester [pred]
+  (fn [v]
+    (if (multi? v)
+      (some pred v)
+      (pred v))))
+
+(defn- pattern-matches? [pattern v case-sensitive?]
+  (when v
+    (let [v (cond-> v (not case-sensitive?) str/upper-case)]
+      (boolean (re-matches pattern v)))))
+
+(defn- pattern-comparator [v case-sensitive?]
+  (let [pattern (->pattern v)]
+    (make-tester #(pattern-matches? pattern % case-sensitive?))))
+
 (defn- -normal-tester [f v]
-  (fn [ev]
-    (if (multi? ev)
-      (some #(f % v) ev)
-      (and (some? ev) (f ev v)))))
+  (make-tester #(some-> % (f v))))
 
 (defn- -or-tester [values]
-  (let [v-set? (partial contains? (set values))]
-    (fn [ev]
-      (if (multi? ev)
-        (some v-set? ev)
-        (v-set? ev)))))
+  (let [values (set values)]
+    (make-tester #(contains? values %))))
 
-(defn- -tester [form]
-  (condp = (first form)
-    '> (let [v (second form)] (if (number? v) (-normal-tester > v) (-normal-tester (comp pos? compare) v)))
-    '< (let [v (second form)] (if (number? v) (-normal-tester < v) (-normal-tester (comp neg? compare) v)))
-    '>= (let [v (second form)] (if (number? v) (-normal-tester >= v) (-normal-tester (comp not neg? compare) v)))
-    '<= (let [v (second form)] (if (number? v) (-normal-tester <= v) (-normal-tester (comp not pos? compare) v)))
-    'like (pattern-comparator (second form) true)
-    'ilike (pattern-comparator (str/upper-case (second form)) false)
+(defn- -tester [[operation v :as form]]
+  (condp = operation
+    '> (if (number? v) (-normal-tester > v) (-normal-tester (comp pos? compare) v))
+    '< (if (number? v) (-normal-tester < v) (-normal-tester (comp neg? compare) v))
+    '>= (if (number? v) (-normal-tester >= v) (-normal-tester (comp not neg? compare) v))
+    '<= (if (number? v) (-normal-tester <= v) (-normal-tester (comp not pos? compare) v))
+    'like (pattern-comparator v true)
+    'ilike (pattern-comparator (str/upper-case v) false)
     'not= (complement (-or-tester (rest form)))
     '= (-or-tester (rest form))
     (-or-tester form)))
@@ -47,8 +49,7 @@
     (map ensure-key k)
     (->> [(namespace k) (name k)]
          (remove nil?)
-         (map keyword)
-         vec)))
+         (mapv keyword))))
 
 (defn- get-tester-by-type [v]
   (cond (set? v) (-or-tester v)

@@ -184,9 +184,9 @@
 
   (context "find-by"
     (with e1 {:name "hello"})
-    (with e2 {:name "world" :size 1})
-    (with e3 {:name "hello world" :size 2})
-    (with e4 {:name "hi!" :size 2})
+    (with e2 {:name "world" :size 1 :pets [nil]})
+    (with e3 {:name "hello world" :size 2 :pets ["dog"]})
+    (with e4 {:name "hi!" :size 2 :pets ["dog" "cat"]})
     (with items [@e1 @e2 @e3 @e4])
 
     (it "map options"
@@ -239,6 +239,13 @@
     (it "finds first"
       (should= @e3 (ccc/ffind-by @items :size 2))
       (should= @e1 (ccc/ffind-by @items :size nil)))
+
+    (it "in seq"
+      (should= [] (ccc/find-by @items :pets "blah"))
+      (should= [@e4] (ccc/find-by @items :pets "cat"))
+      (should= [@e3 @e4] (ccc/find-by @items :pets "dog"))
+      (should= [@e3 @e4] (ccc/find-by @items :pets ['like "%o%"]))
+      (should= [@e4] (ccc/find-by @items :pets ['like "%a%"])))
 
     )
 

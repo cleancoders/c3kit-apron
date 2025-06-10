@@ -5,27 +5,27 @@
            com.cognitect/transit-clj   {:mvn/version "1.0.333"}
            com.cognitect/transit-cljs  {:mvn/version "0.8.280"}
            com.taoensso/timbre         {:mvn/version "6.5.0"}
-           org.clojure/clojure         {:mvn/version "1.11.3"}
-           org.clojure/data.json       {:mvn/version "2.5.0"}
+           org.clojure/clojure         {:mvn/version "1.12.1"}
+           org.clojure/data.json       {:mvn/version "2.5.1"}
            org.clojure/tools.namespace {:mvn/version "1.5.0"}
-           org.slf4j/slf4j-nop         {:mvn/version "2.0.13"} ;; eliminated annoying log output
+           org.slf4j/slf4j-nop         {:mvn/version "2.0.17"} ;; eliminated annoying log output
            }
  :aliases {
            :test  {:extra-deps  {
                                  clj-commons/pomegranate             {:mvn/version "1.2.24"}
-                                 com.microsoft.playwright/playwright {:mvn/version "1.44.0"}
-                                 io.github.clojure/tools.build       {:mvn/version "0.10.3"}
+                                 com.microsoft.playwright/playwright {:mvn/version "1.52.0"}
+                                 io.github.clojure/tools.build       {:mvn/version "0.10.9"}
                                  org.clojure/clojurescript           {:mvn/version "1.11.132"}
-                                 speclj/speclj                       {:mvn/version "3.4.8"}
+                                 speclj/speclj                       {:mvn/version "3.10.0"}
                                  }
                    :extra-paths ["dev" "spec/clj" "spec/cljc"]}
            :spec  {:main-opts ["-m" "speclj.main" "-c"]}
            :cljs  {:main-opts ["-m" "cljs"]}
-           :build {:extra-deps  {io.github.clojure/tools.build {:mvn/version "0.10.3"}
+           :build {:extra-deps  {io.github.clojure/tools.build {:mvn/version "0.10.9"}
                                  clj-commons/pomegranate       {:mvn/version "1.2.24"}}
                    :ns-default  build
                    :extra-paths ["dev"]}
-           :antq  {:deps      {com.github.liquidz/antq {:mvn/version "2.8.1201"}}
+           :antq  {:deps      {com.github.liquidz/antq {:mvn/version "2.11.1276"}}
                    :main-opts ["-m" "antq.core"]}
            }
  }
