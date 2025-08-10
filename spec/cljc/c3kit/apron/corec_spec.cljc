@@ -170,6 +170,9 @@
           e3     {:bar "foo" :size 2 :round? nil :hello :world}
           e4     {:bar "foo" :size 2 :hello :world}
           things [e1 e2 e3 e4]]
+      (should= 0 (ccc/count-by []))
+      (should= 1 (ccc/count-by [e1]))
+      (should= 2 (ccc/count-by [e1 e2]))
       (should= 0 (ccc/count-by [] :foo "bar"))
       (should= 2 (ccc/count-by things :foo "bar"))
       (should= 2 (ccc/count-by things :bar "foo"))
