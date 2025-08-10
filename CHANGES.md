@@ -1,3 +1,6 @@
+### 2.2.3
+ * Fixes issue where `count-by` throws when no parameters are provided.
+
 ### 2.2.2
  * Fixes case where test-fabric fails to query seqable attributes by pattern matching
 
