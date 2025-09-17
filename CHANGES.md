@@ -1,3 +1,6 @@
+### 2.3.0 (Sept 18, 2025)
+ * adds bad-words/contains-profanity? function
+
 ### 2.2.3
  * Fixes issue where `count-by` throws when no parameters are provided.
 
