@@ -233,7 +233,7 @@
       (should= 0 (sec utc))
       (should= "2020-03-31" (unparse :webform date))))
 
-  (it "parses and formats :web-local datas"
+  (it "parses and formats :web-local dates"
     (let [date (parse :web-local "2024-02-29T01:23")
           utc  (sut/->utc date)]
       (should= 2024 (year utc))

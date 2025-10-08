@@ -46,6 +46,8 @@
      (nil? thing) (<< "nil")
      :else (<< thing))))
 
+;; TODO: Babashka doesn't have StringBuffer.
+;;   This is preventing clj sources from being ported to bb.
 (defn pretty-map [value]
   (binding [*buffer* (StringBuffer.)]
     (make-pretty value)

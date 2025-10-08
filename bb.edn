@@ -1,0 +1,9 @@
+{:paths ["src/cljc"]
+ :deps  {org.babashka/json {:mvn/version "0.1.6"}}
+ :tasks {spec {:doc         "Runs Babashka specs"
+               :extra-paths ["spec/cljc"]
+               :extra-deps  {speclj/speclj {:mvn/version "3.11.0"}}
+               :requires    ([speclj.main :as main])
+               :task        (apply main/-main "-c" "-s" "src/cljc" "spec/cljc" *command-line-args*)}
+         }
+ }

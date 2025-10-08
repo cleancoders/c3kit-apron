@@ -1,7 +1,8 @@
 (ns c3kit.apron.utilc
   #?(:clj (:import (java.util UUID)
                    (java.io ByteArrayInputStream ByteArrayOutputStream)))
-  (:require #?(:clj [clojure.data.json :as json])
+  (:require #?(:bb  [babashka.json :as json]
+               :clj [clojure.data.json :as json])
             [c3kit.apron.corec :as ccc]
             [c3kit.apron.schema :as schema]
             [clojure.edn :as edn]
@@ -19,12 +20,12 @@
 
 (defn ->hex
   "Convert integer to a hex string"
-  [n] #?(:clj (format "%x" n)
+  [n] #?(:clj  (format "%x" n)
          :cljs (.toString n 16)))
 
 (defn <-hex
   "Convert hex string to an integer"
-  [hex] #?(:clj (Long/parseLong hex 16)
+  [hex] #?(:clj  (Long/parseLong hex 16)
            :cljs (js/parseInt hex 16)))
 
 (defn index-by-id
@@ -92,13 +93,14 @@
   "Convert JSON into clj data structure."
   [v]
   (when (some-> v ccc/not-blank?)
-    #?(:clj  (json/read-str v)
+    #?(:bb   (json/read-str v {:key-fn identity})
+       :clj  (json/read-str v)
        :cljs (js->clj (.parse js/JSON v)))))
 
 (defn <-json-kw
   "Convert JSON into clj data structure with all keys as keywords"
   [v]
-  #?(:clj  (json/read-str v :key-fn keyword)
+  #?(:clj  (json/read-str v {:key-fn keyword})
      :cljs (walk/keywordize-keys (<-json v))))
 
 ; ^^^^^ JSON ^^^^^

@@ -29,6 +29,9 @@
    nil)
   ([config level ?ns-str ?file ?line ?column msg-type ?err vargs_ ?base-data callsite-id spying?]
    (swap! captured-logs conj [config level ?ns-str ?file ?line ?column msg-type ?err vargs_ ?base-data callsite-id spying?])
+   nil)
+  ([config level ?ns-str ?file ?line ?column msg-type ?err vargs_ ?base-data callsite-id spying? instant may-log]
+   (swap! captured-logs conj [config level ?ns-str ?file ?line ?column msg-type ?err vargs_ ?base-data callsite-id spying? instant may-log])
    nil))
 
 #?(:clj (defmacro trace [& args] `(timbre/trace ~@args)))
@@ -36,8 +39,15 @@
 #?(:clj (defmacro info [& args] `(timbre/info ~@args)))
 #?(:clj (defmacro warn [& args] `(timbre/warn ~@args)))
 #?(:clj (defmacro error [& args] `(timbre/error ~@args)))
-#?(:clj (defmacro fatal [& args] `(timbre/fatal ~@args)))
-#?(:clj (defmacro report [& args] `(timbre/report ~@args)))
+
+;; TODO: bb doesn't have timbre/fatal
+#?(:bb  (defmacro fatal [& args] `(timbre/error ~@args))
+   :clj (defmacro fatal [& args] `(timbre/fatal ~@args)))
+
+;; TODO: bb doesn't have timbre/report
+#?(:bb  (defmacro report [& args] `(timbre/info ~@args))
+   :clj (defmacro report [& args] `(timbre/report ~@args)))
+
 #?(:clj (defmacro capture-logs [& body]
           `(let [original-level# (:min-level timbre/*config*)]
              (reset! captured-logs [])
@@ -47,7 +57,13 @@
                  ~@body)
                (finally
                  (timbre/set-min-level! original-level#))))))
-#?(:clj (defmacro with-level [level & body] `(timbre/with-min-level ~level ~@body)))
+
+;; TODO: bb doesn't have timbre/with-min-level
+#?(:bb  (defmacro with-level [level & body]
+          `(binding [timbre/*config* (assoc timbre/*config* :min-level ~level)]
+             ~@body))
+   :clj (defmacro with-level [level & body]
+          `(timbre/with-min-level ~level ~@body)))
 
 (defn test-levels [msg]
   (report msg)
@@ -109,8 +125,8 @@
 (defmacro time
   "Same as clojure.core/time but logs (info) instead of printing elapsed time."
   [expr]
-  `(let [start#          (-nanos)
-         ret#            ~expr
+  `(let [start#  (-nanos)
+         ret#    ~expr
          millis# (/ (double (- (-nanos) start#)) 1000000.0)]
      (info (str "Elapsed time: " millis# " msecs"))
      ret#))

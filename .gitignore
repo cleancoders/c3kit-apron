@@ -4,6 +4,7 @@
 .DS_Store
 .cpcache
 .idea
+.grok
 .nrepl-port
 .specljs-timestamp
 .env

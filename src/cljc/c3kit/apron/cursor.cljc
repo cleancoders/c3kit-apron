@@ -19,7 +19,31 @@
 
 (defn- to-string [this path] (str "#<Cursor: " (pr-str @this) " @" (pr-str path) ">"))
 
-#?(:clj
+#?(:bb
+   (deftype Cursor [base path]
+     IDeref
+     (deref [this] (get-in @(.-base this) (.-path this)))
+
+     IAtom
+     (swap [this f] (do-swap! (.-base this) (.-path this) f))
+     (swap [this f x] (do-swap! (.-base this) (.-path this) f x))
+     (swap [this f x y] (do-swap! (.base this) (.-path this) f x y))
+     (swap [this f x y & more] (do-swap! (.-base this) (.-path this) f x y more))
+     (reset [this new-value] (do-reset! (.-base this) (.-path this) new-value))
+
+     IAtom2
+     (swapVals [this f] (swap-vals-result (.-path this) (swap-vals! (.-base this) update-in (.-path this) f)))
+     (swapVals [this f x] (swap-vals-result (.-path this) (swap-vals! (.-base this) update-in (.-path this) f x)))
+     (swapVals [this f x y] (swap-vals-result (.-path this) (swap-vals! (.-base this) update-in (.-path this) f x y)))
+     (swapVals [this f x y & more] (swap-vals-result (.-path this) (swap-vals! (.-base this) update-in (.-path this) (fn [v] (apply f v x y more)))))
+     (resetVals [this new-value] (swap-vals-result (.-path this) (swap-vals! (.-base this) assoc-in (.-path this) new-value)))
+
+     Object
+     (toString [this] (to-string this path))
+
+     ;; TODO: Extending IRef throws
+     )
+   :clj
    (deftype Cursor [base path]
 
      IDeref
@@ -35,7 +59,7 @@
      IAtom2
      (swapVals [_ f] (swap-vals-result path (swap-vals! base update-in path f)))
      (swapVals [_ f x] (swap-vals-result path (swap-vals! base update-in path f x)))
-     (swapVals [_ f x y](swap-vals-result path (swap-vals! base update-in path f x y)))
+     (swapVals [_ f x y] (swap-vals-result path (swap-vals! base update-in path f x y)))
      (swapVals [_ f x y more] (swap-vals-result path (swap-vals! base update-in path (fn [v] (apply f v x y more)))))
      (resetVals [_ new-value] (swap-vals-result path (swap-vals! base assoc-in path new-value)))
 
@@ -61,10 +85,10 @@
      (-reset! [_ new-value] (do-reset! base path new-value))
 
      ISwap
-     (-swap! [a f] (do-swap! base path f))
-     (-swap! [a f x] (do-swap! base path f x))
-     (-swap! [a f x y] (do-swap! base path f x y))
-     (-swap! [a f x y more] (do-swap! base path f x y more))
+     (-swap! [_ f] (do-swap! base path f))
+     (-swap! [_ f x] (do-swap! base path f x))
+     (-swap! [_ f x y] (do-swap! base path f x y))
+     (-swap! [_ f x y more] (do-swap! base path f x y more))
 
      IPrintWithWriter
      (-pr-writer [_ writer opts]
@@ -73,6 +97,9 @@
        (-write writer " @")
        (pr-writer path writer opts)
        (-write writer ">"))
+
+     Object
+     (toString [this] (to-string this path))
 
      IWatchable
      (-notify-watches [_ oldval newval] (-notify-watches base oldval newval))
@@ -110,4 +137,3 @@
   (if (seq path)
     (Cursor. a path)
     a))
-

@@ -2,7 +2,7 @@
   (:require
     [c3kit.apron.corec :as ccc]
     [c3kit.apron.time :as time]
-    [speclj.core #?(:clj :refer :cljs :refer-macros) [context describe it should= should should-not should-be-nil should-not-throw with should-throw xit]]))
+    [speclj.core #?(:clj :refer :cljs :refer-macros) [context should-be describe it should= should should-not should-be-nil should-not-throw with should-throw]]))
 
 (defn should-be-lazy [thing]
   (should= #?(:clj  clojure.lang.LazySeq
@@ -279,7 +279,8 @@
       (should-be-lazy (ccc/map-some identity [1 2 3]))
       (should-be-lazy (ccc/map-some identity [1]))
       (let [empty (ccc/map-some identity [])]
-        #?(:clj  (should= (class clojure.lang.PersistentList/EMPTY) (type empty))
+        #?(:bb   (should-be empty? empty)
+           :clj  (should= (class clojure.lang.PersistentList/EMPTY) (type empty))
            :cljs (should-be-lazy empty))))
 
     (it "accepts multiple collections"
@@ -312,10 +313,12 @@
       (should-be-lazy (ccc/some-map identity [1 2 3]))
       (should-be-lazy (ccc/some-map identity [1]))
       (let [empty (ccc/some-map identity [])]
-        #?(:clj  (should= (class clojure.lang.PersistentList/EMPTY) (type empty))
+        #?(:bb   (should-be empty? empty)
+           :clj  (should= (class clojure.lang.PersistentList/EMPTY) (type empty))
            :cljs (should-be-lazy empty)))
       (let [nils (ccc/some-map identity [nil nil nil])]
-        #?(:clj  (should= (class clojure.lang.PersistentList/EMPTY) (type nils))
+        #?(:bb   (should-be empty? nils)
+           :clj  (should= (class clojure.lang.PersistentList/EMPTY) (type nils))
            :cljs (should-be-lazy nils))))
 
     (it "creates a transducer"

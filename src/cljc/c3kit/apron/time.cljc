@@ -1,8 +1,9 @@
 (ns c3kit.apron.time
-  #?(:clj (:import
-            [java.util Date Calendar GregorianCalendar TimeZone]
-            [java.text SimpleDateFormat]))
-  #?(:cljs (:require
+  #?(:clj  (:import
+             [java.util Date TimeZone]
+             [java.text SimpleDateFormat]
+             [java.time LocalDateTime ZoneId Instant ZonedDateTime Period])
+     :cljs (:require
              [cljs-time.format :as timef]
              [cljs-time.coerce :as timec]
              [cljs-time.core :as time])))
@@ -45,11 +46,21 @@
   []
   #?(:clj (Date.) :cljs (js/Date.)))
 
+#?(:clj (defn- ^Instant date->instant [^Date date]
+          (-> date .getTime Instant/ofEpochMilli)))
+
+#?(:clj (defn- ^LocalDateTime ->local-date-time [^Date date]
+          (LocalDateTime/ofInstant (date->instant date) (ZoneId/systemDefault))))
+
 (defn utc-offset
   "The offset (milliseconds) between the local timezone and UTC. (AZ -> -7hrs)"
   ([] (utc-offset (now)))
   ([date]
-   #?(:clj  (.getOffset (TimeZone/getDefault) (.getTime date))
+   #?(:clj  (-> (ZoneId/systemDefault)
+                .getRules
+                (.getOffset (date->instant date))
+                .getTotalSeconds
+                (* 1000))
       :cljs (* -1 (minutes (.getTimezoneOffset date))))))
 
 (defn from-epoch
@@ -85,7 +96,10 @@
   ([year month day] (local year month day 0 0 0))
   ([year month day hour minute] (local year month day hour minute 0))
   ([year month day hour minute second]
-   #?(:clj  (.getTime (GregorianCalendar. year (dec month) day hour minute second))
+   #?(:clj  (-> (LocalDateTime/of year month day hour minute second)
+                (.atZone (ZoneId/systemDefault))
+                .toInstant
+                Date/from)
       :cljs (js/Date. year (dec month) day hour minute second))))
 
 (defn utc
@@ -140,75 +154,72 @@
     10 30
     11 31))
 
-#?(:clj (defn to-calendar
-          "Converts a Date object into a GregorianCalendar object"
-          [datetime]
-          (doto (GregorianCalendar.)
-            (.setTime datetime))))
-
 (defn year
   "Returns the Date's year (local timezone)."
   [^Date datetime]
-  #?(:clj  (.get (to-calendar datetime) Calendar/YEAR)
-     :cljs (.getFullYear datetime)))
+  #?(:clj  (.getYear (->local-date-time datetime))
+     :cljs (js-invoke datetime "getFullYear")))
 
 (defn month
   "Returns the Date's month (local timezone)."
   [^Date datetime]
-  (inc #?(:clj  (.get (to-calendar datetime) Calendar/MONTH)
-          :cljs (.getMonth datetime))))
+  #?(:clj  (.getMonthValue (->local-date-time datetime))
+     :cljs (inc (js-invoke datetime "getMonth"))))
 
 (defn day
   "Returns the Date's day (local timezone)."
   [^Date datetime]
-  #?(:clj  (.get (to-calendar datetime) Calendar/DAY_OF_MONTH)
+  #?(:clj  (.getDayOfMonth (->local-date-time datetime))
      :cljs (.getDate datetime)))
 
 (defn hour
   "Returns the Date's hour (24-hour clock) (local timezone)."
   [^Date datetime]
-  #?(:clj  (.get (to-calendar datetime) Calendar/HOUR_OF_DAY)
+  #?(:clj  (.getHour (->local-date-time datetime))
      :cljs (.getHours datetime)))
 
 (defn minute
   "Returns the Date's minute."
   [^Date datetime]
-  #?(:clj  (.get (to-calendar datetime) Calendar/MINUTE)
+  #?(:clj  (.getMinute (->local-date-time datetime))
      :cljs (.getMinutes datetime)))
 
 (defn sec
   "Returns the Date's second."
   [^Date datetime]
-  #?(:clj  (.get (to-calendar datetime) Calendar/SECOND)
+  #?(:clj  (.getSecond (->local-date-time datetime))
      :cljs (.getSeconds datetime)))
 
-#?(:cljs (defmulti -js-mod-time-by-units (fn [time unit n direction] unit)))
-#?(:cljs (defmethod -js-mod-time-by-units :days [time unit n direction] (.setDate time (direction (.getDate time) n))))
-#?(:cljs (defmethod -js-mod-time-by-units :months [time unit n direction]
+#?(:cljs (defmulti -js-mod-time-by-units (fn [_time unit _n _direction] unit)))
+
+#?(:cljs (defmethod -js-mod-time-by-units :days [time _unit n direction]
+           (.setDate time (direction (.getDate time) n))))
+
+#?(:cljs (defmethod -js-mod-time-by-units :months [time _unit n direction]
            (let [date (.getUTCDate time)]
              (.setUTCDate time 1)
              (.setUTCMonth time (direction (.getUTCMonth time) n))
              (let [month    (.getUTCMonth time)
                    max-date (days-in-month (.getUTCFullYear time) month)]
                (.setUTCDate time (min date max-date))))))
-#?(:cljs (defmethod -js-mod-time-by-units :years [time unit n direction] (.setFullYear time (direction (.getFullYear time) n))))
+
+#?(:cljs (defmethod -js-mod-time-by-units :years [time _unit n direction]
+           (.setFullYear time (direction (.getFullYear time) n))))
 
 (defn- mod-time-by-units
   "Modifies the value of a Date object. Expects the first argument to be
   a Date, the second argument to be a vector representing the amount of time to be changed,
   and the last argument to be either a + or - (indicating which direction to modify time)."
   [time [unit n] direction]
-  #?(:clj  (let [calendar (GregorianCalendar.)
-                 n        (direction n)
-                 unit     (case unit
-                            :days Calendar/DATE
-                            :months Calendar/MONTH
-                            :years Calendar/YEAR
-                            (throw (ex-info (str "invalid duration unit: " unit) {:unit unit})))]
-             (.setTime calendar time)
-             (.add calendar unit (int n))
-             (.getTime calendar))
-     :cljs (let [new-date (js/Date. (.getTime time))]
+  #?(:clj  (let [n      (int (direction n))
+                 period (case unit
+                          :days (Period/ofDays n)
+                          :months (Period/ofMonths n)
+                          :years (Period/ofYears n)
+                          :else (throw (ex-info (str "invalid duration unit: " unit) {:unit unit})))
+                 zdt    (ZonedDateTime/ofInstant (.toInstant time) (ZoneId/of "UTC"))]
+             (from-epoch (* 1000 (.toEpochSecond (.plus zdt period)))))
+     :cljs (let [new-date (js/Date. (js-invoke time "getTime"))]
              (-js-mod-time-by-units new-date unit n direction)
              new-date)))
 
@@ -219,8 +230,8 @@
   modify time)."
   [time bit direction]
   (cond
-    (number? bit) #?(:clj  (Date. (direction (.getTime time) (long bit)))
-                     :cljs (js/Date. (direction (.getTime time) (long bit))))
+    (number? bit) #?(:clj  (Date. ^Long (direction (.getTime time) (long bit)))
+                     :cljs (js/Date. (direction (js-invoke time "getTime") (long bit))))
     (vector? bit) (mod-time-by-units time bit direction)))
 
 (defn before

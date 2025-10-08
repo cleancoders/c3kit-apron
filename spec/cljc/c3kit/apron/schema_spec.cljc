@@ -2,15 +2,14 @@
   (:require
     [c3kit.apron.schema :as schema]
     [c3kit.apron.time :as time]
-    [speclj.core #?(:clj :refer :cljs :refer-macros) [focus-it context describe it should= should-contain should-not-contain should-throw should-be-a
+    [speclj.core #?(:clj :refer :cljs :refer-macros) [context describe it should= should-contain should-not-contain should-throw should-be-a
                                                       should should-not should-be-nil with-stubs stub should-not-have-invoked]]
     [clojure.string :as str]
     [c3kit.apron.utilc :as utilc]
     [c3kit.apron.corec :as ccc]
     [c3kit.apron.schema :as s])
-  #?(:clj
-     (:import (java.net URI)
-              (java.util UUID))))
+  #?(:clj (:import (java.net URI)
+                   (java.util UUID))))
 
 (def stdex
   #?(:clj  clojure.lang.ExceptionInfo
@@ -86,7 +85,7 @@
   (context "coercion"
 
     (it "to boolean"
-      (should= nil (schema/->boolean nil))
+      (should-be-nil (schema/->boolean nil))
       (should= false (schema/->boolean "false"))
       (should= false (schema/->boolean "FALSE"))
       (should= true (schema/->boolean "abc"))
@@ -94,13 +93,13 @@
       (should= true (schema/->boolean 3.14)))
 
     (it "to string"
-      (should= nil (schema/->string nil))
+      (should-be-nil (schema/->string nil))
       (should= "abc" (schema/->string "abc"))
       (should= "1" (schema/->string 1))
       (should= "3.14" (schema/->string 3.14)))
 
     (it "to keyword"
-      (should= nil (schema/->keyword nil))
+      (should-be-nil (schema/->keyword nil))
       (should= :abc (schema/->keyword "abc"))
       (should= :abc (schema/->keyword ":abc"))
       (should= :abc/xyz (schema/->keyword "abc/xyz"))
@@ -110,9 +109,9 @@
       (should= :foo (schema/->keyword :foo)))
 
     (it "to float"
-      (should= nil (schema/->float nil))
-      (should= nil (schema/->float ""))
-      (should= nil (schema/->float "\t"))
+      (should-be-nil (schema/->float nil))
+      (should-be-nil (schema/->float ""))
+      (should-be-nil (schema/->float "\t"))
       (should= 1.0 (schema/->float \1))
       (should= 1.0 (schema/->float 1))
       (should= 3.14 (schema/->float 3.14) 0.00001)
@@ -123,9 +122,9 @@
       (should-throw stdex (schema/->float "fooey")))
 
     (it "to int"
-      (should= nil (schema/->int nil))
-      (should= nil (schema/->int ""))
-      (should= nil (schema/->int "\t"))
+      (should-be-nil (schema/->int nil))
+      (should-be-nil (schema/->int ""))
+      (should-be-nil (schema/->int "\t"))
       (should= 1 (schema/->int \1))
       (should= 1 (schema/->int 1))
       (should= 3 (schema/->int 3.14))
@@ -138,9 +137,9 @@
       (should-throw stdex (schema/->int :foo)))
 
     (it "to bigdec"
-      (should= nil (schema/->bigdec nil))
-      (should= nil (schema/->bigdec ""))
-      (should= nil (schema/->bigdec "\t"))
+      (should-be-nil (schema/->bigdec nil))
+      (should-be-nil (schema/->bigdec ""))
+      (should-be-nil (schema/->bigdec "\t"))
       (should= 1M (schema/->bigdec \1))
       (should= 1M (schema/->bigdec 1))
       (should= 3.14M (schema/->bigdec 3.14))
@@ -152,8 +151,8 @@
       (should-throw stdex (schema/->bigdec "fooey")))
 
     (it "to date"
-      (should= nil (schema/->date nil))
-      (should= nil (schema/->date " \r\n\t"))
+      (should-be-nil (schema/->date nil))
+      (should-be-nil (schema/->date " \r\n\t"))
       (should= now (schema/->date now))
       (should= now (schema/->date (.getTime now)))
       (should-be-a #?(:clj java.util.Date :cljs js/Date) (schema/->date now))
@@ -161,8 +160,8 @@
       (should= now (schema/->date (pr-str now))))
 
     (it "to sql date"
-      (should= nil (schema/->sql-date nil))
-      (should= nil (schema/->sql-date " \r\n\t"))
+      (should-be-nil (schema/->sql-date nil))
+      (should-be-nil (schema/->sql-date " \r\n\t"))
       (should= #?(:clj (java.sql.Date. (.getTime now)) :cljs now) (schema/->sql-date now))
       (should= #?(:clj (java.sql.Date. (.getTime now)) :cljs now) (schema/->sql-date (.getTime now)))
       (should-be-a #?(:clj java.sql.Date :cljs js/Date) (schema/->sql-date now))
@@ -170,23 +169,24 @@
       (should= #?(:clj (java.sql.Date. (.getTime now)) :cljs now) (schema/->sql-date (pr-str now))))
 
     (it "to sql timestamp"
-      (should= nil (schema/->timestamp nil))
-      (should= nil (schema/->timestamp " \r\n\t"))
-      (should= #?(:clj (java.sql.Timestamp. (.getTime now)) :cljs now) (schema/->timestamp now))
-      (should= #?(:clj (java.sql.Timestamp. (.getTime now)) :cljs now) (schema/->timestamp (.getTime now)))
-      (should-be-a #?(:clj java.sql.Timestamp :cljs js/Date) (schema/->timestamp now))
-      #?(:clj (should-be-a java.sql.Timestamp (schema/->timestamp (java.sql.Date. (.getTime now)))))
+      (should-be-nil (schema/->timestamp nil))
+      (should-be-nil (schema/->timestamp " \r\n\t"))
+      (should= #?(:bb now :clj (java.sql.Timestamp. (.getTime now)) :cljs now) (schema/->timestamp now))
+      (should= #?(:bb now :clj (java.sql.Timestamp. (.getTime now)) :cljs now) (schema/->timestamp (.getTime now)))
+      (should-be-a #?(:bb java.util.Date :clj java.sql.Timestamp :cljs js/Date) (schema/->timestamp now))
+      #?(:bb  (should-be-a java.util.Date (schema/->timestamp (java.sql.Date. (.getTime now))))
+         :clj (should-be-a java.sql.Timestamp (schema/->timestamp (java.sql.Date. (.getTime now)))))
       (should-throw stdex (schema/->timestamp "now"))
-      (should= #?(:clj (java.sql.Timestamp. (.getTime now)) :cljs now) (schema/->timestamp (pr-str now))))
+      (should= #?(:bb now :clj (java.sql.Timestamp. (.getTime now)) :cljs now) (schema/->timestamp (pr-str now))))
 
     (it "to uri"
-      (should= nil (schema/->uri nil))
+      (should-be-nil (schema/->uri nil))
       (should= home (schema/->uri home))
       (should= home (schema/->uri "http://apron.co"))
       (should-throw stdex (schema/->uri 123)))
 
     (it "to uuid"
-      (should= nil (schema/->uuid nil))
+      (should-be-nil (schema/->uuid nil))
       (should= a-uuid (schema/->uuid a-uuid))
       (should= a-uuid (schema/->uuid "1f50be30-1373-40b7-acce-5290b0478fbe"))
       (should= (schema/->uuid "53060bf1-971a-4d18-80fc-92a3112afd6e") (schema/->uuid #uuid "53060bf1-971a-4d18-80fc-92a3112afd6e"))
@@ -277,7 +277,7 @@
           (should= 4.1415 (last result) 0.0001)))
 
       (it "missing multiple type coercer"
-        (should= nil (schema/coerce-value! {:type [:blah]} nil))
+        (should-be-nil (schema/coerce-value! {:type [:blah]} nil))
         (should-throw stdex "[:long] expected" (schema/coerce-value! {:type [:long]} :foo))
         (should-throw stdex "unhandled coercion type: :blah" (schema/coerce-value! {:type [:blah]} ["foo"])))
 
@@ -335,7 +335,7 @@
       (it "removes extra fields"
         (let [crufty (assoc valid-pet :garbage "yuk!")
               result (schema/coerce pet crufty)]
-          (should= nil (:garbage result))
+          (should-be-nil (:garbage result))
           (should-not-contain :garbage result)))
 
       )
@@ -343,7 +343,7 @@
     (context "multi field"
 
       (it "with nil value"
-        (should= nil (schema/coerce-value! {:type [:int]} nil)))
+        (should-be-nil (schema/coerce-value! {:type [:int]} nil)))
 
       (it "with empty list"
         (should= () (schema/coerce-value! {:type [:int]} ())))
@@ -475,7 +475,8 @@
         (should= false (schema/valid-value? {:type :timestamp} "foo"))
         (should= false (schema/valid-value? {:type :timestamp} 123))
         #?(:clj (should= false (schema/valid-value? {:type :timestamp} (java.util.Date.))))
-        #?(:clj (should= true (schema/valid-value? {:type :timestamp} (java.sql.Timestamp. (System/currentTimeMillis)))))
+        #?(:bb  nil
+           :clj (should= true (schema/valid-value? {:type :timestamp} (java.sql.Timestamp. (System/currentTimeMillis)))))
         #?(:cljs (should= true (schema/valid-value? {:type :timestamp} (js/Date.))))
         #?(:cljs (should= false (schema/valid-value? {:type :timestamp} (js/goog.date.Date.)))))
 
@@ -561,7 +562,7 @@
           (should= "empty" (->> [] (schema/-process-spec-on-value :validate spec) :message))))
 
       (it "missing multiple type coercer"
-        (should= nil (schema/validate-value! {:type [:blah]} nil))
+        (should-be-nil (schema/validate-value! {:type [:blah]} nil))
         (should-throw stdex "[:int] expected" (schema/validate-value! {:type [:int]} :foo))
         (should-throw stdex "unhandled validation type: :blah" (schema/validate-value! {:type [:blah]} [:foo])))
 
@@ -648,7 +649,7 @@
       (it "removes extra fields"
         (let [crufty (assoc valid-pet :garbage "yuk!")
               result (schema/validate pet crufty)]
-          (should= nil (:garbage result))
+          (should-be-nil (:garbage result))
           (should-not-contain :garbage result)))
 
       )
@@ -660,7 +661,7 @@
         (should= "must be a pet species" (schema/error-message error))
         (should= "must be a pet species" (-> error schema/error-exception ex-message))
         (should= "frog" (schema/error-value error))
-        (should= nil (schema/error-type error))
+        (should-be-nil (schema/error-type error))
         (should= #{:exception :value} (set (keys (schema/error-data error))))))
 
     )
@@ -673,13 +674,13 @@
 
     (it "with failed validation"
       (should-throw stdex "oh no!"
-                    (schema/conform-value! {:type :int :validate even? :message "oh no!"} "123")))
+        (schema/conform-value! {:type :int :validate even? :message "oh no!"} "123")))
 
     (it "of int the must be present"
       (should-throw stdex "is invalid"
-                    (schema/conform-value! {:type :int :validate [schema/present?]} ""))
+        (schema/conform-value! {:type :int :validate [schema/present?]} ""))
       (should-throw stdex "is invalid"
-                    (schema/conform-value! {:type :long :validate schema/present?} "")))
+        (schema/conform-value! {:type :long :validate schema/present?} "")))
 
     (it "success"
       (should= 123 (schema/conform-value! {:type :int :message "oh no!"} "123")))
@@ -689,7 +690,7 @@
 
     (it "of sequentials - empty"
       (should= [] (schema/conform-value! {:type [:int]} []))
-      (should= nil (schema/conform-value! {:type [:int]} nil))
+      (should-be-nil (schema/conform-value! {:type [:int]} nil))
       (should-throw stdex "[:int] expected" (schema/conform-value! {:type [:int]} "foo")))
 
     (it "of object"
@@ -701,7 +702,7 @@
       (let [spec {:type [{:foo {:type :keyword}}]}]
         (should= [{}] (schema/conform-value! spec [{}]))
         (should= [{:foo :bar}] (schema/conform-value! spec [{:foo :bar :hello "world"}]))
-        (should= nil (schema/conform-value! spec nil))))
+        (should-be-nil (schema/conform-value! spec nil))))
 
     (it "a valid entity"
       (let [result (schema/conform pet {:species  "dog"
@@ -765,7 +766,7 @@
     (it "removes extra fields"
       (let [crufty (assoc valid-pet :garbage "yuk!")
             result (schema/conform pet crufty)]
-        (should= nil (:garbage result))
+        (should-be-nil (:garbage result))
         (should-not-contain :garbage result)))
 
     (it ":validations errors"
@@ -789,7 +790,7 @@
       (let [path-schema {:path {:type :seq :coerce utilc/<-edn :spec {:type :map :schema {:foo {:type :string}}}}}
             entity      {:path (pr-str [{:foo "foo"}])}
             result      (schema/conform path-schema entity)]
-        (should= nil (schema/message-map result))))
+        (should-be-nil (schema/message-map result))))
 
     (it "coercing a string to map"
       (let [path-schema {:path {:type    :map
@@ -797,14 +798,14 @@
                                 :message "oops"
                                 :schema  {:foo {:type :string :validate str/blank? :coerce #(apply str (rest %))}}}}]
         (let [valid (schema/conform path-schema {:path (pr-str {:foo ""})})]
-          (should= nil (schema/message-map valid))
+          (should-be-nil (schema/message-map valid))
           (should= {:foo ""} (:path valid)))
         (let [invalid (schema/conform path-schema {:path (pr-str {:foo "foo"})})]
           (should= "is invalid" (get-in (schema/message-map invalid) [:path :foo])))
         (let [not-a-map (schema/conform path-schema {:path (pr-str "im-not-a-map")})]
           (should= "oops" (get-in (schema/message-map not-a-map) [:path])))
         (let [valid-nested (schema/conform path-schema {:path (pr-str {:foo "f"})})]
-          (should= nil (schema/message-map valid-nested)))))
+          (should-be-nil (schema/message-map valid-nested)))))
 
     (it "required map field"
       (let [schema {:thing {:type :map :schema {:field {:type :any}} :validations [schema/required]}}]
@@ -817,7 +818,7 @@
   (context "error messages"
 
     (it "are nil when there are none"
-      (should= nil (schema/message-map {})))
+      (should-be-nil (schema/message-map {})))
 
     (it "are only given for failed results"
       (should= {:name "must be nice and unique name"}
@@ -999,8 +1000,8 @@
 
       (it "with error on entity level presentation!"
         (should-throw stdex
-                      (schema/present!
-                        (assoc pet :* {:stage-name {:present #(throw (ex-info "blah" {:x %}))}}) valid-pet)))
+          (schema/present!
+            (assoc pet :* {:stage-name {:present #(throw (ex-info "blah" {:x %}))}}) valid-pet)))
       )
     )
 
@@ -1124,7 +1125,7 @@
 
     (it "one choice - coerce"
       (let [spec {:type :one-of :specs [{:type :int}]}]
-        (should= nil (schema/-process-spec-on-value :coerce spec nil))
+        (should-be-nil (schema/-process-spec-on-value :coerce spec nil))
         (should= 1 (schema/-process-spec-on-value :coerce spec 1))
         (should= 2 (schema/-process-spec-on-value :coerce spec "2"))
         (should= "one-of: no matching spec" (:message (schema/-process-spec-on-value :coerce spec "blah")))))
@@ -1248,10 +1249,10 @@
   (context "spec-schema"
 
     (it "pets"
-      (doseq [[field spec] pet]
+      (doseq [spec (vals pet)]
         (let [spec   (schema/normalize-spec spec)
               result (schema/conform schema/spec-schema spec)]
-          (should= nil (schema/message-map result)))))
+          (should-be-nil (schema/message-map result)))))
 
     (it "type"
       (should= {:type "is required"} (schema/validate-message-map schema/spec-schema {:type nil}))
@@ -1275,7 +1276,7 @@
     (it "validations"
       (should= {:validations "[:map] expected"}
                (schema/validate-message-map schema/spec-schema {:type :string :validations "blah"}))
-      (should= nil (schema/validate-message-map schema/spec-schema {:type :string :validations []}))
+      (should-be-nil (schema/validate-message-map schema/spec-schema {:type :string :validations []}))
       (should= {:validations {0 "must be schema/validation-schema"}}
                (schema/validate-message-map schema/spec-schema {:type :string :validations [:blah]}))
       (should= {:validations {0 {:validate "must be an ifn or seq of ifn"}}}

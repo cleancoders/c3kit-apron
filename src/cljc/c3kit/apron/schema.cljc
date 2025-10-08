@@ -1,6 +1,7 @@
 (ns c3kit.apron.schema
   "Defines data structure, coerces, validates."
   (:refer-clojure :exclude [uri?])
+  #?(:cljs (:require-macros [c3kit.apron.schema :refer [coerce-ex]]))
   (:require
     [c3kit.apron.corec :as ccc]
     [c3kit.apron.log :as log]
@@ -33,13 +34,16 @@
 ;;   seq value, not the values in the seq.  The spec will specify what processes act on the values in the seq.
 ;; TODO - MDM: Deprecation print message on deprecated fns
 
-(defn- coerce-ex [value type]
-  (let [value-str (pr-str value)
-        value-str (if (< 50 (count value-str))
-                    (str (subs value-str 0 45) "...")
-                    value-str)]
-    (ex-info (str "can't coerce " value-str " to " type) {:value value :type type})))
-(defn- validation-ex [message value] (ex-info (or message "is invalid") {:value value}))
+;; Macro preserves line numbers
+#?(:clj
+   (defmacro ^:private coerce-ex [value type]
+     `(let [value#     ~value
+            type#      ~type
+            value-str# (pr-str value#)
+            value-str# (if (< 50 (count value-str#))
+                         (str (subs value-str# 0 45) "...")
+                         value-str#)]
+        (ex-info (str "can't coerce " value-str# " to " type#) {:value value# :type type#}))))
 
 (def date #?(:clj java.util.Date :cljs js/Date))
 
@@ -175,13 +179,20 @@
 (defn ->timestamp [v]
   (cond
     (nil? v) nil
-    (instance? #?(:clj java.sql.Timestamp :cljs js/Date) v) v
-    #?(:clj (instance? java.util.Date v)) #?(:clj (java.sql.Timestamp. (.getTime v)))
-    (integer? v) #?(:clj (java.sql.Timestamp. v) :cljs (doto (new js/Date) (.setTime v)))
-    #?(:cljs (instance? goog.date.Date v)) #?(:cljs (js/Date. (.getTime v)))
+    (instance? #?(:bb java.util.Date :clj java.sql.Timestamp :cljs js/Date) v) v
+    #?@(:bb  []
+        :clj [(instance? java.util.Date v) (java.sql.Timestamp. (.getTime v))])
+    (integer? v) #?(:bb   (java.util.Date. v)
+                    :clj  (java.sql.Timestamp. v)
+                    :cljs (doto (new js/Date) (.setTime v)))
+    #?@(:cljs [(instance? goog.date.Date v) (js/Date. (.getTime v))])
     (string? v) (cond
                   (str/blank? v) nil
-                  (str/starts-with? v "#inst") #?(:clj (java.sql.Timestamp. (.getTime (edn/read-string v))) :cljs (edn/read-string v))
+                  (str/starts-with? v "#inst")
+                  (let [date (edn/read-string v)]
+                    #?(:bb   date
+                       :clj  (java.sql.Timestamp. (.getTime date))
+                       :cljs date))
                   :else (throw (coerce-ex v "timestamp")))
     :else (throw (coerce-ex v "timestamp"))))
 
@@ -451,7 +462,7 @@
     (let [validate-fns (if (multiple? validate) validate [validate])]
       (doseq [v-fn validate-fns]
         (when-not (v-fn value)
-          (throw (validation-ex message value)))))))
+          (throw (ex-info (or message "is invalid") {:value value})))))))
 
 (defn- coerce-field-spec [spec value]
   (let [{:keys [type message]} spec

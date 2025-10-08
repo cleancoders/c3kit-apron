@@ -4,6 +4,7 @@
             [clojure.java.io :as io]
             [clojure.string :as str])
   (:import (java.io InputStream OutputStream)
+           (java.lang ClassLoader)
            (java.net URI)
            (java.nio.file FileSystems Files Paths)
            (java.security DigestInputStream MessageDigest)))
