@@ -1,5 +1,5 @@
 {:paths ["src/cljc"]
- :deps  {org.babashka/json {:mvn/version "0.1.6"}}
+ :deps  {local/local {:local/root "."}}
  :tasks {spec {:doc         "Runs Babashka specs"
                :extra-paths ["spec/cljc"]
                :extra-deps  {speclj/speclj {:mvn/version "3.11.0"}}
