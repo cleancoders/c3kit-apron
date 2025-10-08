@@ -4,6 +4,7 @@
  * Improves schema coercion exception reporting (macro for line numbers)
  * Adds `toString` override to `Cursor` in ClojureScript
  * Upgrades `timbre` and `clojure` dependencies
+ * Adds `org.babashka/json` to dependencies
 
 ### 2.3.0 (Sept 18, 2025)
  * adds bad-words/contains-profanity? function
