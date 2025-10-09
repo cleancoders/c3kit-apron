@@ -77,7 +77,7 @@
 
   ; Only run in Central timezone
   #_(it "creates dates relative to now in day increments - across timezone"
-      (let [start (local 2022 11 05)] ;; 1 day1 before DSL begins
+      (let [start (local 2022 11 05)]                       ;; 1 day1 before DSL begins
         (should= (parse :dense "20221105050000") start)
         (should= (parse :dense "20221106050000") (after start (-> 1 days)))
         (should= (parse :dense "20221107060000") (after start (-> 2 days)))
@@ -212,6 +212,72 @@
              (let [date (parse :iso8601 "1994-11-06 08:49:12Z")]
                (should= "1994-11-06 08:49:12Z" (unparse :iso8601 date)))))
 
+  (it "DST starts"
+    (let [date (sut/local 2024 3 10 2 0)]
+      (should= 2024 (sut/year date))
+      (should= 3 (sut/month date))
+      (should= 10 (sut/day date))
+      (should= 3 (sut/hour date))
+      (should= 0 (sut/minute date))))
+
+  (it "month into DST"
+    (let [date (sut/local 2023 15 10 2 0)]
+      (should= 2024 (sut/year date))
+      (should= 3 (sut/month date))
+      (should= 10 (sut/day date))
+      (should= 3 (sut/hour date))
+      (should= 0 (sut/minute date))))
+
+  (it "day into DST"
+    (let [date (sut/local 2024 2 39 2 0)]
+      (should= 2024 (sut/year date))
+      (should= 3 (sut/month date))
+      (should= 10 (sut/day date))
+      (should= 3 (sut/hour date))
+      (should= 0 (sut/minute date))))
+
+  (it "hour into DST"
+    (let [date (sut/local 2024 3 10 2 0)]
+      (should= 2024 (sut/year date))
+      (should= 3 (sut/month date))
+      (should= 10 (sut/day date))
+      (should= 3 (sut/hour date))
+      (should= 0 (sut/minute date))))
+
+  (it "minutes into DST"
+    (let [date (sut/local 2024 3 10 1 60)]
+      (should= 2024 (sut/year date))
+      (should= 3 (sut/month date))
+      (should= 10 (sut/day date))
+      (should= 3 (sut/hour date))
+      (should= 0 (sut/minute date))))
+
+  (it "seconds into DST"
+    (let [date (sut/local 2024 3 10 1 59 60)]
+      (should= 2024 (sut/year date))
+      (should= 3 (sut/month date))
+      (should= 10 (sut/day date))
+      (should= 3 (sut/hour date))
+      (should= 0 (sut/minute date))))
+
+  (it "overflows"
+    (should= (sut/utc 2025 1 1) (sut/utc 2024 13 1))
+    (should= (sut/utc 2024 10 1) (sut/utc 2024 9 31))
+    (should= (sut/utc 2024 9 2) (sut/utc 2024 9 1 24 0))
+    (should= (sut/utc 2024 9 2) (sut/utc 2024 9 1 23 60))
+    (should= (sut/utc 2024 9 2) (sut/utc 2024 9 1 23 59 60))
+    (should= (sut/utc 2025 2 2 1 1) (sut/utc 2024 13 32 24 60 60)))
+
+  (it "underflows"
+    (should= (sut/utc 2024 12 1) (sut/utc 2025 0 1))
+    (should= (sut/utc 2024 11 1) (sut/utc 2025 -1 1))
+    (should= (sut/utc 2024 12 31) (sut/utc 2025 1 0))
+    (should= (sut/utc 2024 12 30) (sut/utc 2025 1 -1))
+    (should= (sut/utc 2024 12 31 23 0) (sut/utc 2025 1 1 -1 0))
+    (should= (sut/utc 2024 12 31 23 59) (sut/utc 2025 1 1 0 -1))
+    (should= (sut/utc 2024 12 31 23 59 59) (sut/utc 2025 1 1 0 0 -1))
+    (should= (sut/utc 2024 11 29 22 58 59) (sut/utc 2025 0 0 -1 -1 -1)))
+
   (it "parses REF 3339 format"
     (let [date1 (parse :ref3339 "2022-03-04T23:59:02-05:00")
           date2 (parse :ref3339 "2022-03-04T23:59:02+05:00")
@@ -222,7 +288,7 @@
       (should= "2022-03-04T23:59:02Z" (unparse :ref3339 date3))
       (should= "2022-03-04T23:59:02Z" (unparse :ref3339 date4))))
 
-  (it "parses and formats :webform datas"
+  (it "parses and formats :webform dates"
     (let [date (parse :webform "2020-03-31")
           utc  (sut/->utc date)]
       (should= 2020 (year utc))

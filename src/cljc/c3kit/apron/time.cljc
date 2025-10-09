@@ -1,12 +1,11 @@
 (ns c3kit.apron.time
-  #?(:clj  (:import
-             [java.util Date TimeZone]
-             [java.text SimpleDateFormat]
-             [java.time LocalDateTime ZoneId Instant ZonedDateTime Period])
-     :cljs (:require
-             [cljs-time.format :as timef]
-             [cljs-time.coerce :as timec]
-             [cljs-time.core :as time])))
+  (:require [clojure.math :as math]
+            #?@(:cljs ([cljs-time.format :as timef]
+                       [cljs-time.coerce :as timec]
+                       [cljs-time.core :as time])))
+  #?(:clj (:import (java.util Date TimeZone)
+                   (java.text SimpleDateFormat)
+                   (java.time LocalDateTime Month ZoneId Instant ZonedDateTime Period))))
 
 (defn milliseconds
   "Our atomic unit"
@@ -14,27 +13,27 @@
 
 (defn seconds
   "Converts seconds to milliseconds"
-  [n] (Math/round (double (* n 1000))))
+  [n] (math/round (double (* n 1000))))
 
 (defn minutes
   "Converts minutes to milliseconds"
-  [n] (Math/round (double (* n 60000))))
+  [n] (math/round (double (* n 60000))))
 
 (defn hours
   "Converts hours to milliseconds"
-  [n] (Math/round (double (* n 3600000))))
+  [n] (math/round (double (* n 3600000))))
 
 (defn days
   "Converts days to milliseconds"
-  [n] [:days (if (float? n) (Math/round n) n)])
+  [n] [:days (if (float? n) (math/round n) n)])
 
 (defn months
   "Converts a number into a format that the Calendar object understands to be an amount of months"
-  [n] [:months (if (float? n) (Math/round n) n)])
+  [n] [:months (if (float? n) (math/round n) n)])
 
 (defn years
   "Converts a number into a format that the Calendar object understands to be an amount of years"
-  [n] [:years (if (float? n) (Math/round n) n)])
+  [n] [:years (if (float? n) (math/round n) n)])
 
 (defn millis->seconds
   "Converts milliseconds to seconds"
@@ -61,7 +60,7 @@
                 (.getOffset (date->instant date))
                 .getTotalSeconds
                 (* 1000))
-      :cljs (* -1 (minutes (.getTimezoneOffset date))))))
+      :cljs (* -1 (minutes (js-invoke date "getTimezoneOffset"))))))
 
 (defn from-epoch
   "Create Date relative to epoch, adjusted for timezone offset
@@ -73,7 +72,7 @@
 
 (defn instant? [thing] (instance? #?(:clj Date :cljs js/Date) thing))
 (defn millis-since-epoch [date] (.getTime date))
-(def seconds-since-epoch (comp millis->seconds millis-since-epoch))
+(defn seconds-since-epoch [date] (-> date millis-since-epoch millis->seconds))
 
 (defn millis-between
   "Milliseconds that separate the two times.  Negative if b is after a."
@@ -96,7 +95,12 @@
   ([year month day] (local year month day 0 0 0))
   ([year month day hour minute] (local year month day hour minute 0))
   ([year month day hour minute second]
-   #?(:clj  (-> (LocalDateTime/of year month day hour minute second)
+   #?(:clj  (-> (LocalDateTime/of ^long year Month/JANUARY 1 0 0)
+                (.plusMonths (dec month))
+                (.plusDays (dec day))
+                (.plusHours hour)
+                (.plusMinutes minute)
+                (.plusSeconds second)
                 (.atZone (ZoneId/systemDefault))
                 .toInstant
                 Date/from)
@@ -114,15 +118,16 @@
   first date comes before the second date and returns false otherwise."
   [^Date first ^Date second]
   #?(:clj  (.before first second)
-     :cljs (< (.getTime first) (.getTime second))))
-
+     :cljs (< (js-invoke first "getTime")
+              (js-invoke second "getTime"))))
 
 (defn after?
   "Expects two Date as arguments. The function returns true if the
   first date comes after the second date and returns false otherwise."
   [^Date first ^Date second]
   #?(:clj  (.after first second)
-     :cljs (> (.getTime first) (.getTime second))))
+     :cljs (> (js-invoke first "getTime")
+              (js-invoke second "getTime"))))
 
 (defn between?
   "Expects the three Dates as arguments. The first date is the date
@@ -170,41 +175,42 @@
   "Returns the Date's day (local timezone)."
   [^Date datetime]
   #?(:clj  (.getDayOfMonth (->local-date-time datetime))
-     :cljs (.getDate datetime)))
+     :cljs (js-invoke datetime "getDate")))
 
 (defn hour
   "Returns the Date's hour (24-hour clock) (local timezone)."
   [^Date datetime]
   #?(:clj  (.getHour (->local-date-time datetime))
-     :cljs (.getHours datetime)))
+     :cljs (js-invoke datetime "getHours")))
 
 (defn minute
   "Returns the Date's minute."
   [^Date datetime]
   #?(:clj  (.getMinute (->local-date-time datetime))
-     :cljs (.getMinutes datetime)))
+     :cljs (js-invoke datetime "getMinutes")))
 
 (defn sec
   "Returns the Date's second."
   [^Date datetime]
   #?(:clj  (.getSecond (->local-date-time datetime))
-     :cljs (.getSeconds datetime)))
+     :cljs (js-invoke datetime "getSeconds")))
 
 #?(:cljs (defmulti -js-mod-time-by-units (fn [_time unit _n _direction] unit)))
 
 #?(:cljs (defmethod -js-mod-time-by-units :days [time _unit n direction]
-           (.setDate time (direction (.getDate time) n))))
+           (js-invoke time "setDate" (direction (js-invoke time "getDate") n))))
 
 #?(:cljs (defmethod -js-mod-time-by-units :months [time _unit n direction]
-           (let [date (.getUTCDate time)]
-             (.setUTCDate time 1)
-             (.setUTCMonth time (direction (.getUTCMonth time) n))
-             (let [month    (.getUTCMonth time)
-                   max-date (days-in-month (.getUTCFullYear time) month)]
-               (.setUTCDate time (min date max-date))))))
+           (let [date (js-invoke time "getUTCDate")]
+             (js-invoke time "setUTCDate" 1)
+             (js-invoke time "setUTCMonth" (direction (js-invoke time "getUTCMonth") n))
+             (let [month    (js-invoke time "getUTCMonth")
+                   max-date (days-in-month (js-invoke time "getUTCFullYear") month)]
+               (js-invoke time "setUTCDate" (min date max-date))))))
 
 #?(:cljs (defmethod -js-mod-time-by-units :years [time _unit n direction]
-           (.setFullYear time (direction (.getFullYear time) n))))
+           (let [year (js-invoke time "getFullYear")]
+             (js-invoke time "setFullYear" (direction year n)))))
 
 (defn- mod-time-by-units
   "Modifies the value of a Date object. Expects the first argument to be
@@ -331,4 +337,3 @@
 (defn during? [bounds instant]
   (and (after? instant (start-of bounds))
        (before? instant (end-of bounds))))
-
