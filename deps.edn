@@ -28,5 +28,10 @@
                    :extra-paths ["dev"]}
            :antq  {:deps      {com.github.liquidz/antq {:mvn/version "2.11.1276"}}
                    :main-opts ["-m" "antq.core"]}
+           :nrepl {:extra-paths ["test"]
+                   :extra-deps  {nrepl/nrepl {:mvn/version "1.4.0"}}
+                   ;; this allows nrepl to interrupt runaway repl evals
+                   :jvm-opts    ["-Djdk.attach.allowAttachSelf"]
+                   :main-opts   ["-m" "nrepl.cmdline" "--port" "7888"]}
            }
  }

@@ -1,3 +1,7 @@
+### 2.4.1
+ * Adds Babashka support to `.clj` namespaces
+ * Replaces `StringBuffer` with `StringBuilder` in `c3kit.apron.verbose`
+
 ### 2.4.0
  * Adds support for Babashka
  * Replaces use of `java.util` calendars with `java.time`

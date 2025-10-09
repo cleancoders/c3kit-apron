@@ -1,10 +1,13 @@
 (ns c3kit.apron.util-spec
-  (:require [c3kit.apron.log :as log]
+  (:require [c3kit.apron.env :as env]
+            [c3kit.apron.log :as log]
             [c3kit.apron.util :as sut]
             [speclj.core :refer :all])
   (:import (java.io ByteArrayInputStream)))
 
 (def foo "Foo")
+
+(def bb? (boolean (env/env "babashka.version")))
 
 (describe "util"
 
@@ -32,8 +35,8 @@
 
     (it "missing ns"
       (should-be-nil (sut/var-value 'foo/bar))
-      (should= "Unable to resolve var: foo/bar java.io.FileNotFoundException: Could not locate foo__init.class, foo.clj or foo.cljc on classpath."
-               (log/captured-logs-str)))
+      (should-contain #"^Unable to resolve var: foo\/bar java\.io\.FileNotFoundException: Could not locate foo(__init\.class|\.bb), foo\.clj or foo\.cljc on classpath\.$"
+                      (log/captured-logs-str)))
 
     (it "missing var"
       (should-be-nil (sut/var-value 'c3kit.apron.util-spec/bar))
@@ -80,9 +83,11 @@
 
     (it "jar file"
       (let [result (sut/resources-in "clojure.java")]
-        (should-contain "io" result)
-        (should-contain "io.clj" result)
-        (should-contain "shell.clj" result)))
+        (should-contain "classpath.clj" result)
+        (when-not bb?
+          (should-contain "io" result)
+          (should-contain "io.clj" result)
+          (should-contain "shell.clj" result))))
 
     (it "missing"
       (should-be-nil (sut/resources-in "some.missing.package")))

@@ -1,7 +1,6 @@
 (ns c3kit.apron.verbose
-  (:require
-    [c3kit.apron.log :as log]
-    ))
+  (:require [c3kit.apron.log :as log])
+  (:import (java.lang StringBuilder)))
 
 (declare ^:dynamic *buffer*)
 
@@ -28,11 +27,11 @@
     (<< the-map)
     (do
       (<< "{")
-      (let [key-map (reduce #(assoc %1 (str %2) %2) {} (keys the-map))
-            keys (sort (keys key-map))
-            key-lengths (map count keys)
-            max-key-length (apply max key-lengths)
-            left-width (+ 2 max-key-length)]
+      (let [key-map    (reduce #(assoc %1 (str %2) %2) {} (keys the-map))
+            keys       (sort (keys key-map))
+            left-width (->> (map count keys)
+                            (apply max)
+                            (+ 2))]
         (doseq [key keys]
           (<< endl (indentation indent) (left-col key left-width))
           (make-pretty (get the-map (get key-map key)) indent)))
@@ -46,15 +45,12 @@
      (nil? thing) (<< "nil")
      :else (<< thing))))
 
-;; TODO: Babashka doesn't have StringBuffer.
-;;   This is preventing clj sources from being ported to bb.
 (defn pretty-map [value]
-  (binding [*buffer* (StringBuffer.)]
+  (binding [*buffer* (StringBuilder.)]
     (make-pretty value)
     (.toString *buffer*)))
 
 ;; --  chee.pretty-map
-
 
 (defn make-body-printable [body]
   (cond
@@ -74,11 +70,10 @@
           (assoc body :payload printable)))
       body)))
 
-
 (def request-count (atom 0))
 
 (defn wrap-verbose
-  "Prints request and response maps to STDOUT in a human readable format."
+  "Prints request and response maps to STDOUT in a human-readable format."
   [handler]
   (fn [request]
     (let [request-id (swap! request-count inc)]
@@ -94,8 +89,3 @@
           (pretty-map (update response :body make-body-printable))
           endl)
         response))))
-
-
-;(defn wrap-development [handler]
-;  (-> handler
-;      wrap-verbose))

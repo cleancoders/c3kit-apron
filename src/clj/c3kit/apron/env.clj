@@ -1,10 +1,11 @@
 (ns c3kit.apron.env
   (:require [clojure.java.io :as io]
             [clojure.string :as str])
-  (:import (java.io FileNotFoundException)))
+  (:import (java.io FileNotFoundException)
+           (java.util Properties)))
 
 (defn -read-properties [readable]
-  (let [props (java.util.Properties.)]
+  (let [props (Properties.)]
     (try
       (.load props (io/reader readable))
       (catch FileNotFoundException _))

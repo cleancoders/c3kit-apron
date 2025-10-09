@@ -1,9 +1,13 @@
-{:paths ["src/cljc"]
+{:paths ["src/cljc" "src/clj"]
  :deps  {local/local {:local/root "."}}
  :tasks {spec {:doc         "Runs Babashka specs"
-               :extra-paths ["spec/cljc"]
+               :extra-paths ["spec/clj" "spec/cljc"]
                :extra-deps  {speclj/speclj {:mvn/version "3.11.0"}}
                :requires    ([speclj.main :as main])
-               :task        (apply main/-main "-c" "-s" "src/cljc" "spec/cljc" *command-line-args*)}
+               :task        (apply main/-main "-c"
+                              "-s" "src/cljc"
+                              "-s" "src/clj"
+                              "spec/cljc" "spec/clj"
+                              *command-line-args*)}
          }
  }
