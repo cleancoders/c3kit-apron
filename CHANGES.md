@@ -1,3 +1,6 @@
+### 2.4.2
+ * Fixes issue where dates cannot be created with overflow or underflow values
+
 ### 2.4.1
  * Adds Babashka support to `.clj` namespaces
  * Replaces `StringBuffer` with `StringBuilder` in `c3kit.apron.verbose`
