@@ -11,7 +11,7 @@
                                   "-t" "~mst"
                                   "spec/cljc" "spec/clj"
                                   *command-line-args*)}
-         spec-cst {:doc         "Runs Babashka specs"
+         spec-cst {:doc         "Runs CST Babashka specs"
                    :extra-paths ["spec/clj" "spec/cljc"]
                    :extra-deps  {speclj/speclj {:mvn/version "3.11.0"}}
                    :requires    ([speclj.main :as main])
@@ -23,7 +23,7 @@
                                     "-t" "cst"
                                     "spec/cljc" "spec/clj"
                                     *command-line-args*))}
-         spec-mst {:doc         "Runs Babashka specs"
+         spec-mst {:doc         "Runs MST Babashka specs"
                    :extra-paths ["spec/clj" "spec/cljc"]
                    :extra-deps  {speclj/speclj {:mvn/version "3.11.0"}}
                    :requires    ([speclj.main :as main])
