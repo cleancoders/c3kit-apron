@@ -42,11 +42,33 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-deps-
 
-      - name: Run Babashka Tests
+      - name: Run Babashka Tests (TZ=Default)
         run: bb spec
 
-      - name: Run Clojure Tests
+      - name: Run Babashka Tests (TZ=CST)
+        run: bb spec-cst
+
+      - name: Run Babashka Tests (TZ=MST)
+        run: bb spec-mst
+
+      - name: Run Clojure Tests (TZ=Default)
         run: clojure -M:test:spec
 
-      - name: Run ClojureScript Tests
+      - name: Run Clojure Tests (TZ=CST)
+        run: clojure -M:test:spec-cst
+
+      - name: Run Clojure Tests (TZ=MST)
+        run: clojure -M:test:spec-mst
+
+      - name: Run ClojureScript Tests (TZ=Default)
         run: clojure -M:test:cljs once
+
+      - name: Run ClojureScript Tests (TZ=CST)
+        run: |
+          bb clean
+          TZ=America/Chicago clojure -M:test:cljs-cst once
+
+      - name: Run ClojureScript Tests (TZ=MST)
+        run: |
+          bb clean
+          TZ=America/Phoenix clojure -M:test:cljs-mst once

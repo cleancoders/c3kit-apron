@@ -45,11 +45,8 @@
   []
   #?(:clj (Date.) :cljs (js/Date.)))
 
-#?(:clj (defn- ^Instant date->instant [^Date date]
-          (-> date .getTime Instant/ofEpochMilli)))
-
 #?(:clj (defn- ^LocalDateTime ->local-date-time [^Date date]
-          (LocalDateTime/ofInstant (date->instant date) (ZoneId/systemDefault))))
+          (LocalDateTime/ofInstant (.toInstant date) (ZoneId/systemDefault))))
 
 (defn utc-offset
   "The offset (milliseconds) between the local timezone and UTC. (AZ -> -7hrs)"
@@ -57,10 +54,10 @@
   ([date]
    #?(:clj  (-> (ZoneId/systemDefault)
                 .getRules
-                (.getOffset (date->instant date))
+                (.getOffset ^Instant (.toInstant date))
                 .getTotalSeconds
                 (* 1000))
-      :cljs (* -1 (minutes (js-invoke date "getTimezoneOffset"))))))
+      :cljs (- (minutes (js-invoke date "getTimezoneOffset"))))))
 
 (defn from-epoch
   "Create Date relative to epoch, adjusted for timezone offset
@@ -223,7 +220,7 @@
                           :months (Period/ofMonths n)
                           :years (Period/ofYears n)
                           :else (throw (ex-info (str "invalid duration unit: " unit) {:unit unit})))
-                 zdt    (ZonedDateTime/ofInstant (.toInstant time) (ZoneId/of "UTC"))]
+                 zdt    (ZonedDateTime/ofInstant (.toInstant time) (ZoneId/systemDefault))]
              (from-epoch (* 1000 (.toEpochSecond (.plus zdt period)))))
      :cljs (let [new-date (js/Date. (js-invoke time "getTime"))]
              (-js-mod-time-by-units new-date unit n direction)

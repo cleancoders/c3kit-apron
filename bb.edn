@@ -1,13 +1,43 @@
 {:paths ["src/cljc" "src/clj"]
  :deps  {local/local {:local/root "."}}
- :tasks {spec {:doc         "Runs Babashka specs"
-               :extra-paths ["spec/clj" "spec/cljc"]
-               :extra-deps  {speclj/speclj {:mvn/version "3.11.0"}}
-               :requires    ([speclj.main :as main])
-               :task        (apply main/-main "-c"
-                              "-s" "src/cljc"
-                              "-s" "src/clj"
-                              "spec/cljc" "spec/clj"
-                              *command-line-args*)}
+ :tasks {spec     {:doc         "Runs Babashka specs"
+                   :extra-paths ["spec/clj" "spec/cljc"]
+                   :extra-deps  {speclj/speclj {:mvn/version "3.11.0"}}
+                   :requires    ([speclj.main :as main])
+                   :task        (apply main/-main "-c"
+                                  "-s" "src/cljc"
+                                  "-s" "src/clj"
+                                  "-t" "~cst"
+                                  "-t" "~mst"
+                                  "spec/cljc" "spec/clj"
+                                  *command-line-args*)}
+         spec-cst {:doc         "Runs Babashka specs"
+                   :extra-paths ["spec/clj" "spec/cljc"]
+                   :extra-deps  {speclj/speclj {:mvn/version "3.11.0"}}
+                   :requires    ([speclj.main :as main])
+                   :task        (do
+                                  (System/setProperty "user.timezone" "America/Chicago")
+                                  (apply main/-main "-c"
+                                    "-s" "src/cljc"
+                                    "-s" "src/clj"
+                                    "-t" "cst"
+                                    "spec/cljc" "spec/clj"
+                                    *command-line-args*))}
+         spec-mst {:doc         "Runs Babashka specs"
+                   :extra-paths ["spec/clj" "spec/cljc"]
+                   :extra-deps  {speclj/speclj {:mvn/version "3.11.0"}}
+                   :requires    ([speclj.main :as main])
+                   :task        (do
+                                  (System/setProperty "user.timezone" "America/Phoenix")
+                                  (apply main/-main "-c"
+                                    "-s" "src/cljc"
+                                    "-s" "src/clj"
+                                    "-t" "mst"
+                                    "spec/cljc" "spec/clj"
+                                    *command-line-args*))}
+         clean    {:requires ([babashka.fs :as fs]
+                              [c3kit.apron.log :as log])
+                   :task     (do (log/info "Removing target folder")
+                                 (fs/delete-tree "target"))}
          }
  }

@@ -9,7 +9,7 @@
                   :pretty-print   true
                   :source-map     true
                   :sources        ["spec/cljc" "src/cljc"]
-                  :specs          true
+                  :specs          {:tags ["~cst" "~mst"]}
                   :verbose        false
                   :watch-fn       cljs/on-dev-compiled
                   }
@@ -20,7 +20,27 @@
                   :output-to      "target/cljs/c3kit_apron_ci.js"
                   :pretty-print   false
                   :sources        ["spec/cljc" "src/cljc"]
-                  :specs          true
+                  :specs          {:tags ["~cst" "~mst"]}
+                  :verbose        false
+                  }
+ :mst            {
+                  :cache-analysis false
+                  :optimizations  :advanced
+                  :output-dir     "target/cljs/"
+                  :output-to      "target/cljs/c3kit_apron_ci.js"
+                  :pretty-print   false
+                  :sources        ["spec/cljc" "src/cljc"]
+                  :specs          {:tags ["mst"]}
+                  :verbose        false
+                  }
+ :cst            {
+                  :cache-analysis false
+                  :optimizations  :advanced
+                  :output-dir     "target/cljs/"
+                  :output-to      "target/cljs/c3kit_apron_ci.js"
+                  :pretty-print   false
+                  :sources        ["spec/cljc" "src/cljc"]
+                  :specs          {:tags ["cst"]}
                   :verbose        false
                   }
  :production     {

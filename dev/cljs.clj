@@ -1,12 +1,11 @@
 (ns cljs
   "This is a copy of scaffold.cljs, to avoid dependency cycles."
-  (:require
-    [c3kit.apron.app :as app]
-    [c3kit.apron.util :as util]
-    [c3kit.apron.utilc :as utilc]
-    [cljs.build.api :as api]
-    [clojure.java.io :as io]
-    [clojure.string :as str])
+  (:require [c3kit.apron.app :as app]
+            [c3kit.apron.util :as util]
+            [c3kit.apron.utilc :as utilc]
+            [cljs.build.api :as api]
+            [clojure.java.io :as io]
+            [clojure.string :as str])
   (:import (cljs.closure Compilable Inputs)
            (com.microsoft.playwright ConsoleMessage Playwright)
            (java.io File)
@@ -18,20 +17,43 @@
 (defonce ns-prefix (atom nil))
 (defonce ignore-errors (atom []))
 (defonce ignore-consoles (atom []))
+(defonce errors (atom []))
+
+(defonce red "\u001B[31m")
+(defonce default-color "\u001b[0m")
 
 (deftype FnConsumer [accept-fn]
   Consumer
   (accept [_this thing] (accept-fn thing)))
 
+(def speclj-defaults
+  {:color     true
+   :reporters ["documentation"]})
+
+(defn config-with-defaults [config]
+  (cond-> speclj-defaults
+          (map? config)
+          (merge config)))
+
+(defn build-spec-config []
+  (->> (config-with-defaults (:specs @build-config))
+       (map (fn [[k v]] (str (utilc/->json k) ", " (utilc/->json v))))
+       (str/join ", ")))
+
+(defn build-js-path []
+  (str (.toURL (.toURI (io/file (:output-to @build-config))))))
+
+(defn build-spec-html []
+  (-> (slurp (io/resource "specs.html"))
+      (str/replace "<--OUTPUT-TO-->" (build-js-path))
+      (str/replace "/*{SPEC-CONFIG}*/" (build-spec-config))))
+
 (defn spec-html-url []
   (let [output-dir     (:output-dir @build-config)
-        spec-html-file (io/file output-dir "specs.html")
-        js-file        (str (.toURL (.toURI (io/file (:output-to @build-config)))))]
+        spec-html-file (io/file output-dir "specs.html")]
     (when-not (.exists spec-html-file)
-      (let [html (-> (slurp (io/resource "specs.html"))
-                     (str/replace "<--OUTPUT-TO-->" js-file))]
-        (spit spec-html-file html)))
-    (str (.toURL spec-html-file))))
+      (spit spec-html-file (build-spec-html)))
+    (str (.toURL (.toURI spec-html-file)))))
 
 (defn project-ns? [ns] (str/starts-with? ns @ns-prefix))
 
@@ -51,19 +73,24 @@
   (let [output-dir (:output-dir @build-config)]
     (io/file output-dir ".specljs-timestamp")))
 
-(defn timestamp!
-  ([] (timestamp! (timestamp-file)))
-  ([file]
-   (if (.exists file)
-     (.setLastModified file (System/currentTimeMillis))
-     (spit file ""))))
+(defn timestamp! [file]
+  (if (.exists file)
+    (.setLastModified file (System/currentTimeMillis))
+    (spit file "")))
 
-(defn find-updated-specs [rdeps deps]
-  (let [^File time-file (timestamp-file)
-        min-millis      (if (.exists time-file) (.lastModified time-file) 0)
-        ns->file        (get deps "idToPath_")]
-    (filter (fn [ns] (let [mod-time (-> (get ns->file ns) URL. .toURI File. .lastModified)]
-                       (> mod-time min-millis)))
+(defn modified-time [file]
+  (if (.exists file)
+    (.lastModified file)
+    0))
+
+(defn find-updated-specs [rdeps deps timestamp]
+  (let [ns->file (get deps "idToPath_")]
+    (filter (fn [ns] (let [mod-time (-> (get ns->file ns)
+                                        URL.
+                                        .toURI
+                                        File.
+                                        .lastModified)]
+                       (> mod-time timestamp)))
             (keys rdeps))))
 
 (defn rdeps-affected-by [rdeps updated]
@@ -72,32 +99,49 @@
       (concat updated (rdeps-affected-by rdeps all-rdeps))
       updated)))
 
-(defn run-specs-auto [page]
+(defn build-spec-map [rdeps deps timestamp]
+  (->> (find-updated-specs rdeps deps timestamp)
+       (rdeps-affected-by rdeps)
+       (filter #(str/ends-with? % "_spec"))
+       (map #(str/replace % "_" "-"))
+       (reduce #(assoc %1 %2 true) {})))
+
+(defn with-red [s]
+  (str red s default-color))
+
+(defn print-error-summary [{:keys [exit-if-errors?]}]
+  (when (seq @errors)
+    (println (with-red "Some specs may not be running because errors were found:"))
+    (run! println @errors)
+    (if exit-if-errors?
+      (System/exit -1))))
+
+(defn run-specs-auto [page timestamp]
   (let [deps     (.evaluate page "goog.debugLoader_")
         rdeps    (build-reverse-deps deps)
-        updated  (find-updated-specs rdeps deps)
-        affected (rdeps-affected-by rdeps updated)
-        spec-map (->> (filter #(str/ends-with? % "_spec") affected)
-                      (map #(str/replace % "_" "-"))
-                      (reduce #(assoc %1 %2 true) {}))
+        spec-map (build-spec-map rdeps deps timestamp)
         js       (str "runSpecsFiltered(" (utilc/->json spec-map) ")")]
     (if (seq spec-map)
       (do (println "Only running affected specs:")
           (doseq [ns (sort (keys spec-map))] (println "  " ns))
           (.evaluate page js))
       (println "No specs affected. Skipping run."))
-    (timestamp!)))
+    (print-error-summary {:exit-if-errors? false})))
 
 (defn run-specs-once [page]
   (try
-    (System/exit (.evaluate page "runSpecsFiltered(null)"))
+    (let [status (.evaluate page "runSpecsFiltered(null)")]
+      (print-error-summary {:exit-if-errors? true})
+      (System/exit status))
     (catch Exception e
       (.printStackTrace e)
-      (System/exit 1))))
+      (System/exit -1))))
 
 (defn on-error [error]
   (when-not (some #(re-find % error) @ignore-errors)
-    (println "ERROR:" error)))
+    (let [msg (with-red (str "ERROR: " error))]
+      (swap! errors conj msg)
+      (println msg))))
 
 (defn on-console [m]
   (let [^ConsoleMessage message m
@@ -105,30 +149,36 @@
     (when-not (some #(re-find % text) @ignore-consoles)
       (println text))))
 
-(defn run-specs [auto?]
-  (let [playwright (Playwright/create)
-        chrome     (.chromium playwright)
-        browser    (.launch chrome)
-        context    (.newContext browser)
-        page       (.newPage context)]
+(defn run-specs [& {:keys [timestamp auto?]}]
+  (let [browser (-> (Playwright/create)
+                    (.chromium)
+                    (.launch))
+        page    (-> browser
+                    (.newContext)
+                    (.newPage))]
     (.onPageError page (FnConsumer. on-error))
     (.onConsoleMessage page (FnConsumer. on-console))
     (.navigate page (spec-html-url))
     (if auto?
-      (run-specs-auto page)
-      (run-specs-once page))))
+      (run-specs-auto page timestamp)
+      (run-specs-once page))
+    (.close browser)))
 
 (defn on-dev-compiled []
-  ;; MDM - Touch the js output file so the browser will reload it without hard refresh.
-  (timestamp! (io/file (:output-to @build-config)))
-  (run-specs true))
+  (reset! errors [])
+  (let [ts-file   (timestamp-file)
+        timestamp (modified-time ts-file)]
+    (timestamp! ts-file)
+    ;; MDM - Touch the js output file so the browser will reload it without hard refresh.
+    (timestamp! (io/file (:output-to @build-config)))
+    (run-specs :auto? true :timestamp timestamp)))
 
 (deftype Sources [build-options]
   Inputs
-  (-paths [_] (map io/file (:sources build-options)))
+  (_paths [_] (map io/file (:sources build-options)))
   Compilable
-  (-compile [_ opts] (mapcat #(cljs.closure/compile-dir (io/file %) opts) (:sources build-options)))
-  (-find-sources [_ opts] (mapcat #(cljs.closure/-find-sources % opts) (:sources build-options))))
+  (_compile [_ opts] (mapcat #(cljs.closure/compile-dir (io/file %) opts) (:sources build-options)))
+  (_find_sources [_ opts] (mapcat #(cljs.closure/-find-sources % opts) (:sources build-options))))
 
 (defn auto-run [build-options]
   (while true
@@ -144,29 +194,46 @@
       (assoc options :watch-fn (util/resolve-var watch-fn-sym)))
     options))
 
+(defn- resolve-build-config [config build-key]
+  (let [result (get config build-key)]
+    (when (nil? result)
+      (throw (ex-info (str "build-key `" build-key "` missing from config") config)))
+    result))
+
+(defn configure! [config build-key]
+  (when-let [env (:run-env config)] (reset! run-env env))
+  (reset! ns-prefix (:ns-prefix config "i.forgot.to.add.ns-prefix.to.cljs.edn"))
+  (reset! ignore-errors (map re-pattern (:ignore-errors config [])))
+  (reset! ignore-consoles (map re-pattern (:ignore-console config [])))
+  (reset! build-config (resolve-watch-fn (resolve-build-config config build-key))))
+
+(defn- ->command [args]
+  (let [command (or (first args) "auto")]
+    (assert (#{"once" "auto" "spec"} command)
+            (str "Unrecognized build command: " command ". Must be 'once', 'auto', or 'spec'"))
+    command))
+
+(defn- ->build-key [config]
+  (keyword (apply app/find-env (or (:env-keys config) app/env-keys))))
+
 (defn -main
   "Compile clojure script and run specs.
   args can be empty or have the type of command:
     auto (default)  - watch files and recompiling and re-running affected specs
     once            - compile and run specs (if enabled) once
-    spec            - just run the specs (assums compilcation is already done)"
+    spec            - just run the specs (assumes compilation is already done)"
   [& args]
-  (let [command   (or (first args) "auto")
+  (let [command   (->command args)
         config    (util/read-edn-resource "config/cljs.edn")
-        build-key (keyword (apply app/find-env (or (:env-keys config) app/env-keys)))]
-    (when-let [env (:run-env config)] (reset! run-env env))
-    (reset! ns-prefix (:ns-prefix config "i.forgot.to.add.ns-prefix.to.cljs.edn"))
-    (reset! ignore-errors (map re-pattern (:ignore-errors config [])))
-    (reset! ignore-consoles (map re-pattern (:ignore-console config [])))
-    (reset! build-config (resolve-watch-fn (get config build-key)))
-    (assert (#{"once" "auto" "spec"} command) (str "Unrecognized build command: " command ". Must be 'once', 'auto', or 'spec'"))
+        build-key (->build-key config)]
+    (configure! config build-key)
     (when-not (= "spec" command)
       (println "Compiling ClojureScript:" command build-key)
       (util/establish-path (:output-to @build-config))
       (io/delete-file ".specljs-timestamp" true))
     (cond (= "once" command) (do (api/build (Sources. @build-config) @build-config)
-                                 (when (:specs @build-config) (run-specs false)))
-          (= "spec" command) (run-specs false)
+                                 (when (:specs @build-config) (run-specs)))
+          (= "spec" command) (run-specs)
           :else (let [timestamp (timestamp-file)]
                   (println "watching namespaces with prefix:" @ns-prefix)
                   (when (.exists timestamp) (.delete timestamp))

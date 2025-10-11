@@ -3,36 +3,36 @@
 <head>
   <meta charset="iso-8859-1" content="text/html" http-equiv="Content-Type"/>
   <title>C3Kit Specs</title>
-  <script src="./goog/base.js" type="text/javascript"></script>
+  <script src="goog/base.js" type="text/javascript"></script>
   <script src="<--OUTPUT-TO-->" type="text/javascript"></script>
   <script type="text/javascript">
     String.prototype.endsWith = function (suffix) {
-      return this.indexOf(suffix, this.length - suffix.length) !== -1;
+      return this.indexOf(suffix, this.length - suffix.length) !== -1
     }
 
     // Load all the specs
-    for (var k in goog.debugLoader_.dependencies_) {
-      var dep = goog.debugLoader_.dependencies_[k]
+    for (let k in goog.debugLoader_.dependencies_) {
+      let dep = goog.debugLoader_.dependencies_[k]
       dep.provides
-        .filter(ns => ns.endsWith("_spec"))
-        .forEach(goog.require)
+              .filter(ns => ns.endsWith("_spec"))
+              .forEach(goog.require)
     }
 
-    runSpecsConfigured = function (color, reporter) {
+    runSpecsConfigured = function () {
       speclj.run.standard.arm()
-      return speclj.run.standard.run_specs("color", color, "reporters", [reporter])
+      return speclj.run.standard.run_specs(/*{SPEC-CONFIG}*/)
     }
 
     runSpecs = function () {
-      return runSpecsConfigured(false, "documentation")
+      runSpecsConfigured()
     }
 
     runSpecsFiltered = function (affectedSpecs) {
       if (affectedSpecs != null) {
-        var runner = speclj.config.active_runner()
+        let runner = speclj.config.active_runner()
         speclj.running.filter_descriptions(runner, affectedSpecs)
       }
-      return runSpecsConfigured(true, "documentation")
+      return runSpecsConfigured()
     }
   </script>
 </head>

@@ -7,7 +7,7 @@
                                       parse unparse years months days hours minutes seconds before after
                                       ago from-now formatter ->utc utc-offset utc millis-since-epoch
                                       earlier? later? earlier later]]
-    [speclj.core #?(:clj :refer :cljs :refer-macros) [describe it should should= should-not]]))
+    [speclj.core #?(:clj :refer :cljs :refer-macros) [context describe it should should= should-not tags]]))
 
 (describe "Time"
 
@@ -16,7 +16,7 @@
       #?(:clj  (should= Date (.getClass now))
          :cljs (should= true (instance? js/Date now)))
       #?(:clj  (should (> 100 (- (System/currentTimeMillis) (.getTime now))))
-         :cljs (should (> 100 (- (. (js/Date.) (getTime)) (.getTime now)))))))
+         :cljs (should (> 100 (- (js-invoke (js/Date.) "getTime") (js-invoke now "getTime")))))))
 
   (it "millis->seconds"
     (should= 0 (sut/millis->seconds 0))
@@ -62,26 +62,6 @@
       (should= 0 (hour epoch))
       (should= 0 (minute epoch))
       (should= 0 (sec epoch))))
-
-  ; Only run in AZ timezone
-  #_(it "utc offset AZ"
-      (should= (* -1 (-> 7 hours)) (utc-offset))
-      (should= (* -1 (-> 7 hours)) (utc-offset (now))))
-
-  ; Only run in Central timezone
-  #_(it "utc offset in Central TZ"
-      (should= (* -1 (-> 5 hours)) (utc-offset (parse :dense "20221105000000")))
-      (should= (* -1 (-> 5 hours)) (utc-offset (parse :dense "20221106000000")))
-      (should= (* -1 (-> 6 hours)) (utc-offset (parse :dense "20221106070000")))
-      (should= (* -1 (-> 6 hours)) (utc-offset (parse :dense "20221107000000"))))
-
-  ; Only run in Central timezone
-  #_(it "creates dates relative to now in day increments - across timezone"
-      (let [start (local 2022 11 05)]                       ;; 1 day1 before DSL begins
-        (should= (parse :dense "20221105050000") start)
-        (should= (parse :dense "20221106050000") (after start (-> 1 days)))
-        (should= (parse :dense "20221107060000") (after start (-> 2 days)))
-        (should= (parse :dense "20221108060000") (after start (-> 3 days)))))
 
   (it "local vs utc after DST"
     (let [local-time (local 2020 1 1 1 1 1)
@@ -212,71 +192,23 @@
              (let [date (parse :iso8601 "1994-11-06 08:49:12Z")]
                (should= "1994-11-06 08:49:12Z" (unparse :iso8601 date)))))
 
-  (it "DST starts"
-    (let [date (sut/local 2024 3 10 2 0)]
-      (should= 2024 (sut/year date))
-      (should= 3 (sut/month date))
-      (should= 10 (sut/day date))
-      (should= 3 (sut/hour date))
-      (should= 0 (sut/minute date))))
-
-  (it "month into DST"
-    (let [date (sut/local 2023 15 10 2 0)]
-      (should= 2024 (sut/year date))
-      (should= 3 (sut/month date))
-      (should= 10 (sut/day date))
-      (should= 3 (sut/hour date))
-      (should= 0 (sut/minute date))))
-
-  (it "day into DST"
-    (let [date (sut/local 2024 2 39 2 0)]
-      (should= 2024 (sut/year date))
-      (should= 3 (sut/month date))
-      (should= 10 (sut/day date))
-      (should= 3 (sut/hour date))
-      (should= 0 (sut/minute date))))
-
-  (it "hour into DST"
-    (let [date (sut/local 2024 3 10 2 0)]
-      (should= 2024 (sut/year date))
-      (should= 3 (sut/month date))
-      (should= 10 (sut/day date))
-      (should= 3 (sut/hour date))
-      (should= 0 (sut/minute date))))
-
-  (it "minutes into DST"
-    (let [date (sut/local 2024 3 10 1 60)]
-      (should= 2024 (sut/year date))
-      (should= 3 (sut/month date))
-      (should= 10 (sut/day date))
-      (should= 3 (sut/hour date))
-      (should= 0 (sut/minute date))))
-
-  (it "seconds into DST"
-    (let [date (sut/local 2024 3 10 1 59 60)]
-      (should= 2024 (sut/year date))
-      (should= 3 (sut/month date))
-      (should= 10 (sut/day date))
-      (should= 3 (sut/hour date))
-      (should= 0 (sut/minute date))))
-
   (it "overflows"
-    (should= (sut/utc 2025 1 1) (sut/utc 2024 13 1))
-    (should= (sut/utc 2024 10 1) (sut/utc 2024 9 31))
-    (should= (sut/utc 2024 9 2) (sut/utc 2024 9 1 24 0))
-    (should= (sut/utc 2024 9 2) (sut/utc 2024 9 1 23 60))
-    (should= (sut/utc 2024 9 2) (sut/utc 2024 9 1 23 59 60))
-    (should= (sut/utc 2025 2 2 1 1) (sut/utc 2024 13 32 24 60 60)))
+    (should= (utc 2025 1 1) (utc 2024 13 1))
+    (should= (utc 2024 10 1) (utc 2024 9 31))
+    (should= (utc 2024 9 2) (utc 2024 9 1 24 0))
+    (should= (utc 2024 9 2) (utc 2024 9 1 23 60))
+    (should= (utc 2024 9 2) (utc 2024 9 1 23 59 60))
+    (should= (utc 2025 2 2 1 1) (utc 2024 13 32 24 60 60)))
 
   (it "underflows"
-    (should= (sut/utc 2024 12 1) (sut/utc 2025 0 1))
-    (should= (sut/utc 2024 11 1) (sut/utc 2025 -1 1))
-    (should= (sut/utc 2024 12 31) (sut/utc 2025 1 0))
-    (should= (sut/utc 2024 12 30) (sut/utc 2025 1 -1))
-    (should= (sut/utc 2024 12 31 23 0) (sut/utc 2025 1 1 -1 0))
-    (should= (sut/utc 2024 12 31 23 59) (sut/utc 2025 1 1 0 -1))
-    (should= (sut/utc 2024 12 31 23 59 59) (sut/utc 2025 1 1 0 0 -1))
-    (should= (sut/utc 2024 11 29 22 58 59) (sut/utc 2025 0 0 -1 -1 -1)))
+    (should= (utc 2024 12 1) (utc 2025 0 1))
+    (should= (utc 2024 11 1) (utc 2025 -1 1))
+    (should= (utc 2024 12 31) (utc 2025 1 0))
+    (should= (utc 2024 12 30) (utc 2025 1 -1))
+    (should= (utc 2024 12 31 23 0) (utc 2025 1 1 -1 0))
+    (should= (utc 2024 12 31 23 59) (utc 2025 1 1 0 -1))
+    (should= (utc 2024 12 31 23 59 59) (utc 2025 1 1 0 0 -1))
+    (should= (utc 2024 11 29 22 58 59) (utc 2025 0 0 -1 -1 -1)))
 
   (it "parses REF 3339 format"
     (let [date1 (parse :ref3339 "2022-03-04T23:59:02-05:00")
@@ -290,7 +222,7 @@
 
   (it "parses and formats :webform dates"
     (let [date (parse :webform "2020-03-31")
-          utc  (sut/->utc date)]
+          utc  (->utc date)]
       (should= 2020 (year utc))
       (should= 3 (month utc))
       (should= 31 (day utc))
@@ -301,7 +233,7 @@
 
   (it "parses and formats :web-local dates"
     (let [date (parse :web-local "2024-02-29T01:23")
-          utc  (sut/->utc date)]
+          utc  (->utc date)]
       (should= 2024 (year utc))
       (should= 2 (month utc))
       (should= 29 (day utc))
@@ -311,14 +243,88 @@
       (should= "2024-02-29T01:23" (unparse :web-local date))))
 
   (it "time range"
-    (let [time1 (sut/local 1939 9 1)
-          time2 (sut/local 1945 9 2)
+    (let [time1 (local 1939 9 1)
+          time2 (local 1945 9 2)
           ww2   (sut/bounds time1 time2)]
       (should (sut/bounds? ww2))
       (should= time1 (sut/start-of ww2))
       (should= time2 (sut/end-of ww2))
-      (should-not (sut/during? ww2 (sut/local 1920 1 1)))
-      (should (sut/during? ww2 (sut/local 1941 1 1)))
-      (should-not (sut/during? ww2 (sut/local 1950 1 1)))))
+      (should-not (sut/during? ww2 (local 1920 1 1)))
+      (should (sut/during? ww2 (local 1941 1 1)))
+      (should-not (sut/during? ww2 (local 1950 1 1)))))
 
+  (context "CST"
+
+    (tags :cst)
+
+    (it "utc offset in Central TZ"
+      (should= (* -1 (-> 5 hours)) (utc-offset (parse :dense "20221105000000")))
+      (should= (* -1 (-> 5 hours)) (utc-offset (parse :dense "20221106000000")))
+      (should= (* -1 (-> 6 hours)) (utc-offset (parse :dense "20221106070000")))
+      (should= (* -1 (-> 6 hours)) (utc-offset (parse :dense "20221107000000"))))
+
+    (it "creates dates relative to now in day increments - across timezone"
+      (let [start (local 2022 11 05)]                       ;; 1 day1 before DSL begins
+        (should= (parse :dense "20221105050000") start)
+        (should= (parse :dense "20221106050000") (after start (-> 1 days)))
+        (should= (parse :dense "20221107060000") (after start (-> 2 days)))
+        (should= (parse :dense "20221108060000") (after start (-> 3 days)))))
+
+    (it "DST starts"
+      (let [date (local 2024 3 10 2 0)]
+        (should= 2024 (year date))
+        (should= 3 (month date))
+        (should= 10 (day date))
+        (should= 3 (hour date))
+        (should= 0 (minute date))))
+
+    (it "month into DST"
+      (let [date (local 2023 15 10 2 0)]
+        (should= 2024 (year date))
+        (should= 3 (month date))
+        (should= 10 (day date))
+        (should= 3 (hour date))
+        (should= 0 (minute date))))
+
+    (it "day into DST"
+      (let [date (local 2024 2 39 2 0)]
+        (should= 2024 (year date))
+        (should= 3 (month date))
+        (should= 10 (day date))
+        (should= 3 (hour date))
+        (should= 0 (minute date))))
+
+    (it "hour into DST"
+      (let [date (local 2024 3 10 2 0)]
+        (should= 2024 (year date))
+        (should= 3 (month date))
+        (should= 10 (day date))
+        (should= 3 (hour date))
+        (should= 0 (minute date))))
+
+    (it "minutes into DST"
+      (let [date (local 2024 3 10 1 60)]
+        (should= 2024 (year date))
+        (should= 3 (month date))
+        (should= 10 (day date))
+        (should= 3 (hour date))
+        (should= 0 (minute date))))
+
+    (it "seconds into DST"
+      (let [date (local 2024 3 10 1 59 60)]
+        (should= 2024 (year date))
+        (should= 3 (month date))
+        (should= 10 (day date))
+        (should= 3 (hour date))
+        (should= 0 (minute date))))
+    )
+
+  (context "MST"
+
+    (tags :mst)
+
+    (it "utc offset AZ"
+      (should= (* -1 (-> 7 hours)) (utc-offset))
+      (should= (* -1 (-> 7 hours)) (utc-offset (now))))
+    )
   )
