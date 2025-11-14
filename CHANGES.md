@@ -1,3 +1,6 @@
+### 2.5.0
+ * Adds doc ns to convert apron schemas to JSON/OpenAPI schemas
+
 ### 2.4.2
  * Fixes issue where dates cannot be created with overflow or underflow values
 
