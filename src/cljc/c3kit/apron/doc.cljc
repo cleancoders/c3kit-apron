@@ -3,31 +3,36 @@
             [clojure.string :as s]))
 
 (def openapi-types
-  {:any     :string
-   :bigdec  :string
-   :date    :string
-   :double  :number
-   :float   :number
-   :ignore  :string
-   :instant :string
-   :int     :integer
-   :keyword :string
-   :long    :number
-   :ref     :number
-   :uri     :string
-   :uuid    :string})
+  {:any       :string
+   :bigdec    :string
+   :date      :string
+   :double    :number
+   :float     :number
+   :ignore    :string
+   :instant   :string
+   :int       :integer
+   :keyword   :string
+   :kw-ref    :string
+   :long      :number
+   :map       :object
+   :ref       :number
+   :timestamp :string
+   :uri       :string
+   :uuid      :string})
 
 (defn- apron->json-types [type]
   (name (get openapi-types type type)))
 
 (def openapi-formats
-  {:date   :date
-   :double :double
-   :float  :float
-   :long   :int64
-   :ref    :int64
-   :uri    :uri
-   :uuid   :uuid})
+  {:date      :date
+   :double    :double
+   :float     :float
+   :instant   :date-time
+   :long      :int64
+   :ref       :int64
+   :timestamp :date-time
+   :uri       :uri
+   :uuid      :uuid})
 
 (defn- required? [{:keys [validate validations]}]
   (boolean (some #{schema/present?} (conj (map :validate validations) validate))))
@@ -57,10 +62,17 @@
   (when-let [required (seq (required-fields type))]
     {:required required}))
 
+(defn- maybe-required-fields-from-schema [nested-schema]
+  (when-let [required (seq (required-fields nested-schema))]
+    {:required required}))
+
 (defn apron->openapi-schema [{:keys [type] :as schema}]
   (cond
     (= :one-of type)
-    {:oneOf (map apron->openapi-schema (:specs schema))}
+    {:oneOf (mapv apron->openapi-schema (:specs schema))}
+
+    (set? type)
+    {:oneOf (mapv #(apron->openapi-schema (if (keyword? %) {:type %} {:type %})) type)}
 
     (= :seq type)
     {:type  "array"
@@ -70,16 +82,27 @@
     {:type  "array"
      :items (apron->openapi-schema {:type (first type)})}
 
+    (= :map type)
+    (if-let [nested-schema (:schema schema)]
+      (merge {:type       "object"
+              :properties (reduce-kv
+                            (fn [m k v] (assoc m k (apron->openapi-schema v)))
+                            {}
+                            nested-schema)}
+             (maybe-required-fields-from-schema nested-schema))
+      {:type "object"})
+
     (map? type)
     (merge {:type       "object"
             :properties (reduce-kv
-                          (fn [m k type]
-                            (assoc m k (apron->openapi-schema type)))
+                          (fn [m k v] (assoc m k (apron->openapi-schema v)))
                           {}
                           type)}
            (maybe-required-fields schema))
 
-    :else {:type (apron->json-types type)}))
+    :else
+    (cond-> {:type (apron->json-types type)}
+      (openapi-formats type) (assoc :format (name (openapi-formats type))))))
 
 (defn ->request-body [{:keys [body] :as _schema}]
   {:required (or (required? body) (map? (:type body)))

@@ -227,7 +227,7 @@
             (should-map-param-type "double-field" "number" {:format "double"})
             (should-map-param-type "float-field" "number" {:format "float"})
             (should-map-param-type "ignore-field" "string")
-            (should-map-param-type "instant-field" "string")
+            (should-map-param-type "instant-field" "string" {:format "date-time"})
             (should-map-param-type "int-field" "integer")
             (should-map-param-type "keyword-field" "string")
             ;(should-map-param-type "kw-ref-field" "string") ; TODO
@@ -252,6 +252,24 @@
       )
 
     (context "schemas"
+
+      (context "additional type mappings"
+
+        (it "kw-ref maps to string"
+          (should= {:type "string"}
+            (sut/apron->openapi-schema {:type :kw-ref})))
+
+        (it "timestamp maps to string with date-time format"
+          (should= {:type "string" :format "date-time"}
+            (sut/apron->openapi-schema {:type :timestamp})))
+
+        (it "instant has date-time format"
+          (should= {:type "string" :format "date-time"}
+            (sut/apron->openapi-schema {:type :instant})))
+
+        (it "map type without schema"
+          (should= {:type "object"}
+            (sut/apron->openapi-schema {:type :map}))))
 
       (context "complex types"
 
@@ -285,7 +303,42 @@
               (should= {:type "array" :items {:type       "object"
                                               :properties {:child-1 {:type "integer"}
                                                            :child-2 {:type "string"}}}}
-                (sut/apron->openapi-schema apron))))))
+                (sut/apron->openapi-schema apron)))))
+
+        (context "map with schema key"
+
+          (it "explicit :map type with :schema"
+            (let [apron {:type :map :schema {:name {:type :string} :age {:type :int}}}]
+              (should= {:type       "object"
+                        :properties {:name {:type "string"}
+                                     :age  {:type "integer"}}}
+                (sut/apron->openapi-schema apron))))
+
+          (it "explicit :map type with required fields"
+            (let [apron {:type   :map
+                         :schema {:name {:type :string :validate schema/present?}
+                                  :age  {:type :int}}}]
+              (should= {:type       "object"
+                        :required   [:name]
+                        :properties {:name {:type "string"}
+                                     :age  {:type "integer"}}}
+                (sut/apron->openapi-schema apron)))))
+
+        (context "set shorthand for one-of"
+
+          (it "of primitives"
+            (let [apron  {:type #{:string :int}}
+                  result (sut/apron->openapi-schema apron)]
+              (should= 2 (count (:oneOf result)))
+              (should-contain {:type "string"} (:oneOf result))
+              (should-contain {:type "integer"} (:oneOf result))))
+
+          (it "with nested objects"
+            (let [apron  {:type #{:string {:foo {:type :int}}}}
+                  result (sut/apron->openapi-schema apron)]
+              (should= 2 (count (:oneOf result)))
+              (should-contain {:type "string"} (:oneOf result))
+              (should-contain {:type "object" :properties {:foo {:type "integer"}}} (:oneOf result))))))
 
       (context "requestBody"
 
