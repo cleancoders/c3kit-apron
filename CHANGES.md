@@ -1,3 +1,12 @@
+### Unreleased
+ * `c3kit.apron.refresh` now works under Babashka. The final re-evaluation
+   step uses `load-file` (via a new bb-compatible backend) instead of
+   `require :reload`, which is a no-op under SCI. JVM behavior is unchanged
+   — the `:clj` reader-conditional branch still calls
+   `clojure.tools.namespace.reload/track-reload` with the same tracker. File
+   moved from `src/clj/c3kit/apron/refresh.clj` to
+   `src/cljc/c3kit/apron/refresh.cljc` (git rename preserved).
+
 ### 2.5.0
  * Adds doc ns to convert apron schemas to JSON/OpenAPI schemas
 
