@@ -1,4 +1,4 @@
-### Unreleased
+### 2.5.1
  * `c3kit.apron.refresh` now works under Babashka. The final re-evaluation
    step uses `load-file` (via a new bb-compatible backend) instead of
    `require :reload`, which is a no-op under SCI. JVM behavior is unchanged
