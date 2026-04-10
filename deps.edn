@@ -17,7 +17,7 @@
                                     com.microsoft.playwright/playwright {:mvn/version "1.55.0"}
                                     io.github.clojure/tools.build       {:mvn/version "0.10.10"}
                                     org.clojure/clojurescript           {:mvn/version "1.12.42"}
-                                    speclj/speclj                       {:mvn/version "3.11.0"}
+                                     speclj/speclj                       {:mvn/version "3.12.3"}
                                     }
                       :extra-paths ["dev" "spec/clj" "spec/cljc"]}
            :spec     {:main-opts ["-m" "speclj.main" "-c" "-t" "~cst" "-t" "~mst"]}

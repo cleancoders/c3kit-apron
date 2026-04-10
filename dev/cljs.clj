@@ -109,12 +109,11 @@
 (defn with-red [s]
   (str red s default-color))
 
-(defn print-error-summary [{:keys [exit-if-errors?]}]
+(defn print-error-summary [{:keys [status-on-errors]}]
   (when (seq @errors)
     (println (with-red "Some specs may not be running because errors were found:"))
     (run! println @errors)
-    (if exit-if-errors?
-      (System/exit -1))))
+    status-on-errors))
 
 (defn run-specs-auto [page timestamp]
   (let [deps     (.evaluate page "goog.debugLoader_")
@@ -126,16 +125,15 @@
           (doseq [ns (sort (keys spec-map))] (println "  " ns))
           (.evaluate page js))
       (println "No specs affected. Skipping run."))
-    (print-error-summary {:exit-if-errors? false})))
+    (print-error-summary {:status-on-errors nil})))
 
 (defn run-specs-once [page]
   (try
     (let [status (.evaluate page "runSpecsFiltered(null)")]
-      (print-error-summary {:exit-if-errors? true})
-      (System/exit status))
+      (or (print-error-summary {:status-on-errors -1}) status))
     (catch Exception e
       (.printStackTrace e)
-      (System/exit -1))))
+      -1)))
 
 (defn on-error [error]
   (when-not (some #(re-find % error) @ignore-errors)
@@ -149,20 +147,38 @@
     (when-not (some #(re-find % text) @ignore-consoles)
       (println text))))
 
+(defn create-browser-resources []
+  (let [playwright (Playwright/create)
+        browser    (-> playwright
+                       (.chromium)
+                       (.launch))
+        context    (.newContext browser)
+        page       (.newPage context)]
+    {:playwright playwright
+     :browser    browser
+     :context    context
+     :page       page}))
+
+(defn close-browser-resources! [{:keys [page context browser playwright]}]
+  (when page (.close page))
+  (when context (.close context))
+  (when browser (.close browser))
+  (when playwright (.close playwright)))
+
+(defn configure-page! [page]
+  (.onPageError page (FnConsumer. on-error))
+  (.onConsoleMessage page (FnConsumer. on-console))
+  (.navigate page (spec-html-url)))
+
 (defn run-specs [& {:keys [timestamp auto?]}]
-  (let [browser (-> (Playwright/create)
-                    (.chromium)
-                    (.launch))
-        page    (-> browser
-                    (.newContext)
-                    (.newPage))]
-    (.onPageError page (FnConsumer. on-error))
-    (.onConsoleMessage page (FnConsumer. on-console))
-    (.navigate page (spec-html-url))
-    (if auto?
-      (run-specs-auto page timestamp)
-      (run-specs-once page))
-    (.close browser)))
+  (let [{:keys [page] :as resources} (create-browser-resources)]
+    (try
+      (configure-page! page)
+      (if auto?
+        (run-specs-auto page timestamp)
+        (run-specs-once page))
+      (finally
+        (close-browser-resources! resources)))))
 
 (defn on-dev-compiled []
   (reset! errors [])
@@ -232,8 +248,9 @@
       (util/establish-path (:output-to @build-config))
       (io/delete-file ".specljs-timestamp" true))
     (cond (= "once" command) (do (api/build (Sources. @build-config) @build-config)
-                                 (when (:specs @build-config) (run-specs)))
-          (= "spec" command) (run-specs)
+                                  (when-let [status (when (:specs @build-config) (run-specs))]
+                                    (System/exit status)))
+          (= "spec" command) (System/exit (run-specs))
           :else (let [timestamp (timestamp-file)]
                   (println "watching namespaces with prefix:" @ns-prefix)
                   (when (.exists timestamp) (.delete timestamp))

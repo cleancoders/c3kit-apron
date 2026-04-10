@@ -1,43 +1,34 @@
 {:paths ["src/cljc" "src/clj"]
- :deps  {local/local {:local/root "."}}
- :tasks {spec     {:doc         "Runs Babashka specs"
-                   :extra-paths ["spec/clj" "spec/cljc"]
-                   :extra-deps  {speclj/speclj {:mvn/version "3.11.0"}}
-                   :requires    ([speclj.main :as main])
-                   :task        (apply main/-main "-c"
-                                  "-s" "src/cljc"
-                                  "-s" "src/clj"
-                                  "-t" "~cst"
-                                  "-t" "~mst"
-                                  "spec/cljc" "spec/clj"
-                                  *command-line-args*)}
-         spec-cst {:doc         "Runs CST Babashka specs"
-                   :extra-paths ["spec/clj" "spec/cljc"]
-                   :extra-deps  {speclj/speclj {:mvn/version "3.11.0"}}
-                   :requires    ([speclj.main :as main])
-                   :task        (do
-                                  (System/setProperty "user.timezone" "America/Chicago")
-                                  (apply main/-main "-c"
-                                    "-s" "src/cljc"
-                                    "-s" "src/clj"
-                                    "-t" "cst"
-                                    "spec/cljc" "spec/clj"
-                                    *command-line-args*))}
-         spec-mst {:doc         "Runs MST Babashka specs"
-                   :extra-paths ["spec/clj" "spec/cljc"]
-                   :extra-deps  {speclj/speclj {:mvn/version "3.11.0"}}
-                   :requires    ([speclj.main :as main])
-                   :task        (do
-                                  (System/setProperty "user.timezone" "America/Phoenix")
-                                  (apply main/-main "-c"
-                                    "-s" "src/cljc"
-                                    "-s" "src/clj"
-                                    "-t" "mst"
-                                    "spec/cljc" "spec/clj"
-                                    *command-line-args*))}
-         clean    {:requires ([babashka.fs :as fs]
-                              [c3kit.apron.log :as log])
-                   :task     (do (log/info "Removing target folder")
-                                 (fs/delete-tree "target"))}
+ :deps  {local/local   {:local/root "."}
+         speclj/speclj {:mvn/version "3.12.3"}}
+ :tasks {:requires ([babashka.fs :as fs]
+                    [c3kit.apron.log :as log]
+                    [speclj.main :as speclj])
+         :init     (do
+                     (def spec-source-args ["-s" "src/cljc" "-s" "src/clj"])
+                     (def spec-paths ["spec/cljc" "spec/clj"])
+                     (defn run-specs [{:keys [timezone tags]}]
+                       (when timezone
+                         (System/setProperty "user.timezone" timezone))
+                       (apply speclj/-main "-c" (concat spec-source-args tags spec-paths *command-line-args*))))
+         spec      {:doc         "Runs Babashka specs"
+                     :extra-paths ["spec/clj" "spec/cljc"]
+                     :task        (run-specs {:tags ["-t" "~cst" "-t" "~mst"]})}
+         spec-all  {:doc         "Runs bb, clj, and cljs specs"
+                    :extra-paths ["spec/clj" "spec/cljc"]
+                    :task        (do
+                                   (shell "bb" "spec")
+                                   (clojure "-M:test:spec")
+                                   (clojure "-M:test:cljs" "once"))}
+         spec-cst  {:doc         "Runs CST Babashka specs"
+                     :extra-paths ["spec/clj" "spec/cljc"]
+                     :task        (run-specs {:timezone "America/Chicago"
+                                             :tags     ["-t" "cst"]})}
+         spec-mst  {:doc         "Runs MST Babashka specs"
+                    :extra-paths ["spec/clj" "spec/cljc"]
+                    :task        (run-specs {:timezone "America/Phoenix"
+                                             :tags     ["-t" "mst"]})}
+         clean     {:task (do (log/info "Removing target folder")
+                              (fs/delete-tree "target"))}
          }
  }
