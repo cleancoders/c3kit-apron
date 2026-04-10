@@ -49,6 +49,33 @@
     (it "returns nil when searching with extensions that do not match"
       (should-be-nil (sut/ns-to-file 'c3kit.apron.refresh [".nope"]))))
 
+  (context "scan"
+
+    (it "iterates all-ns without throwing on either JVM or bb"
+      ;; Regression: an earlier version used (map #(.name %)) which fails
+      ;; under bb because sci.lang.Namespace disallows .name interop.
+      ;; ns-name is the portable clojure.core equivalent that works on both
+      ;; clojure.lang.Namespace and sci.lang.Namespace.
+      (should-not-throw (sut/scan {})))
+
+    (it "populates ::track/files with matching-prefix namespace source files"
+      ;; c3kit.apron.refresh itself is loaded and matches the default
+      ;; "c3kit" prefix, so scan must pick it up.
+      (let [tracker (sut/scan {})
+            files   (:clojure.tools.namespace.dir/files tracker)
+            refresh-file (sut/ns-to-file 'c3kit.apron.refresh)]
+        (should-not-be-nil refresh-file)
+        (should-contain refresh-file files)))
+
+    (it "is a no-op when the prefix matches no loaded namespaces"
+      (let [original-prefix @sut/prefix]
+        (try
+          (reset! sut/prefix "no.such.prefix.matches.anything")
+          (let [tracker {:clojure.tools.namespace.dir/files #{}}]
+            (should= tracker (sut/scan tracker)))
+          (finally
+            (reset! sut/prefix original-prefix))))))
+
   (context "reload"
 
     (it "is a no-op when ::track/load is empty"

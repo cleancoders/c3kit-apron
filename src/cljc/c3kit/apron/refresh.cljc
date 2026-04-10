@@ -68,7 +68,7 @@
 
      (defn scan [tracker]
        (let [files    (->> (all-ns)
-                           (map #(.name %))
+                           (map ns-name)
                            (filter #(str/starts-with? (name %) @prefix))
                            (remove @excludes)
                            (ccc/map-some ns-to-file))
