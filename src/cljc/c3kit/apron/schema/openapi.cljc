@@ -52,22 +52,28 @@
     []
     (get-in schema [:params :type])))
 
+(defn- with-annotations [out spec]
+  (cond-> out
+    (:description spec) (assoc :description (:description spec))
+    (contains? spec :example) (assoc :example (:example spec))))
+
 (defn- openapi-emit [spec children]
-  (case (:type spec)
-    :one-of {:oneOf (:specs children)}
-    :seq    {:type "array" :items (:spec children)}
-    :map    (cond-> {:type "object"}
-              (:schema children)
-              (assoc :properties (:schema children))
+  (-> (case (:type spec)
+        :one-of {:oneOf (:specs children)}
+        :seq    {:type "array" :items (:spec children)}
+        :map    (cond-> {:type "object"}
+                  (:schema children)
+                  (assoc :properties (:schema children))
 
-              (seq (doc/required-fields (:schema spec)))
-              (assoc :required (doc/required-fields (:schema spec)))
+                  (seq (doc/required-fields (:schema spec)))
+                  (assoc :required (doc/required-fields (:schema spec)))
 
-              (:value-spec children)
-              (assoc :additionalProperties (:value-spec children)))
-    (cond-> {:type (apron->json-types (:type spec))}
-      (openapi-formats (:type spec))
-      (assoc :format (name (openapi-formats (:type spec)))))))
+                  (:value-spec children)
+                  (assoc :additionalProperties (:value-spec children)))
+        (cond-> {:type (apron->json-types (:type spec))}
+          (openapi-formats (:type spec))
+          (assoc :format (name (openapi-formats (:type spec))))))
+      (with-annotations spec)))
 
 (defn apron->openapi-schema [schema]
   (schema/walk-schema openapi-emit schema))

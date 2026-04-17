@@ -271,6 +271,36 @@
           (should= {:type "object"}
             (sut/apron->openapi-schema {:type :map}))))
 
+      (context "annotations"
+
+        (it "includes :description"
+          (should= {:type "integer" :description "a count"}
+            (sut/apron->openapi-schema {:type :int :description "a count"})))
+
+        (it "includes :example"
+          (should= {:type "integer" :example 42}
+            (sut/apron->openapi-schema {:type :int :example 42})))
+
+        (it "includes both :description and :example"
+          (should= {:type "string" :description "user name" :example "alice"}
+            (sut/apron->openapi-schema {:type :string :description "user name" :example "alice"})))
+
+        (it "annotations on an object type"
+          (should= {:type "object"
+                    :description "a user"
+                    :properties {:name {:type "string"}}}
+            (sut/apron->openapi-schema {:type   :map
+                                         :schema {:name {:type :string}}
+                                         :description "a user"})))
+
+        (it "annotations on a nested field"
+          (should= {:type "object"
+                    :properties {:name {:type "string" :description "user name" :example "alice"}}}
+            (sut/apron->openapi-schema {:type   :map
+                                         :schema {:name {:type :string
+                                                          :description "user name"
+                                                          :example "alice"}}}))))
+
       (context "complex types"
 
         (context "one of"

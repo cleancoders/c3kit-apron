@@ -1436,6 +1436,18 @@
       (should-be-nil (schema/validate-message-map schema/spec-schema
                                                   {:type :map :value-spec {:type :int}})))
 
+    (it "description"
+      (should-be-nil (schema/validate-message-map schema/spec-schema
+                                                  {:type :int :description "a count"}))
+      (should= {:description "is invalid"}
+               (schema/validate-message-map schema/spec-schema {:type :int :description 42})))
+
+    (it "example"
+      (should-be-nil (schema/validate-message-map schema/spec-schema
+                                                  {:type :int :example 42}))
+      (should-be-nil (schema/validate-message-map schema/spec-schema
+                                                  {:type :map :example {:foo "bar"}})))
+
     (context "conform-schema"
 
       (it "pets with entity-level"

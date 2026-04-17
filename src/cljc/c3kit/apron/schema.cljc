@@ -937,6 +937,8 @@
    :coerce      process-spec-schema
    :present     process-spec-schema
    :message     {:type :string}
+   :description {:type :string}
+   :example     {:type :any}
    :validations {:type :seq :spec {:type :map :schema validation-schema :message "must be schema/validation-schema"}}})
 
 (def spec-schema
