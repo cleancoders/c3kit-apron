@@ -1,4 +1,4 @@
-(ns c3kit.apron.doc
+(ns c3kit.apron.schema.doc
   (:require [c3kit.apron.schema :as schema]
             [clojure.string :as s]))
 
