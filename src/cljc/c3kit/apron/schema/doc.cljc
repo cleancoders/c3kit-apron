@@ -1,154 +1,22 @@
 (ns c3kit.apron.schema.doc
+  "Shared infrastructure for doc-format renderers (OpenAPI, markdown, ...).
+   Describes the expected shape of a route/doc spec and provides helpers that
+   are format-agnostic."
   (:require [c3kit.apron.schema :as schema]
             [clojure.string :as s]))
 
-(def openapi-types
-  {:any       :string
-   :bigdec    :string
-   :date      :string
-   :double    :number
-   :float     :number
-   :ignore    :string
-   :instant   :string
-   :int       :integer
-   :keyword   :string
-   :kw-ref    :string
-   :long      :number
-   :map       :object
-   :ref       :number
-   :timestamp :string
-   :uri       :string
-   :uuid      :string})
-
-(defn- apron->json-types [type]
-  (name (get openapi-types type type)))
-
-(def openapi-formats
-  {:date      :date
-   :double    :double
-   :float     :float
-   :instant   :date-time
-   :long      :int64
-   :ref       :int64
-   :timestamp :date-time
-   :uri       :uri
-   :uuid      :uuid})
-
-(defn- required? [{:keys [validate validations]}]
+(defn required? [{:keys [validate validations]}]
   (boolean (some #{schema/present?} (conj (map :validate validations) validate))))
 
-(defn- schema->parameter [name-field {:keys [type] :as schema}]
-  (merge
-    {:name   (name name-field)
-     :in     "query"
-     :schema {:type (apron->json-types type)}}
-    (when-let [format (openapi-formats type)]
-      {:format (name format)})
-    (when (required? schema)
-      {:required true})))
-
-; TODO - distinguish between url/query params
-(defn ->parameters [schema]
-  (reduce-kv
-    (fn [coll k v]
-      (conj coll (schema->parameter k v)))
-    []
-    (get-in schema [:params :type])))
-
-(defn- required-fields [schema]
+(defn required-fields [schema]
   (keys (filter (fn [[_ v]] (required? v)) schema)))
 
-(defn- maybe-required-fields [{:keys [type] :as _schema}]
-  (when-let [required (seq (required-fields type))]
-    {:required required}))
-
-(defn- maybe-required-fields-from-schema [nested-schema]
-  (when-let [required (seq (required-fields nested-schema))]
-    {:required required}))
-
-(defn apron->openapi-schema [{:keys [type] :as schema}]
-  (cond
-    (= :one-of type)
-    {:oneOf (mapv apron->openapi-schema (:specs schema))}
-
-    (set? type)
-    {:oneOf (mapv #(apron->openapi-schema (if (keyword? %) {:type %} {:type %})) type)}
-
-    (= :seq type)
-    {:type  "array"
-     :items (apron->openapi-schema (:spec schema))}
-
-    (sequential? type)
-    {:type  "array"
-     :items (apron->openapi-schema {:type (first type)})}
-
-    (= :map type)
-    (let [nested-schema (:schema schema)
-          value-spec    (:value-spec schema)]
-      (cond-> {:type "object"}
-        nested-schema
-        (assoc :properties
-               (reduce-kv (fn [m k v] (assoc m k (apron->openapi-schema v)))
-                          {}
-                          nested-schema))
-
-        (seq (required-fields nested-schema))
-        (assoc :required (required-fields nested-schema))
-
-        value-spec
-        (assoc :additionalProperties (apron->openapi-schema value-spec))))
-
-    (map? type)
-    (merge {:type       "object"
-            :properties (reduce-kv
-                          (fn [m k v] (assoc m k (apron->openapi-schema v)))
-                          {}
-                          type)}
-           (maybe-required-fields schema))
-
-    :else
-    (cond-> {:type (apron->json-types type)}
-      (openapi-formats type) (assoc :format (name (openapi-formats type))))))
-
-(defn ->request-body [{:keys [body] :as _schema}]
-  {:required (or (required? body) (map? (:type body)))
-   :content  {"application/json"
-              {:schema (apron->openapi-schema body)}}})
-
-(defn ->openapi [{:keys [schema description]}]
-  (cond-> {:description description}
-          schema
-          (assoc :content
-                 {"application/json"
-                  {:schema
-                   (apron->openapi-schema schema)}})))
-
-(defn ->responses [spec] (update-vals spec ->openapi))
-
-(defn- ->request-keys [{:keys [params body] :as request-schema}]
-  (cond-> {}
-          params (assoc :parameters (->parameters request-schema))
-          body (assoc :requestBody (->request-body request-schema))))
-
-(defn- ->response-keys [response-schema]
-  (when response-schema
-    {:responses (->responses response-schema)}))
-
-(defn- assoc-route [paths {:keys [path method summary request-schema response-schema] :as _route}]
-  (assoc-in paths [path method]
-            (merge {:summary summary}
-                   (->request-keys request-schema)
-                   (->response-keys response-schema))))
-
-(defn routes->paths [routes]
-  (reduce assoc-route {} routes))
-
-(defn- integer-keys? [m]
+(defn integer-keys? [m]
   (every? integer? (keys m)))
 
 (def nil?-or-map? (schema/nil?-or map?))
 
-(defn- schema-map? [m]
+(defn schema-map? [m]
   (every? (comp nil?-or-map? :schema) (vals m)))
 
 (def route-schema
@@ -167,14 +35,7 @@
    :version {:type :string :validate schema/present? :message "is required"}
    :routes  {:type :seq :spec {:type route-schema}}})
 
-(defn- maybe-invalid-doc [spec]
+(defn maybe-invalid-doc [spec]
   (let [validated (schema/validate doc-schema spec)]
     (when (schema/error? validated)
       (throw (ex-info (s/join "; " (schema/message-seq validated)) spec)))))
-
-(defn ->doc [spec]
-  (or (maybe-invalid-doc spec)
-      {:openapi "3.0.0"
-       :info    {:title   (:title spec)
-                 :version (:version spec)}
-       :paths   (routes->paths (:routes spec))}))

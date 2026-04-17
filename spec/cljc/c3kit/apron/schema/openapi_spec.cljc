@@ -1,6 +1,6 @@
-(ns c3kit.apron.schema.doc-spec
+(ns c3kit.apron.schema.openapi-spec
   (:require [c3kit.apron.schema :as schema]
-            [c3kit.apron.schema.doc :as sut]
+            [c3kit.apron.schema.openapi :as sut]
             [speclj.core #?(:clj :refer :cljs :refer-macros) [focus-it describe it should= should-throw context should-contain should]]))
 
 (def exception #?(:clj clojure.lang.ExceptionInfo :cljs js/Error))

@@ -9,10 +9,12 @@
    (`start.x`), while seq indices and non-keyword keys now use bracket
    notation (`points[0].x`, `crew["bill"]`). Consistent dot-vs-bracket
    language across known keys, dynamic keys, and seq indices.
- * `c3kit.apron.schema.doc` (previously `c3kit.apron.doc`) emits
-   `additionalProperties` in generated OpenAPI schemas when a `:map` spec has
-   `:value-spec`. Namespace moved under the `schema` umbrella in preparation
-   for additional doc-format renderers.
+ * `c3kit.apron.doc` has been relocated under the `schema` umbrella and
+   split into two namespaces: `c3kit.apron.schema.doc` holds shared
+   infrastructure (route/doc schemas and format-agnostic helpers), and
+   `c3kit.apron.schema.openapi` holds the OpenAPI renderer (including the
+   `->doc` entry point). The OpenAPI output now emits `additionalProperties`
+   when a `:map` spec has `:value-spec`.
 
 ### 2.5.1
  * `c3kit.apron.refresh` now works under Babashka. The final re-evaluation
