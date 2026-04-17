@@ -2,12 +2,7 @@
  :deps  {local/local   {:local/root "."}
          speclj/speclj {:mvn/version "3.13.0"}}
  :tasks {:requires ([babashka.fs :as fs]
-                    [cheshire.core :as json]
-                    [clojure.walk :as walk]
                     [c3kit.apron.log :as log]
-                    [c3kit.apron.schema :as schema]
-                    [c3kit.apron.schema.markdown :as md]
-                    [c3kit.apron.schema.openapi :as oapi]
                     [speclj.main :as speclj])
          :init     (do
                      (def spec-source-args ["-s" "src/cljc" "-s" "src/clj"])
@@ -15,14 +10,7 @@
                      (defn run-specs [{:keys [timezone tags]}]
                        (when timezone
                          (System/setProperty "user.timezone" timezone))
-                       (apply speclj/-main "-c" (concat spec-source-args tags spec-paths *command-line-args*)))
-                     (defn deep-sort-keys [v]
-                       (walk/postwalk
-                         (fn [x]
-                           (if (map? x)
-                             (into (sorted-map-by (fn [a b] (compare (str a) (str b)))) x)
-                             x))
-                         v)))
+                       (apply speclj/-main "-c" (concat spec-source-args tags spec-paths *command-line-args*))))
          spec      {:doc         "Runs Babashka specs"
                      :extra-paths ["spec/clj" "spec/cljc"]
                      :task        (run-specs {:tags ["-t" "~cst" "-t" "~mst"]})}
@@ -40,29 +28,6 @@
                     :extra-paths ["spec/clj" "spec/cljc"]
                     :task        (run-specs {:timezone "America/Phoenix"
                                              :tags     ["-t" "mst"]})}
-         spec-schema-md
-         {:doc  "Writes spec-schema rendered as markdown tables to target/spec-schema.md"
-          :task (do
-                  (fs/create-dirs "target")
-                  (spit "target/spec-schema.md"
-                        (str "# apron spec-schema\n\n"
-                             "The shape every apron spec conforms to.\n\n"
-                             (md/schema->markdown-table {:type :map :schema schema/spec-schema})
-                             "\n"))
-                  (log/info "Wrote target/spec-schema.md"))}
-         spec-schema-json
-         {:doc  "Writes spec-schema as OpenAPI JSON to target/spec-schema.json"
-          :task (let [{:keys [refs]} (oapi/apron->openapi-schema+refs
-                                       {:type :map :name :spec-schema
-                                        :schema schema/spec-schema
-                                        :description "The shape every apron spec conforms to."})
-                      doc            {:openapi    "3.0.0"
-                                      :info       {:title "apron spec-schema" :version "1.0.0"}
-                                      :components {:schemas refs}}]
-                  (fs/create-dirs "target")
-                  (spit "target/spec-schema.json"
-                        (json/generate-string (deep-sort-keys doc) {:pretty true}))
-                  (log/info "Wrote target/spec-schema.json"))}
          clean     {:task (do (log/info "Removing target folder")
                               (fs/delete-tree "target"))}
          }
