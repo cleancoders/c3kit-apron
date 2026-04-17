@@ -910,10 +910,10 @@
     (it "message-seq nested"
       (let [invalid-household {:pets [valid-pet invalid-pet valid-pet invalid-pet]}
             result            (schema/message-seq (schema/conform household invalid-household))]
-        (should-contain "pets.1.parent.age can't coerce :foo to int" result)
-        (should-contain "pets.1.name must be nice and unique name" result)
-        (should-contain "pets.3.parent.age can't coerce :foo to int" result)
-        (should-contain "pets.3.name must be nice and unique name" result)
+        (should-contain "pets[1].parent.age can't coerce :foo to int" result)
+        (should-contain "pets[1].name must be nice and unique name" result)
+        (should-contain "pets[3].parent.age can't coerce :foo to int" result)
+        (should-contain "pets[3].name must be nice and unique name" result)
         ))
     )
 
@@ -1246,6 +1246,71 @@
 
     )
 
+  (context "dynamic keys"
+
+    (it "coerces keys and values"
+      (let [spec   {:type :map :key-spec {:type :keyword} :value-spec {:type :map :schema {:name {:type :string}}}}
+            result (schema/coerce-value! spec {"joe" {:name "Joe"} "bill" {:name "Bill"}})]
+        (should= {:joe {:name "Joe"} :bill {:name "Bill"}} result)))
+
+    (it "validates keys and values"
+      (let [spec {:type :map :key-spec {:type :keyword} :value-spec {:type :map :schema {:name {:type :string}}}}]
+        (should-be-nil (schema/message-map (schema/validate-value! spec {:joe {:name "Joe"}})))
+        (let [bad (schema/-process-spec-on-value :validate spec {:joe {:name 42}})]
+          (should= {:joe {:name "is invalid"}} (schema/message-map bad)))))
+
+    (it "conforms chains coerce then validate"
+      (let [spec   {:type :map :key-spec {:type :keyword} :value-spec {:type :map :schema {:name {:type :string}}}}
+            result (schema/conform-value! spec {"joe" {:name "Joe"}})]
+        (should= {:joe {:name "Joe"}} result)))
+
+    (it "key coerce error lands at original key"
+      (let [bad (schema/-process-spec-on-value :coerce
+                                               {:type :map :key-spec {:type :int}}
+                                               {"not-an-int" "v"})]
+        (should-contain "not-an-int" (schema/message-map bad))))
+
+    (it "value error lands at coerced key"
+      (let [spec {:type :map :key-spec {:type :keyword} :value-spec {:type :map :schema {:age {:type :int}}}}
+            bad  (schema/-process-spec-on-value :conform spec {"joe" {:age :not-an-int}})]
+        (should-contain :joe (schema/message-map bad))))
+
+    (it "known keys win over dynamic"
+      (let [crew-member {:name {:type :string}}
+            mixed       {:type       :map
+                         :schema     {:captain {:type :map :schema crew-member}}
+                         :key-spec   {:type :keyword}
+                         :value-spec {:type :map :schema crew-member}}
+            result      (schema/coerce-value! mixed {:captain {:name "Cap"} :joe {:name "Joe"}})]
+        (should= {:captain {:name "Cap"} :joe {:name "Joe"}} result)))
+
+    (it "absent :key-spec/:value-spec drops unknown keys"
+      (let [spec   {:type :map :schema {:captain {:type :map :schema {:name {:type :string}}}}}
+            result (schema/coerce-value! spec {:captain {:name "Cap"} :joe {:name "Joe"}})]
+        (should= {:captain {:name "Cap"}} result)))
+
+    (it "message-seq paths: dot for keyword, bracket for non-keyword"
+      (let [crew-spec {:type :map :key-spec {:type :keyword} :value-spec {:type :map :schema {:name {:type :string}}}}
+            schema    {:crew crew-spec}
+            bad       {:crew {:joe {:name 42}}}
+            msgs      (schema/message-seq (schema/validate schema bad))]
+        (should-contain "crew.joe.name is invalid" msgs)))
+
+    (it "entity-level :* still runs alongside dynamic keys"
+      (let [crew-spec (assoc {:type       :map
+                              :key-spec   {:type :keyword}
+                              :value-spec {:type :map :schema {:name {:type :string}}}}
+                             :* {:size {:validate #(pos? (count %)) :message "no crew"}})
+            schema    {:crew crew-spec}]
+        (should-be-nil (schema/message-map (schema/validate schema {:crew {:joe {:name "Joe"}}})))))
+
+    (it "seq index path uses bracket"
+      (let [schema {:points {:type :seq :spec {:type :int}}}
+            msgs   (schema/message-seq (schema/validate schema {:points [1 "bad" 3]}))]
+        (should-contain "points[1] is invalid" msgs)))
+
+    )
+
   (context "spec-schema"
 
     (it "pets"
@@ -1299,6 +1364,22 @@
                (schema/validate-message-map schema/spec-schema {:type :string :schema {:foo {:type :string}}}))
       (should= {:schema "must be a map"}
                (schema/validate-message-map schema/spec-schema {:type :map :schema "blah"})))
+
+    (it "key-spec"
+      (should= {:key-spec "only used with type :map"}
+               (schema/validate-message-map schema/spec-schema {:type :string :key-spec {:type :keyword}}))
+      (should= {:key-spec "must be schema/spec-schema"}
+               (schema/validate-message-map schema/spec-schema {:type :map :key-spec "blah"}))
+      (should-be-nil (schema/validate-message-map schema/spec-schema
+                                                  {:type :map :key-spec {:type :keyword}})))
+
+    (it "value-spec"
+      (should= {:value-spec "only used with type :map"}
+               (schema/validate-message-map schema/spec-schema {:type :string :value-spec {:type :int}}))
+      (should= {:value-spec "must be schema/spec-schema"}
+               (schema/validate-message-map schema/spec-schema {:type :map :value-spec "blah"}))
+      (should-be-nil (schema/validate-message-map schema/spec-schema
+                                                  {:type :map :value-spec {:type :int}})))
 
     (context "conform-schema"
 

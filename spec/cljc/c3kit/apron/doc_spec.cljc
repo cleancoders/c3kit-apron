@@ -27,19 +27,19 @@
                       :routes {}})))
 
       (it "route with no path"
-        (should-throw exception "routes.0.path is a required string"
+        (should-throw exception "routes[0].path is a required string"
           (sut/->doc {:title "Silmarillion"
                       :version "1.0.0"
                       :routes [{:method :get}]})))
 
       (it "route with no method"
-        (should-throw exception "routes.0.method is a required keyword"
+        (should-throw exception "routes[0].method is a required keyword"
           (sut/->doc {:title "Silmarillion"
                       :version "1.0.0"
                       :routes [{:path "/my-resource"}]})))
 
       (it "route with non-map request-schema"
-        (should-throw exception "routes.0.request-schema must be map"
+        (should-throw exception "routes[0].request-schema must be map"
           (sut/->doc {:title "Silmarillion"
                       :version "1.0.0"
                       :routes [{:path "/my-resource"
@@ -47,7 +47,7 @@
                                 :request-schema []}]})))
 
       (it "route with non-map request-schema params"
-        (should-throw exception "routes.0.request-schema.params must be map"
+        (should-throw exception "routes[0].request-schema.params must be map"
           (sut/->doc {:title "Silmarillion"
                       :version "1.0.0"
                       :routes [{:path "/my-resource"
@@ -55,7 +55,7 @@
                                 :request-schema {:params []}}]})))
 
       (it "route with non-map request-schema body"
-        (should-throw exception "routes.0.request-schema.body must be map"
+        (should-throw exception "routes[0].request-schema.body must be map"
           (sut/->doc {:title "Silmarillion"
                       :version "1.0.0"
                       :routes [{:path "/my-resource"
@@ -63,7 +63,7 @@
                                 :request-schema {:body []}}]})))
 
       (it "route with non-map response-schema"
-        (should-throw exception "routes.0.response-schema must be map"
+        (should-throw exception "routes[0].response-schema must be map"
           (sut/->doc {:title "Silmarillion"
                       :version "1.0.0"
                       :routes [{:path "/my-resource"
@@ -71,7 +71,7 @@
                                 :response-schema []}]})))
 
       (it "route with non-integer response-schema key"
-        (should-throw exception "routes.0.response-schema keys must be response codes (integers)"
+        (should-throw exception "routes[0].response-schema keys must be response codes (integers)"
           (sut/->doc {:title "Silmarillion"
                       :version "1.0.0"
                       :routes [{:path "/my-resource"
@@ -80,7 +80,7 @@
                                                          :description "Hello!"}}}]})))
 
       (it "route with non-map response-schema :schema value"
-        (should-throw exception "routes.0.response-schema :schema must be map"
+        (should-throw exception "routes[0].response-schema :schema must be map"
           (sut/->doc {:title "Silmarillion"
                       :version "1.0.0"
                       :routes [{:path "/my-resource"

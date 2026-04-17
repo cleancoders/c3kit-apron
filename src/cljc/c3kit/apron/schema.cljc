@@ -563,19 +563,21 @@
                     (field-result-or-error process spec value))))))
 
 (defn process-map-spec-on-value [process spec value]
-  (let [schema (:schema spec)]
+  (let [schema     (:schema spec)
+        key-spec   (:key-spec spec)
+        value-spec (:value-spec spec)]
     (cond (= :coerce process) (let [value (field-result-or-error :coerce spec value)]
                                 (if (error? value)
                                   value
-                                  (process-schema-on-entity :coerce schema value)))
+                                  (process-schema-on-entity :coerce schema value key-spec value-spec)))
           (= :conform process) (let [coerced (field-result-or-error :coerce spec value)]
                                  (cond (error? coerced) coerced
                                        (nil? coerced) (field-result-or-error :validate spec coerced)
-                                       :else (let [conformed (process-schema-on-entity :conform schema coerced)]
+                                       :else (let [conformed (process-schema-on-entity :conform schema coerced key-spec value-spec)]
                                                (if (error? conformed)
                                                  conformed
                                                  (field-result-or-error :validate spec conformed)))))
-          (map? value) (let [entity (process-schema-on-entity process schema value)]
+          (map? value) (let [entity (process-schema-on-entity process schema value key-spec value-spec)]
                          (if (error? entity)
                            entity
                            (field-result-or-error process spec entity)))
@@ -615,13 +617,31 @@
         (assoc-in result [:entity key] value))
       (update result :entity dissoc key))))
 
-(defn- process-schema-on-entity [process schema entity]
-  (let [entity (select-keys entity (keys schema))
-        entity (reduce (partial process-entity-key-spec process) entity (dissoc schema :*))]
-    (if (error? entity)
-      entity
-      (let [{:keys [entity errors]} (reduce (partial process-entity-level-spec process) {:entity entity} (:* schema))]
-        (merge entity errors)))))
+(defn- process-dynamic-entry [process key-spec value-spec acc [k v]]
+  (let [k' (if key-spec (-process-spec-on-value process key-spec k) k)]
+    (cond (error? k') (assoc acc k k')
+          (nil? k') acc
+          :else (let [v' (if value-spec (-process-spec-on-value process value-spec v) v)]
+                  (if (some? v')
+                    (assoc acc k' v')
+                    acc)))))
+
+(defn- process-schema-on-entity
+  ([process schema entity] (process-schema-on-entity process schema entity nil nil))
+  ([process schema entity key-spec value-spec]
+   (let [field-specs (dissoc schema :*)
+         dynamic?    (or key-spec value-spec)
+         entity      (if dynamic? entity (select-keys entity (keys schema)))
+         entity      (reduce (partial process-entity-key-spec process) entity field-specs)]
+     (if (error? entity)
+       entity
+       (let [entity (if dynamic?
+                      (let [extras (apply dissoc entity :* (keys field-specs))
+                            base   (apply dissoc entity :* (keys extras))]
+                        (reduce (partial process-dynamic-entry process key-spec value-spec) base extras))
+                      entity)
+             {:keys [entity errors]} (reduce (partial process-entity-level-spec process) {:entity entity} (:* schema))]
+         (merge entity errors))))))
 
 (defn- attempt-process-schema-on-entity [process schema entity]
   (try
@@ -739,6 +759,17 @@
    (log/warn "schema/error-message-map is DEPRECATED.  Use schema/message-map instead.")
    (message-map result)))
 
+(defn- path-segment [k]
+  (cond (keyword? k) (str "." (name k))
+        (int? k) (str "[" k "]")
+        :else (str "[" (pr-str k) "]")))
+
+(defn- format-path [path]
+  (let [joined (apply str (reverse path))]
+    (if (str/starts-with? joined ".")
+      (subs joined 1)
+      joined)))
+
 (defn message-seq
   "seq of 'friendly' error messages; nil if none."
   [result]
@@ -749,10 +780,10 @@
           result
           (recur (first stack) (rest stack) (rest path) result))
         (let [[k v] (first errors)
-              new-path (cons (if (int? k) (str k) (name k)) path)]
+              new-path (cons (path-segment k) path)]
           (if (map? v)
             (recur v (conj stack (rest errors)) new-path result)
-            (let [value (str (str/join "." (reverse new-path)) " " v)]
+            (let [value (str (format-path new-path) " " v)]
               (recur (rest errors) stack path (conj result value)))))))))
 
 (defn messages
@@ -881,13 +912,17 @@
    :validations {:type :seq :spec {:type :map :schema validation-schema :message "must be schema/validation-schema"}}})
 
 (def spec-schema
-  (assoc -spec-schema
-    :spec {:type :map :schema -spec-schema :message "must be schema/spec-schema"}
-    :specs {:type :seq :spec {:type :map :schema -spec-schema}}
-    :schema {:type :map :message "must be a map"}
-    :* {:spec   {:validate #(if (:spec %) (= :seq (:type %)) true) :message "only used with type :seq"}
-        :specs  {:validate #(if (:specs %) (= :one-of (:type %)) true) :message "only used with type :one-of"}
-        :schema {:validate #(if (:schema %) (= :map (:type %)) true) :message "only used with type :map"}}))
+  (merge -spec-schema
+         {:spec       {:type :map :schema -spec-schema :message "must be schema/spec-schema"}
+          :specs      {:type :seq :spec {:type :map :schema -spec-schema}}
+          :schema     {:type :map :message "must be a map"}
+          :key-spec   {:type :map :schema -spec-schema :message "must be schema/spec-schema"}
+          :value-spec {:type :map :schema -spec-schema :message "must be schema/spec-schema"}
+          :*          {:spec       {:validate #(if (:spec %) (= :seq (:type %)) true) :message "only used with type :seq"}
+                       :specs      {:validate #(if (:specs %) (= :one-of (:type %)) true) :message "only used with type :one-of"}
+                       :schema     {:validate #(if (:schema %) (= :map (:type %)) true) :message "only used with type :map"}
+                       :key-spec   {:validate #(if (:key-spec %) (= :map (:type %)) true) :message "only used with type :map"}
+                       :value-spec {:validate #(if (:value-spec %) (= :map (:type %)) true) :message "only used with type :map"}}}))
 
 (def entity-spec-schema
   (assoc spec-schema

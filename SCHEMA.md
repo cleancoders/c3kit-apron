@@ -377,6 +377,50 @@ And lastly, we have `geometry`. The `:type` of it's `:geometry` field is `:one-o
 => {:kind :geometry, :geometry #c3kit.apron.schema.ConformError{:message "one-of: no matching spec"}}
 ```
 
+### Dynamic Keys
+
+Sometimes a map has keys that aren't known ahead of time.  Imagine a `ship` with a `:crew` map whose keys are crew-member ids and whose values are crew-member records.
+
+```clojure
+{:kind :ship
+ :crew {:joe  {:name "Joe"}
+        :bill {:name "Bill"}}}
+```
+
+We know `:crew` and `:name` in advance, but `:joe` and `:bill` are data.  `:schema` alone can't describe this.  The `:map` type accepts two extra spec keys — `:key-spec` and `:value-spec` — that apply to every entry in the map.
+
+```clojure
+(def crew-member {:name {:type :string}})
+
+(def ship {:kind (schema/kind :ship)
+           :crew {:type       :map
+                  :key-spec   {:type :keyword}
+                  :value-spec {:type :map :schema crew-member}}})
+
+(schema/conform ship {:kind :ship :crew {:joe {:name "Joe"} :bill {:name "Bill"}}})
+=> {:kind :ship, :crew {:joe {:name "Joe"}, :bill {:name "Bill"}}}
+```
+
+`:key-spec` and `:value-spec` can be combined with a regular `:schema`, in which case keys listed in `:schema` win and everything else flows through the dynamic specs.
+
+```clojure
+{:type       :map
+ :schema     {:captain {:type :map :schema crew-member}}    ; always required
+ :key-spec   {:type :keyword}
+ :value-spec {:type :map :schema crew-member}}              ; all other entries
+```
+
+Error paths use the actual runtime key.  Value errors appear under the coerced key; errors coercing or validating the key itself appear under the original key.
+
+```clojure
+(schema/conform-message-map ship
+  {:kind :ship :crew {:joe {:name 42} "bill" {:name "Bill"}}})
+=> {:crew {:joe  {:name "is invalid"}
+           "bill" "must be a keyword"}}
+```
+
+When neither `:key-spec` nor `:value-spec` is present, unknown keys continue to be dropped.
+
 ## Dealing With Errors
 
 We've seen that when errors occur during `schema` operations, they appear as the value the offending field in the result. `schema/error?` makes it easy to tell if a result has an error.
@@ -403,7 +447,7 @@ Sometimes you want a list of all the errors.
 => ["start.x can't coerce \"blah\" to int" "end.y can't coerce \"blah\" to int"]
 ```
 
-Notice how the keys from nested errors are joined with a `.`, as in `start.x`.
+Notice how the keys from nested errors are joined with a `.`, as in `start.x`.  Seq indices and non-keyword keys use bracket notation instead — `points[0].x` for a seq entry, `crew["bill"]` for a string key.
 
 More often you want a map of the errors.
 

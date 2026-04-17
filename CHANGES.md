@@ -1,3 +1,17 @@
+### 2.6.0
+ * `c3kit.apron.schema` `:map` type now supports dynamic keys via two new
+   optional spec keys: `:key-spec` (spec applied to every dynamic key) and
+   `:value-spec` (spec applied to every dynamic value). Known keys listed in
+   `:schema` win; any other entries flow through the dynamic specs. Key
+   coerce/validate errors land at the original key; value errors land at the
+   coerced key. When neither is present, unknown keys continue to be dropped.
+ * `message-seq` path format: keyword keys remain dot-separated
+   (`start.x`), while seq indices and non-keyword keys now use bracket
+   notation (`points[0].x`, `crew["bill"]`). Consistent dot-vs-bracket
+   language across known keys, dynamic keys, and seq indices.
+ * `c3kit.apron.doc` emits `additionalProperties` in generated OpenAPI
+   schemas when a `:map` spec has `:value-spec`.
+
 ### 2.5.1
  * `c3kit.apron.refresh` now works under Babashka. The final re-evaluation
    step uses `load-file` (via a new bb-compatible backend) instead of

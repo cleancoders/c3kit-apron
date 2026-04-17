@@ -83,14 +83,20 @@
      :items (apron->openapi-schema {:type (first type)})}
 
     (= :map type)
-    (if-let [nested-schema (:schema schema)]
-      (merge {:type       "object"
-              :properties (reduce-kv
-                            (fn [m k v] (assoc m k (apron->openapi-schema v)))
-                            {}
-                            nested-schema)}
-             (maybe-required-fields-from-schema nested-schema))
-      {:type "object"})
+    (let [nested-schema (:schema schema)
+          value-spec    (:value-spec schema)]
+      (cond-> {:type "object"}
+        nested-schema
+        (assoc :properties
+               (reduce-kv (fn [m k v] (assoc m k (apron->openapi-schema v)))
+                          {}
+                          nested-schema))
+
+        (seq (required-fields nested-schema))
+        (assoc :required (required-fields nested-schema))
+
+        value-spec
+        (assoc :additionalProperties (apron->openapi-schema value-spec))))
 
     (map? type)
     (merge {:type       "object"
