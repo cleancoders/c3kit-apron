@@ -1,0 +1,120 @@
+(ns c3kit.apron.schema.term
+  "Render apron schemas as terminal-friendly ANSI-colored text.
+
+   schema->term takes a spec (optionally with options) and returns a string.
+   Options: {:color? true/false (default true), :width int (default 80)}."
+  (:require [c3kit.apron.schema :as schema]
+            [c3kit.apron.schema.doc :as doc]
+            [clojure.string :as s]))
+
+(defn- ansi [color? code text]
+  (if color? (str "\033[" code "m" text "\033[0m") text))
+
+(defn- bold       [o t] (ansi (:color? o) "1"    t))
+(defn- dim        [o t] (ansi (:color? o) "2"    t))
+(defn- yellow     [o t] (ansi (:color? o) "33"   t))
+(defn- green      [o t] (ansi (:color? o) "32"   t))
+(defn- bold-cyan  [o t] (ansi (:color? o) "1;36" t))
+(defn- bold-green [o t] (ansi (:color? o) "1;32" t))
+
+(def ^:private type-labels
+  {:any "any" :bigdec "number" :boolean "boolean" :date "date"
+   :double "number" :float "number" :ignore "any" :instant "datetime"
+   :int "integer" :keyword "keyword" :kw-ref "keyword" :long "integer"
+   :ref "integer" :string "string" :timestamp "datetime" :uri "uri"
+   :uuid "uuid"})
+
+(defn- type-label [t] (get type-labels t (name t)))
+
+(defn- base-type [spec]
+  (case (:type spec)
+    :map    "object"
+    :seq    (str "array of " (base-type (schema/normalize-spec (:spec spec))))
+    :one-of (str "one of: " (s/join ", " (map #(base-type (schema/normalize-spec %)) (:specs spec))))
+    (type-label (:type spec))))
+
+(defn- plain-type-phrase [spec]
+  (let [spec (schema/normalize-spec spec)]
+    (cond
+      (:name spec)          (str (base-type spec) " → " (name (:name spec)))
+      (= :seq (:type spec)) (str "array of " (plain-type-phrase (:spec spec)))
+      :else                 (base-type spec))))
+
+(defn- map-schema [spec]
+  (when (= :map (:type spec))
+    (some-> (:schema spec) (dissoc :*))))
+
+(defn- wrap [text width]
+  (loop [words (s/split (or text "") #"\s+") line "" out []]
+    (cond
+      (empty? words) (if (seq line) (conj out line) out)
+      :else
+      (let [w    (first words)
+            cand (if (seq line) (str line " " w) w)]
+        (if (<= (count cand) width)
+          (recur (rest words) cand out)
+          (recur (rest words) w (conj out line)))))))
+
+(defn- colored-type-phrase [opts spec]
+  (let [spec (schema/normalize-spec spec)]
+    (cond
+      (:name spec)
+      (str (dim opts (base-type spec))
+           " " (green opts "→")
+           " " (bold-green opts (name (:name spec))))
+      (= :seq (:type spec))
+      (str (dim opts "array of ") (colored-type-phrase opts (:spec spec)))
+      :else
+      (dim opts (base-type spec)))))
+
+(defn- field-block [name-width required [k raw-spec] opts]
+  (let [spec      (schema/normalize-spec raw-spec)
+        padded-nm (format (str "%-" name-width "s") (name k))
+        header    (str "  " (bold-cyan opts padded-nm)
+                       "  " (colored-type-phrase opts spec)
+                       (when (contains? required k) (yellow opts " *required")))
+        indent    (apply str (repeat (+ 4 name-width) " "))
+        desc-w    (max 20 (- (:width opts) (count indent)))
+        desc      (when-let [d (:description spec)]
+                    (map #(str indent %) (wrap d desc-w)))
+        ex        (when (contains? spec :example)
+                    [(str indent (green opts (str "example: " (pr-str (:example spec)))))])]
+    (s/join "\n" (concat [header] desc ex))))
+
+(defn- object-section [schema-map opts]
+  (let [required (set (doc/required-fields schema-map))
+        entries  (sort-by (comp name key) schema-map)
+        name-w   (apply max 4 (map #(count (name (key %))) entries))]
+    (s/join "\n\n" (map #(field-block name-w required % opts) entries))))
+
+(defn- collect-named [spec acc]
+  (let [spec (schema/normalize-spec spec)
+        acc  (if (:name spec) (assoc acc (name (:name spec)) spec) acc)
+        kids (case (:type spec)
+               :map    (vals (dissoc (:schema spec) :*))
+               :seq    [(:spec spec)]
+               :one-of (:specs spec)
+               [])]
+    (reduce (fn [acc k] (collect-named k acc)) acc kids)))
+
+(defn- section [opts title body]
+  (str (bold opts title) "\n" body))
+
+(def ^:private default-opts {:color? true :width 80})
+
+(defn schema->term
+  ([spec] (schema->term spec {}))
+  ([spec opts]
+   (let [opts  (merge default-opts opts)
+         spec  (schema/normalize-spec spec)
+         named (collect-named spec {})]
+     (if-let [sm (map-schema spec)]
+       (s/join "\n\n"
+               (concat
+                 (when-not (:name spec)
+                   [(section opts "Schema" (object-section sm opts))])
+                 (for [[nm s] (sort-by key named)
+                       :let   [inner-sm (map-schema s)]
+                       :when  inner-sm]
+                   (section opts nm (object-section inner-sm opts)))))
+       (plain-type-phrase spec)))))

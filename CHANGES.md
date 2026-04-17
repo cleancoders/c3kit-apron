@@ -32,6 +32,10 @@
    renderer with support for named schemas. For schemas that reuse parts
    heavily (like `spec-schema` itself), the output stays compact instead
    of repeating structure at every use.
+ * New `schema.term` namespace — renders schemas as ANSI-colored,
+   terminal-friendly text (two-column layout: field name / type, with
+   description wrapping, required marker, example line, and `→ ref`
+   notation for named schemas). Honors `:color? false` for plain output.
 
 ### 2.5.1
  * `c3kit.apron.refresh` now works under Babashka. The final re-evaluation
