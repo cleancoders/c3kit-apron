@@ -127,3 +127,121 @@
         (if (seq routes)
           (str head "\n\n" (s/join "\n\n" (map render-route routes)))
           head))))
+
+;; region ----- Tables -----
+
+(defn- cell [x]
+  (-> (str x)
+      (s/replace "|" "\\|")
+      (s/replace "\n" " ")))
+
+(defn- anchor [nm]
+  (-> (clojure.core/name nm)
+      (s/replace #"[^a-zA-Z0-9]+" "-")
+      s/lower-case))
+
+(defn- ref-link [nm]
+  (str "[" (clojure.core/name nm) "](#" (anchor nm) ")"))
+
+(defn- type-phrase [spec]
+  (let [spec (schema/normalize-spec spec)]
+    (cond
+      (:name spec)
+      (let [base (case (:type spec)
+                   :map "object"
+                   :seq (str "array of " (type-phrase (:spec spec)))
+                   (type-label (:type spec)))]
+        (str base " (see " (ref-link (:name spec)) ")"))
+      :else
+      (case (:type spec)
+        :map    "object"
+        :seq    (str "array of " (type-phrase (:spec spec)))
+        :one-of (str "one of: " (s/join ", " (map type-phrase (:specs spec))))
+        (type-label (:type spec))))))
+
+(defn- map-schema [spec]
+  (when (= :map (:type spec))
+    (some-> (:schema spec) (dissoc :*))))
+
+(defn- field-row [required [k raw-spec]]
+  (let [spec (schema/normalize-spec raw-spec)]
+    (str "| " (name k)
+         " | " (cell (type-phrase spec))
+         " | " (if (contains? required k) "yes" "")
+         " | " (cell (or (:description spec) ""))
+         " | " (cell (if (contains? spec :example) (pr-str (:example spec)) ""))
+         " |")))
+
+(defn- object-table [schema-map]
+  (let [required (set (doc/required-fields schema-map))]
+    (s/join "\n"
+            (concat ["| Field | Type | Required | Description | Example |"
+                     "|---|---|---|---|---|"]
+                    (map #(field-row required %) schema-map)))))
+
+(defn- collect-named [spec acc]
+  (let [spec (schema/normalize-spec spec)
+        acc  (if (:name spec) (assoc acc (name (:name spec)) spec) acc)
+        kids (case (:type spec)
+               :map    (vals (dissoc (:schema spec) :*))
+               :seq    [(:spec spec)]
+               :one-of (:specs spec)
+               [])]
+    (reduce (fn [acc k] (collect-named k acc)) acc kids)))
+
+(defn- anon-sections [path spec]
+  "Yield sections for the anonymous nested maps reachable from spec, stopping
+   at named sub-specs (they are rendered separately)."
+  (let [spec (schema/normalize-spec spec)]
+    (cond
+      (:name spec)           []            ; named; skip
+      (= :seq (:type spec))  (anon-sections path (:spec spec))
+      :else
+      (when-let [sm (map-schema spec)]
+        (let [body (object-table sm)
+              subs (mapcat (fn [[k v]] (anon-sections (conj path k) v)) sm)]
+          (cons {:depth (count path) :title (s/join "." (map name path)) :body body}
+                subs))))))
+
+(defn- named-section [[nm spec]]
+  (let [sm (map-schema spec)]
+    {:depth 1
+     :title nm
+     :body  (if sm
+              (let [subs (mapcat (fn [[k v]] (anon-sections [k] v)) sm)]
+                (s/join "\n\n"
+                        (cons (object-table sm)
+                              (map (fn [{:keys [depth title body]}]
+                                     (str (apply str (repeat (min (+ 2 depth) 6) "#"))
+                                          " " nm "." title "\n\n" body))
+                                   subs))))
+              (type-phrase spec))}))
+
+(defn- render-section [{:keys [depth title body]}]
+  (let [hashes (apply str (repeat (min (+ 1 depth) 6) "#"))]
+    (str hashes " " title "\n\n" body)))
+
+(defn schema->markdown-table
+  "Render a spec as Markdown tables — one per object.
+
+   Nested anonymous objects get their own sub-sections titled by path.
+   Specs tagged with a :name are rendered once in a top-level Schemas section
+   and linked from use sites via Markdown anchors.
+
+   Falls back to schema->markdown for non-map top-level specs."
+  [spec]
+  (let [spec  (schema/normalize-spec spec)
+        named (collect-named spec {})]
+    (if-let [sm (map-schema spec)]
+      (let [root       (when-not (:name spec)
+                         {:depth 1 :title "Schema" :body (object-table sm)})
+            anon       (when-not (:name spec)
+                         (mapcat (fn [[k v]] (anon-sections [k] v)) sm))
+            named-secs (map named-section named)
+            all        (concat (when root [root])
+                               (map #(update % :depth inc) anon)
+                               named-secs)]
+        (s/join "\n\n" (map render-section all)))
+      (schema->markdown spec))))
+
+;; endregion

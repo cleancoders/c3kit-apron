@@ -933,6 +933,9 @@
               :description "Predicate or seq of predicates applied to the value."}
    :message  {:type :string :description "Error message surfaced when this validation fails."}})
 
+(def validation-entry-spec
+  {:type :map :name :validation :schema validation-schema :message "must be schema/validation-schema"})
+
 (def -spec-schema
   {:type        {:type        :keyword
                  :validations [required validate-type]
@@ -947,30 +950,29 @@
    :message     {:type :string :description "Error message used when validate/coerce fails."}
    :description {:type :string :description "Human-readable documentation string for this field."}
    :example     {:type :any :description "An example value that conforms to this spec."}
+   :name        {:type        :keyword
+                 :description "Marks this spec as a named, reusable definition. Doc renderers collect named specs once and reference them elsewhere."}
    :validations {:type        :seq
-                 :spec        {:type :map :schema validation-schema :message "must be schema/validation-schema"}
+                 :spec        validation-entry-spec
                  :description "Multiple validate/message pairs, applied in order."}})
+
+(def nested-spec-schema
+  {:type :map :name :spec :schema -spec-schema :message "must be schema/spec-schema"})
 
 (def spec-schema
   (merge -spec-schema
-         {:spec       {:type        :map
-                       :schema      -spec-schema
-                       :message     "must be schema/spec-schema"
-                       :description "Spec for each entry of a :seq."}
+         {:spec       (assoc nested-spec-schema
+                        :description "Spec for each entry of a :seq.")
           :specs      {:type        :seq
-                       :spec        {:type :map :schema -spec-schema}
+                       :spec        nested-spec-schema
                        :description "Alternative specs for a :one-of; the value matches if it conforms to any of them."}
           :schema     {:type        :map
                        :message     "must be a map"
                        :description "Map of field name to spec, describing the known keys of a :map."}
-          :key-spec   {:type        :map
-                       :schema      -spec-schema
-                       :message     "must be schema/spec-schema"
-                       :description "Spec applied to every dynamic key of a :map (keys not listed in :schema)."}
-          :value-spec {:type        :map
-                       :schema      -spec-schema
-                       :message     "must be schema/spec-schema"
-                       :description "Spec applied to every dynamic value of a :map."}
+          :key-spec   (assoc nested-spec-schema
+                        :description "Spec applied to every dynamic key of a :map (keys not listed in :schema).")
+          :value-spec (assoc nested-spec-schema
+                        :description "Spec applied to every dynamic value of a :map.")
           :*          {:spec       {:validate #(if (:spec %) (= :seq (:type %)) true) :message "only used with type :seq"}
                        :specs      {:validate #(if (:specs %) (= :one-of (:type %)) true) :message "only used with type :one-of"}
                        :schema     {:validate #(if (:schema %) (= :map (:type %)) true) :message "only used with type :map"}

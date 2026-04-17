@@ -57,7 +57,7 @@
     (:description spec) (assoc :description (:description spec))
     (contains? spec :example) (assoc :example (:example spec))))
 
-(defn- openapi-emit [spec children]
+(defn- inline-emit [spec children]
   (-> (case (:type spec)
         :one-of {:oneOf (:specs children)}
         :seq    {:type "array" :items (:spec children)}
@@ -74,6 +74,21 @@
           (openapi-formats (:type spec))
           (assoc :format (name (openapi-formats (:type spec))))))
       (with-annotations spec)))
+
+(def ^:dynamic ^:private *refs*
+  "Atom holding {name-string -> walked-schema} when ref collection is active.
+   Set by ->doc; nil for bare apron->openapi-schema (which inlines everything)."
+  nil)
+
+(defn- ref-path [nm]
+  (str "#/components/schemas/" (name nm)))
+
+(defn- openapi-emit [spec children]
+  (let [out (inline-emit spec children)]
+    (if (and *refs* (:name spec))
+      (do (swap! *refs* assoc (name (:name spec)) out)
+          {"$ref" (ref-path (:name spec))})
+      out)))
 
 (defn apron->openapi-schema [schema]
   (schema/walk-schema openapi-emit schema))
@@ -113,7 +128,11 @@
 
 (defn ->doc [spec]
   (or (doc/maybe-invalid-doc spec)
-      {:openapi "3.0.0"
-       :info    {:title   (:title spec)
-                 :version (:version spec)}
-       :paths   (routes->paths (:routes spec))}))
+      (binding [*refs* (atom {})]
+        (let [paths  (routes->paths (:routes spec))
+              schemas @*refs*]
+          (cond-> {:openapi "3.0.0"
+                   :info    {:title   (:title spec)
+                             :version (:version spec)}
+                   :paths   paths}
+            (seq schemas) (assoc :components {:schemas schemas}))))))

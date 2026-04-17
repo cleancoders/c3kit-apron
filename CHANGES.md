@@ -23,6 +23,15 @@
  * Two new optional spec fields — `:description` (string) and `:example`
    (any). Both flow into OpenAPI output (as `description` / `example`) and
    into the markdown renderer.
+ * New `:name` spec field marks a spec as a named, reusable definition.
+   The OpenAPI `->doc` renderer collects named schemas into
+   `components.schemas` and uses `$ref` at each use site.
+   `schema.markdown/schema->markdown-table` does the same: one section
+   per named schema, use sites link to it with Markdown anchors.
+ * New `schema.markdown/schema->markdown-table` — tables-per-object
+   renderer with support for named schemas. For schemas that reuse parts
+   heavily (like `spec-schema` itself), the output stays compact instead
+   of repeating structure at every use.
 
 ### 2.5.1
  * `c3kit.apron.refresh` now works under Babashka. The final re-evaluation

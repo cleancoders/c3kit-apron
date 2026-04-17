@@ -2,7 +2,7 @@
   (:require [c3kit.apron.schema :as schema]
             [c3kit.apron.schema.markdown :as sut]
             [speclj.core #?(:clj :refer :cljs :refer-macros)
-             [describe it should= should-throw context should-contain]]))
+             [describe it should= should-throw context should-contain should-not-contain]]))
 
 (def exception #?(:clj clojure.lang.ExceptionInfo :cljs js/Error))
 
@@ -65,6 +65,38 @@
         (should-contain "- **captain** (string)" md)
         (should-contain "- _any other key_ (string)" md)
         (should-contain "crew member name" md)))
+
+    )
+
+  (context "schema->markdown-table"
+
+    (it "renders a map as a table"
+      (let [md (sut/schema->markdown-table
+                 {:type :map :schema {:name {:type :string :validate schema/present?}
+                                      :age  {:type :int}}})]
+        (should-contain "| Field | Type | Required | Description | Example |" md)
+        (should-contain "| name | string | yes |" md)
+        (should-contain "| age | integer |  |" md)))
+
+    (it "references named schemas with a link"
+      (let [pet {:type :map :name :pet :schema {:name {:type :string}}}
+            md  (sut/schema->markdown-table
+                  {:type :map :schema {:pet pet}})]
+        (should-contain "object (see [pet](#pet))" md)
+        (should-contain "## pet" md)))
+
+    (it "dedups a named schema reached multiple ways"
+      (let [pet {:type :map :name :pet :schema {:name {:type :string}}}
+            md  (sut/schema->markdown-table
+                  {:type :map :schema {:a pet :b pet}})
+            pet-sections (re-seq #"(?m)^## pet" md)]
+        (should= 1 (count pet-sections))))
+
+    (it "named root skips the anonymous 'Schema' section"
+      (let [md (sut/schema->markdown-table
+                 {:type :map :name :user :schema {:name {:type :string}}})]
+        (should-contain "## user" md)
+        (should-not-contain "## Schema" md)))
 
     )
 

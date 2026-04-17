@@ -1448,6 +1448,12 @@
       (should-be-nil (schema/validate-message-map schema/spec-schema
                                                   {:type :map :example {:foo "bar"}})))
 
+    (it "name"
+      (should-be-nil (schema/validate-message-map schema/spec-schema
+                                                  {:type :map :name :pet}))
+      (should= {:name "is invalid"}
+               (schema/validate-message-map schema/spec-schema {:type :map :name "pet"})))
+
     (context "conform-schema"
 
       (it "pets with entity-level"

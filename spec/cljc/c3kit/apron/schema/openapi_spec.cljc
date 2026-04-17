@@ -1,7 +1,7 @@
 (ns c3kit.apron.schema.openapi-spec
   (:require [c3kit.apron.schema :as schema]
             [c3kit.apron.schema.openapi :as sut]
-            [speclj.core #?(:clj :refer :cljs :refer-macros) [focus-it describe it should= should-throw context should-contain should]]))
+            [speclj.core #?(:clj :refer :cljs :refer-macros) [focus-it describe it should= should-throw context should-contain should-not-contain should]]))
 
 (def exception #?(:clj clojure.lang.ExceptionInfo :cljs js/Error))
 
@@ -300,6 +300,51 @@
                                          :schema {:name {:type :string
                                                           :description "user name"
                                                           :example "alice"}}}))))
+
+      (context "named specs and $ref"
+
+        (it "apron->openapi-schema inlines even when :name is present"
+          ;; Used standalone (not through ->doc), there's no components pool,
+          ;; so named specs just get inlined.
+          (should= {:type "object" :properties {:name {:type "string"}}}
+            (sut/apron->openapi-schema {:type :map :name :pet :schema {:name {:type :string}}})))
+
+        (it "->doc collects named schemas into components.schemas"
+          (let [result (sut/->doc {:title   "Pet API"
+                                    :version "1.0.0"
+                                    :routes  [{:path "/pets"
+                                               :method :post
+                                               :request-schema {:body {:type :map :name :pet
+                                                                        :schema {:name {:type :string}}}}}]})]
+            (should= {:type "object" :properties {:name {:type "string"}}}
+                     (get-in result [:components :schemas "pet"]))))
+
+        (it "->doc emits $ref at use sites"
+          (let [result (sut/->doc {:title   "Pet API"
+                                    :version "1.0.0"
+                                    :routes  [{:path "/pets"
+                                               :method :post
+                                               :request-schema {:body {:type :map :name :pet
+                                                                        :schema {:name {:type :string}}}}}]})]
+            (should= {"$ref" "#/components/schemas/pet"}
+                     (get-in result [:paths "/pets" :post :requestBody :content "application/json" :schema]))))
+
+        (it "->doc dedups shared named schemas across routes"
+          (let [pet {:type :map :name :pet :schema {:name {:type :string}}}
+                result (sut/->doc {:title   "Pet API"
+                                    :version "1.0.0"
+                                    :routes  [{:path "/pets" :method :post :request-schema {:body pet}}
+                                              {:path "/pets/:id" :method :put :request-schema {:body pet}}]})]
+            (should= 1 (count (get-in result [:components :schemas])))
+            (should-contain "pet" (get-in result [:components :schemas]))))
+
+        (it "->doc omits :components when no schemas are named"
+          (let [result (sut/->doc {:title   "API"
+                                    :version "1.0.0"
+                                    :routes  [{:path "/a" :method :get :summary "a"}]})]
+            (should-not-contain :components result)))
+
+        )
 
       (context "complex types"
 
