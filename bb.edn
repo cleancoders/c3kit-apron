@@ -3,6 +3,7 @@
          speclj/speclj {:mvn/version "3.13.0"}}
  :tasks {:requires ([babashka.fs :as fs]
                     [cheshire.core :as json]
+                    [clojure.walk :as walk]
                     [c3kit.apron.log :as log]
                     [c3kit.apron.schema :as schema]
                     [c3kit.apron.schema.markdown :as md]
@@ -14,7 +15,14 @@
                      (defn run-specs [{:keys [timezone tags]}]
                        (when timezone
                          (System/setProperty "user.timezone" timezone))
-                       (apply speclj/-main "-c" (concat spec-source-args tags spec-paths *command-line-args*))))
+                       (apply speclj/-main "-c" (concat spec-source-args tags spec-paths *command-line-args*)))
+                     (defn deep-sort-keys [v]
+                       (walk/postwalk
+                         (fn [x]
+                           (if (map? x)
+                             (into (sorted-map-by (fn [a b] (compare (str a) (str b)))) x)
+                             x))
+                         v)))
          spec      {:doc         "Runs Babashka specs"
                      :extra-paths ["spec/clj" "spec/cljc"]
                      :task        (run-specs {:tags ["-t" "~cst" "-t" "~mst"]})}
@@ -47,14 +55,13 @@
           :task (let [{:keys [refs]} (oapi/apron->openapi-schema+refs
                                        {:type :map :name :spec-schema
                                         :schema schema/spec-schema
-                                        :description "The shape every apron spec conforms to."})]
+                                        :description "The shape every apron spec conforms to."})
+                      doc            {:openapi    "3.0.0"
+                                      :info       {:title "apron spec-schema" :version "1.0.0"}
+                                      :components {:schemas refs}}]
                   (fs/create-dirs "target")
                   (spit "target/spec-schema.json"
-                        (json/generate-string
-                          {:openapi    "3.0.0"
-                           :info       {:title "apron spec-schema" :version "1.0.0"}
-                           :components {:schemas refs}}
-                          {:pretty true}))
+                        (json/generate-string (deep-sort-keys doc) {:pretty true}))
                   (log/info "Wrote target/spec-schema.json"))}
          clean     {:task (do (log/info "Removing target folder")
                               (fs/delete-tree "target"))}

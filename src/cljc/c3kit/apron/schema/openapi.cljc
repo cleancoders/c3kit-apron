@@ -83,11 +83,19 @@
 (defn- ref-path [nm]
   (str "#/components/schemas/" (name nm)))
 
+(def ^:private annotation-keys [:description :example])
+
 (defn- openapi-emit [spec children]
   (let [out (inline-emit spec children)]
     (if (and *refs* (:name spec))
-      (do (swap! *refs* assoc (name (:name spec)) out)
-          {"$ref" (ref-path (:name spec))})
+      (let [site-annotations (select-keys out annotation-keys)
+            canonical        (apply dissoc out annotation-keys)
+            nm               (name (:name spec))]
+        ;; First write wins — the canonical shape for a named spec shouldn't
+        ;; depend on which use site the walker reaches first.
+        (when-not (contains? @*refs* nm)
+          (swap! *refs* assoc nm canonical))
+        (merge {"$ref" (ref-path (:name spec))} site-annotations))
       out)))
 
 (defn apron->openapi-schema [schema]
