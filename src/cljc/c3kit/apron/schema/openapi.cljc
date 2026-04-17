@@ -1,5 +1,6 @@
 (ns c3kit.apron.schema.openapi
-  (:require [c3kit.apron.schema.doc :as doc]))
+  (:require [c3kit.apron.schema :as schema]
+            [c3kit.apron.schema.doc :as doc]))
 
 (def openapi-types
   {:any       :string
@@ -51,53 +52,25 @@
     []
     (get-in schema [:params :type])))
 
-(defn- maybe-required-fields [{:keys [type] :as _schema}]
-  (when-let [required (seq (doc/required-fields type))]
-    {:required required}))
+(defn- openapi-emit [spec children]
+  (case (:type spec)
+    :one-of {:oneOf (:specs children)}
+    :seq    {:type "array" :items (:spec children)}
+    :map    (cond-> {:type "object"}
+              (:schema children)
+              (assoc :properties (:schema children))
 
-(defn apron->openapi-schema [{:keys [type] :as schema}]
-  (cond
-    (= :one-of type)
-    {:oneOf (mapv apron->openapi-schema (:specs schema))}
+              (seq (doc/required-fields (:schema spec)))
+              (assoc :required (doc/required-fields (:schema spec)))
 
-    (set? type)
-    {:oneOf (mapv #(apron->openapi-schema (if (keyword? %) {:type %} {:type %})) type)}
+              (:value-spec children)
+              (assoc :additionalProperties (:value-spec children)))
+    (cond-> {:type (apron->json-types (:type spec))}
+      (openapi-formats (:type spec))
+      (assoc :format (name (openapi-formats (:type spec)))))))
 
-    (= :seq type)
-    {:type  "array"
-     :items (apron->openapi-schema (:spec schema))}
-
-    (sequential? type)
-    {:type  "array"
-     :items (apron->openapi-schema {:type (first type)})}
-
-    (= :map type)
-    (let [nested-schema (:schema schema)
-          value-spec    (:value-spec schema)]
-      (cond-> {:type "object"}
-        nested-schema
-        (assoc :properties
-               (reduce-kv (fn [m k v] (assoc m k (apron->openapi-schema v)))
-                          {}
-                          nested-schema))
-
-        (seq (doc/required-fields nested-schema))
-        (assoc :required (doc/required-fields nested-schema))
-
-        value-spec
-        (assoc :additionalProperties (apron->openapi-schema value-spec))))
-
-    (map? type)
-    (merge {:type       "object"
-            :properties (reduce-kv
-                          (fn [m k v] (assoc m k (apron->openapi-schema v)))
-                          {}
-                          type)}
-           (maybe-required-fields schema))
-
-    :else
-    (cond-> {:type (apron->json-types type)}
-      (openapi-formats type) (assoc :format (name (openapi-formats type))))))
+(defn apron->openapi-schema [schema]
+  (schema/walk-schema openapi-emit schema))
 
 (defn ->request-body [{:keys [body] :as _schema}]
   {:required (or (doc/required? body) (map? (:type body)))

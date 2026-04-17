@@ -1236,6 +1236,61 @@
       )
     )
 
+  (context "walk-schema"
+
+    (it "leaf emits with nil children"
+      (let [seen (atom [])
+            emit (fn [spec children] (swap! seen conj [spec children]) [spec children])]
+        (schema/walk-schema emit {:type :int})
+        (should= [[{:type :int} nil]] @seen)))
+
+    (it "seq recurses into :spec"
+      (let [result (schema/walk-schema
+                     (fn [spec children]
+                       (case (:type spec)
+                         :seq (str "seq-of-" (:spec children))
+                         (name (:type spec))))
+                     {:type :seq :spec {:type :int}})]
+        (should= "seq-of-int" result)))
+
+    (it "one-of recurses into :specs"
+      (let [result (schema/walk-schema
+                     (fn [spec children]
+                       (case (:type spec)
+                         :one-of (str "one-of[" (clojure.string/join "," (:specs children)) "]")
+                         (name (:type spec))))
+                     {:type :one-of :specs [{:type :int} {:type :string}]})]
+        (should= "one-of[int,string]" result)))
+
+    (it "map recurses into :schema, :key-spec, :value-spec"
+      (let [result (schema/walk-schema
+                     (fn [spec children]
+                       (case (:type spec)
+                         :map (select-keys children [:schema :key-spec :value-spec])
+                         (name (:type spec))))
+                     {:type :map
+                      :schema {:name {:type :string}}
+                      :key-spec {:type :keyword}
+                      :value-spec {:type :int}})]
+        (should= {:schema {:name "string"} :key-spec "keyword" :value-spec "int"} result)))
+
+    (it "normalizes shorthand before dispatching"
+      (let [result (schema/walk-schema
+                     (fn [spec children]
+                       (case (:type spec)
+                         :seq (str "seq-of-" (:spec children))
+                         (name (:type spec))))
+                     {:type [:int]})]
+        (should= "seq-of-int" result)))
+
+    (it "set shorthand with bare-map member normalizes to one-of with :map"
+      (let [seen-types (atom #{})
+            emit (fn [spec _children] (swap! seen-types conj (:type spec)) :ok)]
+        (schema/walk-schema emit {:type #{:string {:foo {:type :int}}}})
+        (should= #{:one-of :string :map :int} @seen-types)))
+
+    )
+
   (context "ignore/any"
 
     (it "ignore"

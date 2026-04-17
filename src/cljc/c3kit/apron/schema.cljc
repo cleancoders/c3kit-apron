@@ -306,7 +306,12 @@
   (assoc spec :type :map :schema type))
 
 (defn- normalize-set-shorthand [{:keys [type] :as spec}]
-  (assoc spec :type :one-of :specs (mapv normalize-spec type)))
+  (letfn [(as-spec [x]
+            (cond (keyword? x)                 {:type x}
+                  (and (map? x) (:type x))     x
+                  (map? x)                     {:type x}
+                  :else                        x))]
+    (assoc spec :type :one-of :specs (mapv (comp normalize-spec as-spec) type))))
 
 (defn normalized?
   "Returns true if the schema-or-spec has been normalized, false otherwise."
@@ -338,6 +343,29 @@
         (update-vals normalize-spec)
         (merge (select-keys schema [:*]))
         (with-meta {::normalized? true}))))
+
+(defn walk-schema
+  "Post-order walk over a spec tree. Normalizes each node, recurses into
+   its children (by :type), and calls (emit spec children) where children
+   is a map of already-walked sub-results shaped for the node's :type:
+
+     :one-of -> {:specs [walked...]}
+     :seq    -> {:spec  walked}
+     :map    -> {:schema {k walked ...} :key-spec walked :value-spec walked}
+     leaf    -> nil
+
+   Each sub-result is whatever the emit fn returned for that child, so emit
+   controls the output type (OpenAPI, markdown, docs data, ...)."
+  [emit spec]
+  (let [spec (normalize-spec spec)]
+    (case (:type spec)
+      :one-of (emit spec {:specs (mapv #(walk-schema emit %) (:specs spec))})
+      :seq    (emit spec {:spec (walk-schema emit (:spec spec))})
+      :map    (emit spec (cond-> {}
+                           (:schema spec)     (assoc :schema (update-vals (:schema spec) #(walk-schema emit %)))
+                           (:key-spec spec)   (assoc :key-spec (walk-schema emit (:key-spec spec)))
+                           (:value-spec spec) (assoc :value-spec (walk-schema emit (:value-spec spec)))))
+      (emit spec nil))))
 
 ;; endregion ^^^^^ shorthands ^^^^^
 
