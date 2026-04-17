@@ -173,11 +173,12 @@
          " |")))
 
 (defn- object-table [schema-map]
-  (let [required (set (doc/required-fields schema-map))]
+  (let [required (set (doc/required-fields schema-map))
+        entries  (sort-by (comp name key) schema-map)]
     (s/join "\n"
             (concat ["| Field | Type | Required | Description | Example |"
                      "|---|---|---|---|---|"]
-                    (map #(field-row required %) schema-map)))))
+                    (map #(field-row required %) entries)))))
 
 (defn- collect-named [spec acc]
   (let [spec (schema/normalize-spec spec)
@@ -198,8 +199,9 @@
       (= :seq (:type spec))  (anon-sections path (:spec spec))
       :else
       (when-let [sm (map-schema spec)]
-        (let [body (object-table sm)
-              subs (mapcat (fn [[k v]] (anon-sections (conj path k) v)) sm)]
+        (let [body    (object-table sm)
+              entries (sort-by (comp name key) sm)
+              subs    (mapcat (fn [[k v]] (anon-sections (conj path k) v)) entries)]
           (cons {:depth (count path) :title (s/join "." (map name path)) :body body}
                 subs))))))
 
@@ -208,7 +210,8 @@
     {:depth 1
      :title nm
      :body  (if sm
-              (let [subs (mapcat (fn [[k v]] (anon-sections [k] v)) sm)]
+              (let [entries (sort-by (comp name key) sm)
+                    subs    (mapcat (fn [[k v]] (anon-sections [k] v)) entries)]
                 (s/join "\n\n"
                         (cons (object-table sm)
                               (map (fn [{:keys [depth title body]}]
@@ -233,11 +236,12 @@
   (let [spec  (schema/normalize-spec spec)
         named (collect-named spec {})]
     (if-let [sm (map-schema spec)]
-      (let [root       (when-not (:name spec)
+      (let [sm-sorted  (sort-by (comp name key) sm)
+            root       (when-not (:name spec)
                          {:depth 1 :title "Schema" :body (object-table sm)})
             anon       (when-not (:name spec)
-                         (mapcat (fn [[k v]] (anon-sections [k] v)) sm))
-            named-secs (map named-section named)
+                         (mapcat (fn [[k v]] (anon-sections [k] v)) sm-sorted))
+            named-secs (map named-section (sort-by key named))
             all        (concat (when root [root])
                                (map #(update % :depth inc) anon)
                                named-secs)]
