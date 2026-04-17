@@ -10,11 +10,19 @@
    notation (`points[0].x`, `crew["bill"]`). Consistent dot-vs-bracket
    language across known keys, dynamic keys, and seq indices.
  * `c3kit.apron.doc` has been relocated under the `schema` umbrella and
-   split into two namespaces: `c3kit.apron.schema.doc` holds shared
-   infrastructure (route/doc schemas and format-agnostic helpers), and
+   split into three namespaces: `c3kit.apron.schema.doc` holds shared
+   infrastructure (route/doc schemas and format-agnostic helpers),
    `c3kit.apron.schema.openapi` holds the OpenAPI renderer (including the
-   `->doc` entry point). The OpenAPI output now emits `additionalProperties`
+   `->doc` entry point), and `c3kit.apron.schema.markdown` is a new
+   markdown renderer. The OpenAPI output now emits `additionalProperties`
    when a `:map` spec has `:value-spec`.
+ * New `c3kit.apron.schema/walk-schema` — a reusable post-order tree
+   walker over specs. Normalizes each node, recurses into its children by
+   `:type`, and calls an emit function with `(spec children)`. The OpenAPI
+   and markdown renderers are both built on it.
+ * Two new optional spec fields — `:description` (string) and `:example`
+   (any). Both flow into OpenAPI output (as `description` / `example`) and
+   into the markdown renderer.
 
 ### 2.5.1
  * `c3kit.apron.refresh` now works under Babashka. The final re-evaluation
