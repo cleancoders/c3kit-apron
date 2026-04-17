@@ -3,10 +3,10 @@
          speclj/speclj {:mvn/version "3.13.0"}}
  :tasks {:requires ([babashka.fs :as fs]
                     [cheshire.core :as json]
-                    [clojure.walk :as walk]
                     [c3kit.apron.log :as log]
                     [c3kit.apron.schema :as schema]
                     [c3kit.apron.schema.markdown :as md]
+                    [c3kit.apron.schema.openapi :as oapi]
                     [speclj.main :as speclj])
          :init     (do
                      (def spec-source-args ["-s" "src/cljc" "-s" "src/clj"])
@@ -43,12 +43,17 @@
                              "\n"))
                   (log/info "Wrote target/spec-schema.md"))}
          spec-schema-json
-         {:doc  "Writes spec-schema to target/spec-schema.json (fn values replaced with \"<fn>\")"
-          :task (do
+         {:doc  "Writes spec-schema as OpenAPI JSON to target/spec-schema.json"
+          :task (let [{:keys [refs]} (oapi/apron->openapi-schema+refs
+                                       {:type :map :name :spec-schema
+                                        :schema schema/spec-schema
+                                        :description "The shape every apron spec conforms to."})]
                   (fs/create-dirs "target")
                   (spit "target/spec-schema.json"
                         (json/generate-string
-                          (walk/postwalk (fn [x] (if (fn? x) "<fn>" x)) schema/spec-schema)
+                          {:openapi    "3.0.0"
+                           :info       {:title "apron spec-schema" :version "1.0.0"}
+                           :components {:schemas refs}}
                           {:pretty true}))
                   (log/info "Wrote target/spec-schema.json"))}
          clean     {:task (do (log/info "Removing target folder")

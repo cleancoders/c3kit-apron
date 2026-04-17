@@ -93,6 +93,14 @@
 (defn apron->openapi-schema [schema]
   (schema/walk-schema openapi-emit schema))
 
+(defn apron->openapi-schema+refs
+  "Like apron->openapi-schema, but returns {:schema <schema-or-ref> :refs {<name> <schema>}}.
+   Specs tagged with :name are collected into :refs; the call site shows {\"$ref\": ...}."
+  [spec]
+  (binding [*refs* (atom {})]
+    (let [body (schema/walk-schema openapi-emit spec)]
+      {:schema body :refs @*refs*})))
+
 (defn ->request-body [{:keys [body] :as _schema}]
   {:required (or (doc/required? body) (map? (:type body)))
    :content  {"application/json"

@@ -344,6 +344,14 @@
                                     :routes  [{:path "/a" :method :get :summary "a"}]})]
             (should-not-contain :components result)))
 
+        (it "apron->openapi-schema+refs returns {:schema :refs}"
+          (let [pet    {:type :map :name :pet :schema {:name {:type :string}}}
+                result (sut/apron->openapi-schema+refs pet)]
+            (should= {"$ref" "#/components/schemas/pet"} (:schema result))
+            (should-contain "pet" (:refs result))
+            (should= {:type "object" :properties {:name {:type "string"}}}
+                     (get-in result [:refs "pet"]))))
+
         )
 
       (context "complex types"
