@@ -44,6 +44,12 @@
   (when (= :map (:type spec))
     (some-> (:schema spec) (dissoc :*))))
 
+(defn- pad-right [text width]
+  (let [needed (- width (count text))]
+    (if (pos? needed)
+      (str text (apply str (repeat needed " ")))
+      text)))
+
 (defn- wrap [text width]
   (loop [words (s/split (or text "") #"\s+") line "" out []]
     (cond
@@ -69,7 +75,7 @@
 
 (defn- field-block [name-width required [k raw-spec] opts]
   (let [spec      (schema/normalize-spec raw-spec)
-        padded-nm (format (str "%-" name-width "s") (name k))
+        padded-nm (pad-right (name k) name-width)
         header    (str "  " (bold-cyan opts padded-nm)
                        "  " (colored-type-phrase opts spec)
                        (when (contains? required k) (yellow opts " *required")))
