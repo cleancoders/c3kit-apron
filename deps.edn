@@ -1,5 +1,5 @@
 {
- :paths   ["src/clj" "src/cljc"]
+ :paths   ["src/clj" "src/cljc" "resources"]
  :deps    {
            com.andrewmcveigh/cljs-time {:mvn/version "0.5.2"}
            com.cognitect/transit-clj   {:mvn/version "1.0.333"}
@@ -17,7 +17,7 @@
                                     com.microsoft.playwright/playwright {:mvn/version "1.55.0"}
                                     io.github.clojure/tools.build       {:mvn/version "0.10.10"}
                                     org.clojure/clojurescript           {:mvn/version "1.12.42"}
-                                     speclj/speclj                       {:mvn/version "3.13.0"}
+                                    speclj/speclj                       {:mvn/version "3.13.0"}
                                     }
                       :extra-paths ["dev" "spec/clj" "spec/cljc"]}
            :spec     {:main-opts ["-m" "speclj.main" "-c" "-t" "~cst" "-t" "~mst"]}
@@ -34,6 +34,22 @@
                       :extra-paths ["dev"]}
            :antq     {:deps      {com.github.liquidz/antq {:mvn/version "2.11.1276"}}
                       :main-opts ["-m" "antq.core"]}
+           :cov      {:extra-deps  {cloverage/cloverage                  {:mvn/version "1.2.4"}
+                                    speclj/speclj                        {:mvn/version "3.13.0"}
+                                    clj-commons/pomegranate              {:mvn/version "1.2.25"}
+                                    com.microsoft.playwright/playwright  {:mvn/version "1.55.0"}
+                                    io.github.clojure/tools.build        {:mvn/version "0.10.10"}
+                                    org.clojure/clojurescript            {:mvn/version "1.12.42"}}
+                      :extra-paths ["dev" "spec/clj" "spec/cljc"]
+                      :main-opts   ["-m" "speclj.cloverage"
+                                    "-t" "~cst" "-t" "~mst"
+                                    "--"
+                                    "-p" "src/clj" "-p" "src/cljc"
+                                    "-s" "spec/clj" "-s" "spec/cljc"]}
+           :crap     {:extra-deps {io.github.unclebob/crap4clj
+                                   {:git/url "https://github.com/unclebob/crap4clj"
+                                    :git/sha "992a5dd41bb337a843c02fb4829a69af7bfcf595"}}
+                      :main-opts  ["-m" "crap4clj.core"]}
            :nrepl    {:extra-paths ["test"]
                       :extra-deps  {nrepl/nrepl {:mvn/version "1.4.0"}}
                       ;; this allows nrepl to interrupt runaway repl evals
