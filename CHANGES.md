@@ -36,6 +36,13 @@
    terminal-friendly text (two-column layout: field name / type, with
    description wrapping, required marker, example line, and `→ ref`
    notation for named schemas). Honors `:color? false` for plain output.
+ * New `schema.path` namespace — coordinate-based traversal of schemas
+   and data using the same grammar as `schema/message-seq`: dots for
+   keyword keys (`a.b.c`), brackets for indices (`points[0]`), string
+   keys (`crew["bill"]`), keyword literals (`crew[:joe]`), and
+   wildcards (`crew[*]` or `crew.*`). `schema-at` navigates schemas
+   (wildcard resolves to `:value-spec` on `:map` or `:spec` on `:seq`);
+   `data-at` walks concrete data (wildcards unsupported).
 
 ### 2.5.1
  * `c3kit.apron.refresh` now works under Babashka. The final re-evaluation
