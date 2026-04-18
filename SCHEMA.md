@@ -479,6 +479,61 @@ Notice that errors from nested data maintain the nested structure.
 => {:x "can't coerce \"blah\" to int"}
 ```
 
+## Path Traversal
+
+`c3kit.apron.schema.path` provides coordinate-based traversal of both data and schemas using the same path grammar produced by `message-seq`. Two public functions:
+
+- `schema-at` — walk a schema tree
+- `data-at`   — walk a concrete value
+
+### Path grammar
+
+| Form | Example | Meaning |
+|---|---|---|
+| Dot keyword | `user.name` | descend via keyword key |
+| `[N]` | `points[0]` | seq index |
+| `["str"]` | `crew["bill"]` | string key |
+| `[:kw]` | `crew[:joe]` | explicit keyword literal |
+| `[*]` or `.*` | `crew[*]`, `crew.*` | wildcard (schema-only) |
+
+### Semantics: data vs schema
+
+The same path means different things against data and schema:
+
+- **Data:** the segment picks a specific entry. `crew.joe` returns the `:joe` value; `points[0]` returns the first element.
+- **Schema:** the segment picks the *template* describing entries at that position. Since schema specs have one template per slot (`:spec` for seq entries, `:value-spec` for dynamic map entries), index and key values that aren't in `:schema` are not discriminators — they resolve to the same template as `[*]` does.
+
+```clojure
+(require '[c3kit.apron.schema.path :as path])
+
+(def ship {:kind {:type :keyword}
+           :crew {:type :map
+                  :key-spec   {:type :keyword}
+                  :value-spec {:type :map :schema {:name {:type :string}}}}})
+
+(def data {:kind :ship :crew {:joe  {:name "Joe"}
+                              :bill {:name "Bill"}}})
+
+(path/data-at data "crew.joe.name")
+;; => "Joe"
+
+(path/schema-at ship "crew.*")
+;; => {:type :map :schema {:name {:type :string}}}
+
+(path/schema-at ship "crew[*].name")
+;; => {:type :string}
+```
+
+### Known vs dynamic keys
+
+When the path names a keyword that is a known field in `:schema`, `schema-at` descends into that field's spec. When the keyword is not in `:schema`, the behavior depends on whether the map has a `:value-spec` — currently the function returns `nil`. Use `[*]` or `.*` explicitly when you mean the dynamic-entry template.
+
+### Invalid paths
+
+- `data-at` returns `nil` for missing keys.
+- `schema-at` returns `nil` for missing fields.
+- Wildcards against `data-at` throw — data has concrete values, not templates.
+
 ## Good to Know
 
 We've covered all the major facets of the `schema` library.  There's just a few things you should know before we part ways.    
