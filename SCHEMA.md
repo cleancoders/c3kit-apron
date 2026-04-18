@@ -2,6 +2,40 @@
 
 ### c3kit.apron.schema
 
+## Contents
+
+- [Overview](#overview)
+- [Example](#example)
+- [Coercion](#coercion)
+- [Validation](#validation)
+- [Conform](#conform)
+- [Present](#present)
+- [Entity Level Specs](#entity-level-specs)
+- [Nested Structures](#nested-structures)
+  - [Maps](#maps)
+  - [Seq](#seq)
+  - [One Of](#one-of)
+  - [Dynamic Keys](#dynamic-keys)
+- [Dealing With Errors](#dealing-with-errors)
+- [Path Traversal](#path-traversal)
+  - [Path grammar](#path-grammar)
+  - [Semantics: data vs schema](#semantics-data-vs-schema)
+  - [Known vs dynamic keys](#known-vs-dynamic-keys)
+  - [Invalid paths](#invalid-paths)
+- [Rendering Schemas](#rendering-schemas)
+  - [Annotations](#annotations)
+  - [Terminal — `c3kit.apron.schema.term`](#terminal--c3kitapronschematerm)
+  - [Markdown — `c3kit.apron.schema.markdown`](#markdown--c3kitapronschemamarkdown)
+  - [OpenAPI — `c3kit.apron.schema.openapi`](#openapi--c3kitapronschemaopenapi)
+  - [Shared infrastructure — `c3kit.apron.schema.doc`](#shared-infrastructure--c3kitapronschemadoc)
+- [Good to Know](#good-to-know)
+  - [Unspecified Fields are Lost](#unspecified-fields-are-lost)
+  - [Merging Schema](#merging-schema)
+  - [Self Referencing Schema](#self-referencing-schema)
+  - [Shorthands](#shorthands)
+  - [Types](#types)
+  - [Integration with Bucket](#integration-with-bucket)
+
 ## Overview
 
 The `schema` library aims to solve the following problems:
