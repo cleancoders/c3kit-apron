@@ -534,6 +534,102 @@ When the path names a keyword that is a known field in `:schema`, `schema-at` de
 - `schema-at` returns `nil` for missing fields.
 - Wildcards against `data-at` throw — data has concrete values, not templates.
 
+## Rendering Schemas
+
+Three renderers share the same input (a schema or a route-doc spec) and produce different outputs. All three live under `c3kit.apron.schema.*`.
+
+### Annotations
+
+Three optional spec fields drive human-facing output across all renderers:
+
+| Field | Type | Used by |
+|---|---|---|
+| `:description` | string | OpenAPI `description`, markdown description column/row, terminal description line |
+| `:example` | any | OpenAPI `example`, markdown example column, terminal example line |
+| `:name` | keyword | Marks a spec as reusable; doc renderers emit it once and reference it elsewhere (`$ref` in OpenAPI, Markdown anchor links, term sections) |
+
+Example spec with annotations:
+
+```clojure
+(def pet {:type :map :name :pet
+          :description "A pet in the store."
+          :schema {:name    {:type :string :description "Pet's name." :example "Rex"}
+                   :species {:type :string :description "Species."}}})
+```
+
+### Terminal — `c3kit.apron.schema.term`
+
+`schema->term` renders a spec as ANSI-colored, two-column text for REPL inspection or CLI scripts.
+
+```clojure
+(require '[c3kit.apron.schema.term :as term])
+
+(println (term/schema->term pet {:color? false :width 80}))
+```
+
+Output:
+
+```
+pet
+────────────────────────────────────────────────────────────
+  name     string
+           Pet's name.
+           example: "Rex"
+
+  species  string
+           Species.
+```
+
+Options: `{:color? true/false (default true), :width int (default 80)}`.
+
+### Markdown — `c3kit.apron.schema.markdown`
+
+Two public schema renderers plus a routes-doc entry:
+
+- `schema->markdown`       — nested bullets
+- `schema->markdown-table` — tables, one per object; named specs get their own sections with anchor links
+- `->doc`                  — full markdown document from a route/doc spec
+
+```clojure
+(require '[c3kit.apron.schema.markdown :as md])
+
+(md/schema->markdown-table pet)
+;; "| Field | Type | ... |
+;;  |---|---|---|
+;;  | name | string | ...
+;;  ..."
+
+(md/->doc {:title "Pet API" :version "1.0.0" :routes [...]})
+;; => full markdown document
+```
+
+Named specs reached multiple times render once in a section and are referenced elsewhere with standard Markdown link syntax: `(see [pet](#pet))`.
+
+### OpenAPI — `c3kit.apron.schema.openapi`
+
+- `apron->openapi-schema`       — single spec → OpenAPI schema object (inlines everything).
+- `apron->openapi-schema+refs`  — single spec → `{:schema <schema-or-$ref> :refs {<name> <schema>}}`. Named sub-specs are pulled into `:refs` and referenced via `$ref` at use sites.
+- `->doc`                       — full OpenAPI 3.0 document from a route/doc spec; collects named schemas into `components.schemas`.
+
+```clojure
+(require '[c3kit.apron.schema.openapi :as openapi])
+
+(openapi/apron->openapi-schema pet)
+;; => {:type "object", :description "A pet in the store.",
+;;     :properties {:name    {:type "string", :description "...", :example "Rex"}
+;;                  :species {:type "string", :description "..."}}}
+
+(openapi/->doc {:title "Pet API" :version "1.0.0" :routes [...]})
+;; => {:openapi "3.0.0", :info {...}, :paths {...},
+;;     :components {:schemas {"pet" {...}}}}
+```
+
+Output aligns with JSON Schema Draft 2020-12 (which OpenAPI 3.1 uses) for the schema portion; `->doc` wraps it in an OpenAPI 3.0 envelope. Named specs use OpenAPI's standard `"$ref": "#/components/schemas/<name>"` form.
+
+### Shared infrastructure — `c3kit.apron.schema.doc`
+
+Small namespace holding the route/doc input schemas (`route-schema`, `doc-schema`) and format-agnostic helpers (`required?`, `required-fields`, `integer-keys?`, `schema-map?`, `maybe-invalid-doc`). Used internally by all three renderers; the only reason to require it directly is if you're writing a new renderer.
+
 ## Good to Know
 
 We've covered all the major facets of the `schema` library.  There's just a few things you should know before we part ways.    
