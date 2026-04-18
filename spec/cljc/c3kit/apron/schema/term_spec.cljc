@@ -100,4 +100,21 @@
                   plain)]
         (should-not-contain "\033[" out)))
 
+    )
+
+  (context "section headings"
+
+    (it "underlines the heading with a rule"
+      (let [out (sut/schema->term
+                  {:type :map :schema {:name {:type :string}}}
+                  plain)]
+        (should-contain "Schema\n──" out)))
+
+    (it "named section also gets a rule"
+      (let [pet {:type :map :name :pet :schema {:name {:type :string}}}
+            out (sut/schema->term
+                  {:type :map :schema {:pet pet}}
+                  plain)]
+        (should-contain "pet\n──" out)))
+
     ))

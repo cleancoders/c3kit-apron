@@ -98,7 +98,9 @@
     (reduce (fn [acc k] (collect-named k acc)) acc kids)))
 
 (defn- section [opts title body]
-  (str (bold opts title) "\n" body))
+  (let [rule-width (min 60 (max 10 (- (:width opts) 4)))
+        rule       (apply str (repeat rule-width "─"))]
+    (str (bold opts title) "\n" (dim opts rule) "\n" body)))
 
 (def ^:private default-opts {:color? true :width 80})
 
