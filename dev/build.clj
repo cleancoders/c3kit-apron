@@ -9,7 +9,7 @@
 (def basis (b/create-basis {:project "deps.edn"}))
 (def src-dirs (:paths basis))
 (def lib (symbol group-name lib-name))
-(def version (str/trim (slurp "resources/c3kit/apron/version.txt")))
+(def version (str/trim (slurp "resources/c3kit/apron/VERSION")))
 (def class-dir "target/classes")
 (def jar-file (format "target/%s-%s.jar" lib-name version))
 (def deploy-config (delay {:coordinates       [lib version]

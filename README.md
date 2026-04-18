@@ -59,5 +59,5 @@ CLOJARS_USERNAME=<your username>
 CLOJARS_PASSWORD=<your deploy key>
 ```
 
-3. Update `resources/c3kit/apron/version.txt`
+3. Update `resources/c3kit/apron/VERSION`
 4. `clj -T:build deploy`

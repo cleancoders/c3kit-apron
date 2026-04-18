@@ -44,8 +44,8 @@
    (wildcard resolves to `:value-spec` on `:map` or `:spec` on `:seq`);
    `data-at` walks concrete data (wildcards unsupported).
  * New `c3kit.apron.version/current` — runtime access to the apron
-   version string. The version file moved from `VERSION` to
-   `resources/c3kit/apron/version.txt` and now ships inside the jar.
+   version string. The `VERSION` file moved from the project root to
+   `resources/c3kit/apron/VERSION` and now ships inside the jar.
 
 ### 2.5.1
  * `c3kit.apron.refresh` now works under Babashka. The final re-evaluation
