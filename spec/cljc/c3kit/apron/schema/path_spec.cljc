@@ -30,6 +30,32 @@
 
     )
 
+  (context "unparse"
+
+    (it "emits a single keyword segment"
+      (should= "a" (sut/unparse [[:key :a]])))
+
+    (it "joins keyword segments with dots"
+      (should= "a.b.c" (sut/unparse [[:key :a] [:key :b] [:key :c]])))
+
+    (it "emits indices with brackets"
+      (should= "points[0]" (sut/unparse [[:key :points] [:index 0]])))
+
+    (it "emits string keys with quoted brackets"
+      (should= "crew[\"bill\"]" (sut/unparse [[:key :crew] [:str "bill"]])))
+
+    (it "emits wildcards with [*]"
+      (should= "crew[*]" (sut/unparse [[:key :crew] [:wildcard]])))
+
+    (it "escapes keywords with special chars using bracket form"
+      (should= "a[:foo.bar]" (sut/unparse [[:key :a] [:key :foo.bar]])))
+
+    (it "round-trips through parse for common segments"
+      (let [path "a.b[0].c[\"x\"].d[*]"]
+        (should= path (sut/unparse (sut/parse path)))))
+
+    )
+
   (context "schema-at"
 
     (it "returns the field spec for a simple keyword path"

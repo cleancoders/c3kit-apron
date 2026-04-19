@@ -5,6 +5,7 @@
   (:require
     [c3kit.apron.corec :as ccc]
     [c3kit.apron.log :as log]
+    [c3kit.apron.schema.path :as path]
     [clojure.edn :as edn]
     [clojure.string :as str]
     #?(:cljs [com.cognitect.transit.types])                 ;; https://github.com/cognitect/transit-cljs/issues/41
@@ -789,15 +790,10 @@
    (message-map result)))
 
 (defn- path-segment [k]
-  (cond (keyword? k) (str "." (name k))
-        (int? k) (str "[" k "]")
-        :else (str "[" (pr-str k) "]")))
-
-(defn- format-path [path]
-  (let [joined (apply str (reverse path))]
-    (if (str/starts-with? joined ".")
-      (subs joined 1)
-      joined)))
+  (cond (keyword? k) [:key k]
+        (int? k)     [:index k]
+        (string? k)  [:str k]
+        :else        [:other k]))
 
 (defn message-seq
   "seq of 'friendly' error messages; nil if none."
@@ -812,7 +808,7 @@
               new-path (cons (path-segment k) path)]
           (if (map? v)
             (recur v (conj stack (rest errors)) new-path result)
-            (let [value (str (format-path new-path) " " v)]
+            (let [value (str (path/unparse (reverse new-path)) " " v)]
               (recur (rest errors) stack path (conj result value)))))))))
 
 (defn messages

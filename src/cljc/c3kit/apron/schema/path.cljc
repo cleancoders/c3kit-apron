@@ -34,6 +34,25 @@
 (defn parse [path]
   (mapv classify (re-seq #"[a-zA-Z_\-][a-zA-Z0-9_\-]*|\*|\[[^\]]*\]" path)))
 
+(defn- identifier-safe? [s]
+  (boolean (re-matches #"[a-zA-Z_\-][a-zA-Z0-9_\-]*" s)))
+
+(defn- segment->string [[kind v]]
+  (case kind
+    :key      (if (identifier-safe? (name v))
+                (str "." (name v))
+                (str "[:" (name v) "]"))
+    :index    (str "[" v "]")
+    :str      (str "[" (pr-str v) "]")
+    :wildcard "[*]"
+    (str "[" (pr-str v) "]")))
+
+(defn unparse [segments]
+  (let [joined (apply str (map segment->string segments))]
+    (if (s/starts-with? joined ".")
+      (subs joined 1)
+      joined)))
+
 (defn- descend-schema [spec segment]
   (case (first segment)
     :key       (cond
