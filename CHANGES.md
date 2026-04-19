@@ -10,32 +10,21 @@
    notation (`points[0].x`, `crew["bill"]`). Consistent dot-vs-bracket
    language across known keys, dynamic keys, and seq indices.
  * `c3kit.apron.doc` has been relocated under the `schema` umbrella and
-   split into three namespaces: `c3kit.apron.schema.doc` holds shared
-   infrastructure (route/doc schemas and format-agnostic helpers),
-   `c3kit.apron.schema.openapi` holds the OpenAPI renderer (including the
-   `->doc` entry point), and `c3kit.apron.schema.markdown` is a new
-   markdown renderer. The OpenAPI output now emits `additionalProperties`
-   when a `:map` spec has `:value-spec`.
+   split into two namespaces: `c3kit.apron.schema.doc` holds shared
+   infrastructure (route/doc schemas and format-agnostic helpers) and
+   `c3kit.apron.schema.openapi` holds the OpenAPI renderer (including
+   the `->doc` entry point). The OpenAPI output now emits
+   `additionalProperties` when a `:map` spec has `:value-spec`.
  * New `c3kit.apron.schema/walk-schema` — a reusable post-order tree
-   walker over specs. Normalizes each node, recurses into its children by
-   `:type`, and calls an emit function with `(spec children)`. The OpenAPI
-   and markdown renderers are both built on it.
- * Two new optional spec fields — `:description` (string) and `:example`
-   (any). Both flow into OpenAPI output (as `description` / `example`) and
-   into the markdown renderer.
- * New `:name` spec field marks a spec as a named, reusable definition.
-   The OpenAPI `->doc` renderer collects named schemas into
-   `components.schemas` and uses `$ref` at each use site.
-   `schema.markdown/schema->markdown-table` does the same: one section
-   per named schema, use sites link to it with Markdown anchors.
- * New `schema.markdown/schema->markdown-table` — tables-per-object
-   renderer with support for named schemas. For schemas that reuse parts
-   heavily (like `spec-schema` itself), the output stays compact instead
-   of repeating structure at every use.
- * New `schema.term` namespace — renders schemas as ANSI-colored,
-   terminal-friendly text (two-column layout: field name / type, with
-   description wrapping, required marker, example line, and `→ ref`
-   notation for named schemas). Honors `:color? false` for plain output.
+   walker over specs. Normalizes each node, recurses into its children
+   by `:type`, and calls an emit function with `(spec children)`. The
+   OpenAPI renderer is built on it.
+ * Three new optional spec fields — `:description` (string),
+   `:example` (any), and `:name` (keyword). `:description` and
+   `:example` flow into OpenAPI output (as `description` / `example`).
+   `:name` marks a spec as a named, reusable definition; the OpenAPI
+   `->doc` renderer collects named schemas into `components.schemas`
+   and uses `$ref` at each use site.
  * New `schema.path` namespace — coordinate-based traversal of schemas
    and data using the same grammar as `schema/message-seq`: dots for
    keyword keys (`a.b.c`), brackets for indices (`points[0]`), string

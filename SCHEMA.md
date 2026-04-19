@@ -24,8 +24,6 @@
   - [Invalid paths](#invalid-paths)
 - [Rendering Schemas](#rendering-schemas)
   - [Annotations](#annotations)
-  - [Terminal — `c3kit.apron.schema.term`](#terminal--c3kitapronschematerm)
-  - [Markdown — `c3kit.apron.schema.markdown`](#markdown--c3kitapronschemamarkdown)
   - [OpenAPI — `c3kit.apron.schema.openapi`](#openapi--c3kitapronschemaopenapi)
   - [Shared infrastructure — `c3kit.apron.schema.doc`](#shared-infrastructure--c3kitapronschemadoc)
 - [Good to Know](#good-to-know)
@@ -579,17 +577,15 @@ When the path names a keyword that is a known field in `:schema`, `schema-at` de
 
 ## Rendering Schemas
 
-Three renderers share the same input (a schema or a route-doc spec) and produce different outputs. All three live under `c3kit.apron.schema.*`.
-
 ### Annotations
 
-Three optional spec fields drive human-facing output across all renderers:
+Three optional spec fields drive human-facing output:
 
 | Field | Type | Used by |
 |---|---|---|
-| `:description` | string | OpenAPI `description`, markdown description column/row, terminal description line |
-| `:example` | any | OpenAPI `example`, markdown example column, terminal example line |
-| `:name` | keyword | Marks a spec as reusable; doc renderers emit it once and reference it elsewhere (`$ref` in OpenAPI, Markdown anchor links, term sections) |
+| `:description` | string | OpenAPI `description` |
+| `:example` | any | OpenAPI `example` |
+| `:name` | keyword | Marks a spec as reusable; the OpenAPI renderer emits it once and references it elsewhere via `$ref` |
 
 Example spec with annotations:
 
@@ -599,54 +595,6 @@ Example spec with annotations:
           :schema {:name    {:type :string :description "Pet's name." :example "Rex"}
                    :species {:type :string :description "Species."}}})
 ```
-
-### Terminal — `c3kit.apron.schema.term`
-
-`schema->term` renders a spec as ANSI-colored, two-column text for REPL inspection or CLI scripts.
-
-```clojure
-(require '[c3kit.apron.schema.term :as term])
-
-(println (term/schema->term pet {:color? false :width 80}))
-```
-
-Output:
-
-```
-pet
-────────────────────────────────────────────────────────────
-  name     string
-           Pet's name.
-           example: "Rex"
-
-  species  string
-           Species.
-```
-
-Options: `{:color? true/false (default true), :width int (default 80)}`.
-
-### Markdown — `c3kit.apron.schema.markdown`
-
-Two public schema renderers plus a routes-doc entry:
-
-- `schema->markdown`       — nested bullets
-- `schema->markdown-table` — tables, one per object; named specs get their own sections with anchor links
-- `->doc`                  — full markdown document from a route/doc spec
-
-```clojure
-(require '[c3kit.apron.schema.markdown :as md])
-
-(md/schema->markdown-table pet)
-;; "| Field | Type | ... |
-;;  |---|---|---|
-;;  | name | string | ...
-;;  ..."
-
-(md/->doc {:title "Pet API" :version "1.0.0" :routes [...]})
-;; => full markdown document
-```
-
-Named specs reached multiple times render once in a section and are referenced elsewhere with standard Markdown link syntax: `(see [pet](#pet))`.
 
 ### OpenAPI — `c3kit.apron.schema.openapi`
 
