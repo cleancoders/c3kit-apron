@@ -11,6 +11,27 @@
 (defn- type-label [type]
   (name type))
 
+(declare base-phrase)
+
+(defn- short-phrase [spec]
+  (let [spec (schema/normalize-spec spec)]
+    (if (:name spec)
+      (name (:name spec))
+      (base-phrase spec))))
+
+(defn- base-phrase [spec]
+  (case (:type spec)
+    :map    (let [k (some-> (:key-spec spec) short-phrase)
+                  v (some-> (:value-spec spec) short-phrase)]
+              (cond
+                (and k v) (str "map of " k " → " v)
+                v         (str "map → " v)
+                k         (str "map of " k)
+                :else     "map"))
+    :seq    (str "seq of " (base-phrase (schema/normalize-spec (:spec spec))))
+    :one-of (str "one of: " (s/join ", " (map #(base-phrase (schema/normalize-spec %)) (:specs spec))))
+    (type-label (:type spec))))
+
 (defn- indent [text prefix]
   (->> (s/split-lines text)
        (map #(str prefix %))
@@ -47,7 +68,7 @@
                           (str (when fields "\n")
                                "- _any other key_ (" (:header (:value-spec children)) ")"
                                (annotations vspec)))]
-      {:header "map"
+      {:header (base-phrase spec)
        :body   (str fields extra)})
 
     {:header (type-label (:type spec))
@@ -124,21 +145,28 @@
 (defn- ref-link [nm]
   (str "[" (clojure.core/name nm) "](#" (anchor nm) ")"))
 
+(defn- short-md [spec]
+  (let [spec (schema/normalize-spec spec)]
+    (if (:name spec)
+      (ref-link (:name spec))
+      (base-phrase spec))))
+
 (defn- type-phrase [spec]
   (let [spec (schema/normalize-spec spec)]
     (cond
       (:name spec)
-      (let [base (case (:type spec)
-                   :map "map"
-                   :seq (str "seq of " (type-phrase (:spec spec)))
-                   (type-label (:type spec)))]
-        (str base " (see " (ref-link (:name spec)) ")"))
+      (str (base-phrase spec) " (see " (ref-link (:name spec)) ")")
+
+      (and (= :map (:type spec)) (or (:key-spec spec) (:value-spec spec)))
+      (let [k (some-> (:key-spec spec) short-md)
+            v (some-> (:value-spec spec) short-md)]
+        (cond
+          (and k v) (str "map of " k " → " v)
+          v         (str "map → " v)
+          k         (str "map of " k)))
+
       :else
-      (case (:type spec)
-        :map    "map"
-        :seq    (str "seq of " (type-phrase (:spec spec)))
-        :one-of (str "one of: " (s/join ", " (map type-phrase (:specs spec))))
-        (type-label (:type spec))))))
+      (base-phrase spec))))
 
 (defn- map-schema [spec]
   (when (= :map (:type spec))
@@ -165,7 +193,9 @@
   (let [spec (schema/normalize-spec spec)
         acc  (if (:name spec) (assoc acc (name (:name spec)) spec) acc)
         kids (case (:type spec)
-               :map    (vals (dissoc (:schema spec) :*))
+               :map    (concat (vals (dissoc (:schema spec) :*))
+                               (when-let [k (:key-spec spec)]   [k])
+                               (when-let [v (:value-spec spec)] [v]))
                :seq    [(:spec spec)]
                :one-of (:specs spec)
                [])]

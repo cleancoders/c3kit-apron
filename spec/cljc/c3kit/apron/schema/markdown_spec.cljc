@@ -66,6 +66,15 @@
         (should-contain "- _any other key_ (string)" md)
         (should-contain "crew member name" md)))
 
+    (it "map with key-spec + value-spec renders 'map of K → V' in parent cell"
+      (let [spec {:type :map
+                  :schema {:crew {:type :map
+                                  :key-spec   {:type :keyword}
+                                  :value-spec {:type :map :name :crew-entity
+                                               :schema {:name {:type :string}}}}}}
+            md  (sut/spec->markdown spec)]
+        (should-contain "map of keyword → crew-entity" md)))
+
     )
 
   (context "schema->markdown-table"
@@ -97,6 +106,16 @@
                  {:type :map :name :user :schema {:name {:type :string}}})]
         (should-contain "## user" md)
         (should-not-contain "## Schema" md)))
+
+    (it "map with value-spec renders 'map of K → V' (V linked) + named V section"
+      (let [spec {:type :map
+                  :schema {:crew {:type :map
+                                  :key-spec   {:type :keyword}
+                                  :value-spec {:type :map :name :crew-entity
+                                               :schema {:name {:type :string}}}}}}
+            md  (sut/spec->markdown-table spec)]
+        (should-contain "map of keyword → [crew-entity](#crew-entity)" md)
+        (should-contain "## crew-entity" md)))
 
     )
 

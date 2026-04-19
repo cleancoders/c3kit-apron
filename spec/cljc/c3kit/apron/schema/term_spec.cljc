@@ -94,6 +94,28 @@
         (should-contain "user" out)
         (should-not-contain "Schema" out)))
 
+    (it "map with key-spec + value-spec renders 'map of K → V' in a parent cell"
+      (let [spec {:type :map
+                  :schema {:crew {:type :map
+                                  :key-spec   {:type :keyword}
+                                  :value-spec {:type :map :name :crew-entity
+                                               :schema {:name {:type :string}}}}}}
+            out  (sut/spec->term spec plain)]
+        (should-contain "map of keyword → crew-entity" out)))
+
+    (it "map with only value-spec renders 'map → V'"
+      (let [spec {:type :map :schema {:counts {:type :map :value-spec {:type :int}}}}
+            out  (sut/spec->term spec plain)]
+        (should-contain "map → int" out)))
+
+    (it "named value-spec (no :schema on parent) gets its own section"
+      (let [entity {:type :map :name :crew-entity :schema {:name {:type :string}}}
+            spec   {:type :map :value-spec entity}
+            out    (sut/spec->term spec plain)]
+        (should-contain "map → crew-entity" out)
+        (should-contain "crew-entity" out)
+        (should-contain "name" out)))
+
     (it ":deep? false suppresses named sub-schema sections"
       (let [pet  {:type :map :name :pet :schema {:species {:type :string}}}
             spec {:type :map :schema {:pet pet}}

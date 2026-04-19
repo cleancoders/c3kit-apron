@@ -19,12 +19,26 @@
 
 (defn- type-label [t] (name t))
 
+(declare short-phrase)
+
 (defn- base-type [spec]
   (case (:type spec)
-    :map    "map"
+    :map    (let [k (some-> (:key-spec spec) short-phrase)
+                  v (some-> (:value-spec spec) short-phrase)]
+              (cond
+                (and k v) (str "map of " k " → " v)
+                v         (str "map → " v)
+                k         (str "map of " k)
+                :else     "map"))
     :seq    (str "seq of " (base-type (schema/normalize-spec (:spec spec))))
     :one-of (str "one of: " (s/join ", " (map #(base-type (schema/normalize-spec %)) (:specs spec))))
     (type-label (:type spec))))
+
+(defn- short-phrase [spec]
+  (let [spec (schema/normalize-spec spec)]
+    (if (:name spec)
+      (name (:name spec))
+      (base-type spec))))
 
 (defn- plain-type-phrase [spec]
   (let [spec (schema/normalize-spec spec)]
@@ -54,6 +68,12 @@
           (recur (rest words) cand out)
           (recur (rest words) w (conj out line)))))))
 
+(defn- colored-short [opts spec]
+  (let [spec (schema/normalize-spec spec)]
+    (if (:name spec)
+      (bold-green opts (name (:name spec)))
+      (dim opts (base-type spec)))))
+
 (defn- colored-type-phrase [opts spec]
   (let [spec (schema/normalize-spec spec)]
     (cond
@@ -61,8 +81,19 @@
       (str (dim opts (base-type spec))
            " " (green opts "→")
            " " (bold-green opts (name (:name spec))))
+
+      (and (= :map (:type spec))
+           (or (:key-spec spec) (:value-spec spec)))
+      (let [k (some->> (:key-spec spec)   (colored-short opts))
+            v (some->> (:value-spec spec) (colored-short opts))]
+        (cond
+          (and k v) (str (dim opts "map of ") k " " (green opts "→") " " v)
+          v         (str (dim opts "map ") (green opts "→") " " v)
+          k         (str (dim opts "map of ") k)))
+
       (= :seq (:type spec))
       (str (dim opts "seq of ") (colored-type-phrase opts (:spec spec)))
+
       :else
       (dim opts (base-type spec)))))
 
@@ -100,7 +131,9 @@
   (let [spec (schema/normalize-spec spec)
         acc  (if (:name spec) (assoc acc (name (:name spec)) spec) acc)
         kids (case (:type spec)
-               :map    (vals (dissoc (:schema spec) :*))
+               :map    (concat (vals (dissoc (:schema spec) :*))
+                               (when-let [k (:key-spec spec)]   [k])
+                               (when-let [v (:value-spec spec)] [v]))
                :seq    [(:spec spec)]
                :one-of (:specs spec)
                [])]
@@ -116,18 +149,20 @@
 (defn spec->term
   ([spec] (spec->term spec {}))
   ([spec opts]
-   (let [opts  (merge default-opts opts)
-         spec  (schema/normalize-spec spec)
-         named (collect-named spec {})]
-     (if-let [sm (map-schema spec)]
-       (let [title    (if (:name spec) (name (:name spec)) "Schema")
-             root-sec (section opts title (object-section sm opts))
-             deep?    (:deep? opts)
-             subs     (when deep?
-                        (for [[nm s] (sort-by key named)
-                              :let   [inner-sm (map-schema s)]
-                              :when  (and inner-sm
-                                          (not= nm (some-> (:name spec) name)))]
-                          (section opts nm (object-section inner-sm opts))))]
-         (s/join "\n\n" (cons root-sec subs)))
-       (leaf-block opts spec)))))
+   (let [opts       (merge default-opts opts)
+         spec       (schema/normalize-spec spec)
+         sm         (map-schema spec)
+         named      (collect-named spec {})
+         deep?      (:deep? opts)
+         named-subs (when deep?
+                      (for [[nm s] (sort-by key named)
+                            :let   [inner-sm (map-schema s)]
+                            :when  (and inner-sm
+                                        (not= nm (some-> (:name spec) name)))]
+                        (section opts nm (object-section inner-sm opts))))
+         root       (cond
+                      sm   (section opts
+                                    (if (:name spec) (name (:name spec)) "Schema")
+                                    (object-section sm opts))
+                      :else (leaf-block opts spec))]
+     (s/join "\n\n" (cons root named-subs)))))
