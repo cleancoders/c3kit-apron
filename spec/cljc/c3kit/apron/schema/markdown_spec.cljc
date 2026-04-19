@@ -40,17 +40,17 @@
     (it "nested map indents"
       (let [md (sut/schema->markdown
                  {:type :map :schema {:parent {:type :map :schema {:name {:type :string}}}}})]
-        (should-contain "- **parent** (object)" md)
+        (should-contain "- **parent** (map)" md)
         (should-contain "  - **name** (string)" md)))
 
     (it "seq of primitive"
-      (should= "array of int"
+      (should= "seq of int"
                (sut/schema->markdown {:type :seq :spec {:type :int}})))
 
-    (it "seq of object renders 'array of object' with indented fields"
+    (it "seq of map renders 'seq of map' with indented fields"
       (let [md (sut/schema->markdown
                  {:type :seq :spec {:type :map :schema {:name {:type :string}}}})]
-        (should-contain "array of object" md)
+        (should-contain "seq of map" md)
         (should-contain "  - **name** (string)" md)))
 
     (it "one-of"
@@ -82,7 +82,7 @@
       (let [pet {:type :map :name :pet :schema {:name {:type :string}}}
             md  (sut/schema->markdown-table
                   {:type :map :schema {:pet pet}})]
-        (should-contain "object (see [pet](#pet))" md)
+        (should-contain "map (see [pet](#pet))" md)
         (should-contain "## pet" md)))
 
     (it "dedups a named schema reached multiple ways"

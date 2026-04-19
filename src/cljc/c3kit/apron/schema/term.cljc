@@ -21,8 +21,8 @@
 
 (defn- base-type [spec]
   (case (:type spec)
-    :map    "object"
-    :seq    (str "array of " (base-type (schema/normalize-spec (:spec spec))))
+    :map    "map"
+    :seq    (str "seq of " (base-type (schema/normalize-spec (:spec spec))))
     :one-of (str "one of: " (s/join ", " (map #(base-type (schema/normalize-spec %)) (:specs spec))))
     (type-label (:type spec))))
 
@@ -30,7 +30,7 @@
   (let [spec (schema/normalize-spec spec)]
     (cond
       (:name spec)          (str (base-type spec) " → " (name (:name spec)))
-      (= :seq (:type spec)) (str "array of " (plain-type-phrase (:spec spec)))
+      (= :seq (:type spec)) (str "seq of " (plain-type-phrase (:spec spec)))
       :else                 (base-type spec))))
 
 (defn- map-schema [spec]
@@ -62,7 +62,7 @@
            " " (green opts "→")
            " " (bold-green opts (name (:name spec))))
       (= :seq (:type spec))
-      (str (dim opts "array of ") (colored-type-phrase opts (:spec spec)))
+      (str (dim opts "seq of ") (colored-type-phrase opts (:spec spec)))
       :else
       (dim opts (base-type spec)))))
 

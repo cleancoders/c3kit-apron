@@ -28,7 +28,7 @@
      :body   ""}
 
     :seq
-    {:header (str "array of " (:header (:spec children)))
+    {:header (str "seq of " (:header (:spec children)))
      :body   (:body (:spec children))}
 
     :map
@@ -47,22 +47,22 @@
                           (str (when fields "\n")
                                "- _any other key_ (" (:header (:value-spec children)) ")"
                                (annotations vspec)))]
-      {:header "object"
+      {:header "map"
        :body   (str fields extra)})
 
     {:header (type-label (:type spec))
      :body   ""}))
 
 (defn schema->markdown
-  "Render a single spec as markdown (nested bullets). For a top-level object,
-   the 'object' header is omitted and the field list is returned directly.
+  "Render a single spec as markdown (nested bullets). For a top-level map,
+   the 'map' header is omitted and the field list is returned directly.
    For other composite types (seq, one-of), the header is kept and any
    nested body is indented beneath it."
   [spec]
   (let [{:keys [header body]} (schema/walk-schema markdown-emit spec)]
     (cond
       (empty? body)       header
-      (= "object" header) body
+      (= "map" header)    body
       :else               (str header "\n" (indent body "  ")))))
 
 (defn- method->str [method]
@@ -129,14 +129,14 @@
     (cond
       (:name spec)
       (let [base (case (:type spec)
-                   :map "object"
-                   :seq (str "array of " (type-phrase (:spec spec)))
+                   :map "map"
+                   :seq (str "seq of " (type-phrase (:spec spec)))
                    (type-label (:type spec)))]
         (str base " (see " (ref-link (:name spec)) ")"))
       :else
       (case (:type spec)
-        :map    "object"
-        :seq    (str "array of " (type-phrase (:spec spec)))
+        :map    "map"
+        :seq    (str "seq of " (type-phrase (:spec spec)))
         :one-of (str "one of: " (s/join ", " (map type-phrase (:specs spec))))
         (type-label (:type spec))))))
 

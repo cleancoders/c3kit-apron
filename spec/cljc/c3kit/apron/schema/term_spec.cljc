@@ -69,7 +69,7 @@
             out (sut/schema->term
                   {:type :map :schema {:pet pet}}
                   plain)]
-        (should-contain "object → pet" out)))
+        (should-contain "map → pet" out)))
 
     (it "emits a section for each named schema"
       (let [pet {:type :map :name :pet :schema {:name {:type :string}}}
