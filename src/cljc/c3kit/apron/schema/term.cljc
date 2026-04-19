@@ -17,14 +17,7 @@
 (defn- bold-cyan  [o t] (ansi (:color? o) "1;36" t))
 (defn- bold-green [o t] (ansi (:color? o) "1;32" t))
 
-(def ^:private type-labels
-  {:any "any" :bigdec "number" :boolean "boolean" :date "date"
-   :double "number" :float "number" :ignore "any" :instant "datetime"
-   :int "integer" :keyword "keyword" :kw-ref "keyword" :long "integer"
-   :ref "integer" :string "string" :timestamp "datetime" :uri "uri"
-   :uuid "uuid"})
-
-(defn- type-label [t] (get type-labels t (name t)))
+(defn- type-label [t] (name t))
 
 (defn- base-type [spec]
   (case (:type spec)
@@ -93,6 +86,16 @@
         name-w   (apply max 4 (map #(count (name (key %))) entries))]
     (s/join "\n\n" (map #(field-block name-w required % opts) entries))))
 
+(defn- leaf-block [opts spec]
+  (let [header (colored-type-phrase opts spec)
+        indent "  "
+        desc-w (max 20 (- (:width opts) (count indent)))
+        desc   (when-let [d (:description spec)]
+                 (map #(str indent %) (wrap d desc-w)))
+        ex     (when (contains? spec :example)
+                 [(str indent (green opts (str "example: " (pr-str (:example spec)))))])]
+    (s/join "\n" (concat [header] desc ex))))
+
 (defn- collect-named [spec acc]
   (let [spec (schema/normalize-spec spec)
         acc  (if (:name spec) (assoc acc (name (:name spec)) spec) acc)
@@ -108,7 +111,7 @@
         rule       (apply str (repeat rule-width "─"))]
     (str (bold opts title) "\n" (dim opts rule) "\n" body)))
 
-(def ^:private default-opts {:color? true :width 80})
+(def ^:private default-opts {:color? true :width 80 :deep? true})
 
 (defn schema->term
   ([spec] (schema->term spec {}))
@@ -117,12 +120,14 @@
          spec  (schema/normalize-spec spec)
          named (collect-named spec {})]
      (if-let [sm (map-schema spec)]
-       (s/join "\n\n"
-               (concat
-                 (when-not (:name spec)
-                   [(section opts "Schema" (object-section sm opts))])
-                 (for [[nm s] (sort-by key named)
-                       :let   [inner-sm (map-schema s)]
-                       :when  inner-sm]
-                   (section opts nm (object-section inner-sm opts)))))
-       (plain-type-phrase spec)))))
+       (let [title    (if (:name spec) (name (:name spec)) "Schema")
+             root-sec (section opts title (object-section sm opts))
+             deep?    (:deep? opts)
+             subs     (when deep?
+                        (for [[nm s] (sort-by key named)
+                              :let   [inner-sm (map-schema s)]
+                              :when  (and inner-sm
+                                          (not= nm (some-> (:name spec) name)))]
+                          (section opts nm (object-section inner-sm opts))))]
+         (s/join "\n\n" (cons root-sec subs)))
+       (leaf-block opts spec)))))

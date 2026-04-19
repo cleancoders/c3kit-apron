@@ -11,8 +11,18 @@
 
   (context "plain (no color) output"
 
-    (it "renders a leaf type"
-      (should= "string" (sut/schema->term {:type :string} plain)))
+    (it "renders a leaf type using the apron type name verbatim"
+      (should= "string" (sut/schema->term {:type :string} plain))
+      (should= "float"  (sut/schema->term {:type :float} plain))
+      (should= "ref"    (sut/schema->term {:type :ref} plain))
+      (should= "long"   (sut/schema->term {:type :long} plain))
+      (should= "kw-ref" (sut/schema->term {:type :kw-ref} plain)))
+
+    (it "leaf includes description and example when present"
+      (let [out (sut/schema->term {:type :int :description "a count" :example 42} plain)]
+        (should-contain "int" out)
+        (should-contain "a count" out)
+        (should-contain "example: 42" out)))
 
     (it "renders a map as a header with one line per field"
       (let [out (sut/schema->term
@@ -21,7 +31,7 @@
                   plain)]
         (should-contain "Schema" out)
         (should-contain "age" out)
-        (should-contain "integer" out)
+        (should-contain "int" out)
         (should-contain "name" out)
         (should-contain "string" out)))
 
@@ -83,6 +93,16 @@
                   plain)]
         (should-contain "user" out)
         (should-not-contain "Schema" out)))
+
+    (it ":deep? false suppresses named sub-schema sections"
+      (let [pet  {:type :map :name :pet :schema {:species {:type :string}}}
+            spec {:type :map :schema {:pet pet}}
+            deep    (sut/schema->term spec (assoc plain :deep? true))
+            shallow (sut/schema->term spec (assoc plain :deep? false))]
+        (should-contain "pet" deep)
+        (should-contain "species" deep)
+        (should-contain "pet" shallow)
+        (should-not-contain "species" shallow)))
 
     )
 

@@ -52,21 +52,27 @@
       (subs joined 1)
       joined)))
 
+(defn- parse-int [s]
+  (when (re-matches #"-?\d+" s)
+    #?(:clj (Long/parseLong s) :cljs (js/parseInt s))))
+
 (defn- lenient-get [m k]
+  "Lenient is one-way: a keyword path segment can also match a string key
+   of the same name, or an integer key whose decimal form matches the
+   keyword's name. String and integer segments are never coerced up."
   (or (get m k)
-      (cond
-        (keyword? k) (get m (name k))
-        (string? k)  (get m (keyword k))
-        :else        nil)))
+      (when (keyword? k)
+        (let [nm (name k)]
+          (or (get m nm)
+              (when-let [n (parse-int nm)]
+                (get m n)))))))
 
 (defn- descend-data [lenient? value segment]
   (case (first segment)
     :key      (if lenient?
                 (lenient-get value (second segment))
                 (get value (second segment)))
-    :str      (if lenient?
-                (lenient-get value (second segment))
-                (get value (second segment)))
+    :str      (get value (second segment))
     :index    (when (sequential? value) (nth value (second segment) nil))
     :wildcard (throw (ex-info "data-at: wildcard paths are not supported for data traversal"
                               {:value value}))))

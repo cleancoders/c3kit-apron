@@ -8,27 +8,8 @@
             [c3kit.apron.schema.doc :as doc]
             [clojure.string :as s]))
 
-(def ^:private type-labels
-  {:any       "any"
-   :bigdec    "number"
-   :boolean   "boolean"
-   :date      "date"
-   :double    "number"
-   :float     "number"
-   :ignore    "any"
-   :instant   "datetime"
-   :int       "integer"
-   :keyword   "keyword"
-   :kw-ref    "keyword"
-   :long      "integer"
-   :ref       "integer"
-   :string    "string"
-   :timestamp "datetime"
-   :uri       "uri"
-   :uuid      "uuid"})
-
 (defn- type-label [type]
-  (get type-labels type (name type)))
+  (name type))
 
 (defn- indent [text prefix]
   (->> (s/split-lines text)

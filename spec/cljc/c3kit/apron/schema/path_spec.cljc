@@ -111,7 +111,7 @@
     (it "returns nil for an unknown path"
       (should= nil (sut/data-at {:a 1} "zz")))
 
-    (context "lenient"
+    (context "lenient (one-way: keyword → string or integer key)"
 
       (it "strict default: keyword path does not match string key"
         (should= nil (sut/data-at {:crew {"joe" "Joe"}} "crew.joe")))
@@ -119,8 +119,12 @@
       (it "lenient: keyword path finds string key"
         (should= "Joe" (sut/data-at {:crew {"joe" "Joe"}} "crew.joe" {:lenient? true})))
 
-      (it "lenient: string bracket finds keyword key"
-        (should= "Joe" (sut/data-at {:crew {:joe "Joe"}} "crew[\"joe\"]" {:lenient? true})))
+      (it "lenient: keyword path finds integer key when name parses as int"
+        (should= "zero" (sut/data-at {(keyword "0") "zero"} "[:0]" {:lenient? true}))
+        (should= "zero" (sut/data-at {0 "zero"} "[:0]" {:lenient? true})))
+
+      (it "lenient is not bidirectional: string bracket does NOT find keyword key"
+        (should= nil (sut/data-at {:crew {:joe "Joe"}} "crew[\"joe\"]" {:lenient? true})))
 
       )
 

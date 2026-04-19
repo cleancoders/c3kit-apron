@@ -15,14 +15,14 @@
 
     (it "leaf: with description and example"
       (should-contain "string" (sut/schema->markdown {:type :string :description "hi"}))
-      (should-contain "integer" (sut/schema->markdown {:type :int :example 42})))
+      (should-contain "int" (sut/schema->markdown {:type :int :example 42})))
 
     (it "map with known fields"
       (let [md (sut/schema->markdown
                  {:type :map :schema {:name {:type :string}
                                       :age  {:type :int}}})]
         (should-contain "- **name** (string)" md)
-        (should-contain "- **age** (integer)" md)))
+        (should-contain "- **age** (int)" md)))
 
     (it "map marks required fields"
       (let [md (sut/schema->markdown
@@ -44,7 +44,7 @@
         (should-contain "  - **name** (string)" md)))
 
     (it "seq of primitive"
-      (should= "array of integer"
+      (should= "array of int"
                (sut/schema->markdown {:type :seq :spec {:type :int}})))
 
     (it "seq of object renders 'array of object' with indented fields"
@@ -54,7 +54,7 @@
         (should-contain "  - **name** (string)" md)))
 
     (it "one-of"
-      (should= "one of: integer, string"
+      (should= "one of: int, string"
                (sut/schema->markdown {:type :one-of :specs [{:type :int} {:type :string}]})))
 
     (it "dynamic keys render with 'any other key'"
@@ -76,7 +76,7 @@
                                       :age  {:type :int}}})]
         (should-contain "| Field | Type | Required | Description | Example |" md)
         (should-contain "| name | string | yes |" md)
-        (should-contain "| age | integer |  |" md)))
+        (should-contain "| age | int |  |" md)))
 
     (it "references named schemas with a link"
       (let [pet {:type :map :name :pet :schema {:name {:type :string}}}
