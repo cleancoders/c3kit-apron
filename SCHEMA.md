@@ -515,11 +515,12 @@ Notice that errors from nested data maintain the nested structure.
 
 ## Path Traversal
 
-`c3kit.apron.schema.path` provides coordinate-based traversal of schema trees using the same path grammar produced by `message-seq`. One public function:
+`c3kit.apron.schema.path` provides coordinate-based traversal of both schemas and data using the same path grammar produced by `message-seq`. Two public functions:
 
 - `schema-at` — walk a schema tree
+- `data-at`   — walk a concrete value
 
-Data traversal is intentionally out of scope — use `get-in`, Specter, or any other tree-walker you prefer. Schema trees need their own accessor because their template semantics (`:value-spec`, `:key-spec`, `:spec`) are apron-specific.
+This closes the loop for error-driven navigation: validate → get a path from `message-seq` → `data-at` to the offending value in the input, or `schema-at` to the spec that described it.
 
 ### Path grammar
 
@@ -554,9 +555,27 @@ Data traversal is intentionally out of scope — use `get-in`, Specter, or any o
 
 When the path names a keyword that is a known field in `:schema`, `schema-at` descends into that field's spec. When the keyword is not in `:schema`, `schema-at` returns `nil`. Use `[*]` or `.*` explicitly when you mean the dynamic-entry template.
 
+### Data traversal
+
+`data-at` walks concrete values using the same path grammar:
+
+```clojure
+(def data {:kind :ship :crew {:joe  {:name "Joe"}
+                              :bill {:name "Bill"}}})
+
+(path/data-at data "crew.joe.name")
+;; => "Joe"
+
+(path/data-at data "crew[\"joe\"]" {:lenient? true})
+;; => works even if data had {"joe" ...} instead of {:joe ...}
+```
+
+`:lenient?` makes `data-at` treat keyword and string key forms as equivalent. Default is strict.
+
 ### Invalid paths
 
-`schema-at` returns `nil` for missing fields.
+- `schema-at` returns `nil` for missing fields.
+- `data-at` returns `nil` for missing keys; throws on wildcard segments (data has concrete values, not templates).
 
 ## Rendering Schemas
 

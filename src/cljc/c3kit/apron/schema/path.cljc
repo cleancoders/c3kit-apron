@@ -1,6 +1,6 @@
 (ns c3kit.apron.schema.path
-  "Coordinate-based traversal of schemas. The grammar matches what
-   schema/message-seq produces:
+  "Coordinate-based traversal of schemas and data. The grammar matches
+   what schema/message-seq produces:
 
    - dot-separated keyword keys:    a.b.c
    - [N] for seq indices:            points[0]
@@ -8,10 +8,9 @@
    - [*] or .* for wildcards:        crew[*]
    - [:kw] for explicit keywords:    a[:joe]
 
-   Data traversal is intentionally out of scope — use get-in, Specter,
-   or any other tree-walker with your own paths. This namespace exists
-   for schema trees, whose template semantics (value-spec, key-spec,
-   spec) are apron-specific and have no off-the-shelf navigator."
+   schema-at walks a schema tree (template semantics).
+   data-at walks concrete data (supports an optional :lenient? option
+   for keyword/string key equivalence)."
   (:require [clojure.string :as s]))
 
 (defn- classify [token]
@@ -52,6 +51,36 @@
     (if (s/starts-with? joined ".")
       (subs joined 1)
       joined)))
+
+(defn- lenient-get [m k]
+  (or (get m k)
+      (cond
+        (keyword? k) (get m (name k))
+        (string? k)  (get m (keyword k))
+        :else        nil)))
+
+(defn- descend-data [lenient? value segment]
+  (case (first segment)
+    :key      (if lenient?
+                (lenient-get value (second segment))
+                (get value (second segment)))
+    :str      (if lenient?
+                (lenient-get value (second segment))
+                (get value (second segment)))
+    :index    (when (sequential? value) (nth value (second segment) nil))
+    :wildcard (throw (ex-info "data-at: wildcard paths are not supported for data traversal"
+                              {:value value}))))
+
+(defn data-at
+  "Walk data along a path and return the value at that location. Returns
+   nil for missing keys. Wildcards throw.
+
+   Options:
+     :lenient?  when true, a keyword path segment matches a string key of
+                the same name (and vice versa). Default false."
+  ([data path] (data-at data path {}))
+  ([data path {:keys [lenient?] :or {lenient? false}}]
+   (reduce (fn [v seg] (descend-data lenient? v seg)) data (parse path))))
 
 (defn- descend-schema [spec segment]
   (case (first segment)
