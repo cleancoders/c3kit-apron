@@ -1,12 +1,17 @@
 (ns c3kit.apron.schema.path
-  "Coordinate-based traversal of schemas and data.
+  "Coordinate-based traversal of schemas. The grammar matches what
+   schema/message-seq produces:
 
-   Paths use the same grammar produced by schema/message-seq:
    - dot-separated keyword keys:    a.b.c
    - [N] for seq indices:            points[0]
    - [\"...\"] for string keys:       crew[\"bill\"]
-   - [*] or .* for wildcards:        crew[*]  (schema only)
-   - [:kw] for explicit keywords:    a[:joe]"
+   - [*] or .* for wildcards:        crew[*]
+   - [:kw] for explicit keywords:    a[:joe]
+
+   Data traversal is intentionally out of scope — use get-in, Specter,
+   or any other tree-walker with your own paths. This namespace exists
+   for schema trees, whose template semantics (value-spec, key-spec,
+   spec) are apron-specific and have no off-the-shelf navigator."
   (:require [clojure.string :as s]))
 
 (defn- classify [token]
@@ -49,14 +54,3 @@
                    :key (get schema (second seg0))
                    nil)]
     (reduce (fn [s seg] (descend-schema s seg)) start rest-segs)))
-
-(defn- descend-data [value segment]
-  (case (first segment)
-    :key      (get value (second segment))
-    :str      (get value (second segment))
-    :index    (when (sequential? value) (nth value (second segment) nil))
-    :wildcard (throw (ex-info "data-at: wildcard paths are not supported for data traversal"
-                              {:value value}))))
-
-(defn data-at [data path]
-  (reduce descend-data data (parse path)))

@@ -1,7 +1,7 @@
 (ns c3kit.apron.schema.path-spec
   (:require [c3kit.apron.schema.path :as sut]
             [speclj.core #?(:clj :refer :cljs :refer-macros)
-             [describe it should= should-throw context]]))
+             [describe it should= context]]))
 
 (describe "schema.path"
 
@@ -59,30 +59,5 @@
 
     (it "returns nil for an unknown path"
       (should= nil (sut/schema-at {:a {:type :int}} "zz")))
-
-    )
-
-  (context "data-at"
-
-    (it "returns the value at a simple keyword path"
-      (should= "Joe" (sut/data-at {:name "Joe"} "name")))
-
-    (it "descends into nested maps"
-      (should= "Joe" (sut/data-at {:user {:name "Joe"}} "user.name")))
-
-    (it "indexes into seqs with [N]"
-      (should= 20 (sut/data-at {:points [10 20 30]} "points[1]")))
-
-    (it "reads string keys with [\"str\"]"
-      (should= {:name "Bill"} (sut/data-at {:crew {"bill" {:name "Bill"}}} "crew[\"bill\"]")))
-
-    (it "reads keyword keys with [:kw]"
-      (should= "Joe" (sut/data-at {:crew {:joe "Joe"}} "crew[:joe]")))
-
-    (it "throws on wildcard (data has concrete values, not templates)"
-      (should-throw (sut/data-at {:crew {:joe "Joe"}} "crew.*")))
-
-    (it "returns nil for an unknown path"
-      (should= nil (sut/data-at {:a 1} "zz")))
 
     ))

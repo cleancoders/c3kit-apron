@@ -515,10 +515,11 @@ Notice that errors from nested data maintain the nested structure.
 
 ## Path Traversal
 
-`c3kit.apron.schema.path` provides coordinate-based traversal of both data and schemas using the same path grammar produced by `message-seq`. Two public functions:
+`c3kit.apron.schema.path` provides coordinate-based traversal of schema trees using the same path grammar produced by `message-seq`. One public function:
 
 - `schema-at` — walk a schema tree
-- `data-at`   — walk a concrete value
+
+Data traversal is intentionally out of scope — use `get-in`, Specter, or any other tree-walker you prefer. Schema trees need their own accessor because their template semantics (`:value-spec`, `:key-spec`, `:spec`) are apron-specific.
 
 ### Path grammar
 
@@ -530,12 +531,9 @@ Notice that errors from nested data maintain the nested structure.
 | `[:kw]` | `crew[:joe]` | explicit keyword literal |
 | `[*]` or `.*` | `crew[*]`, `crew.*` | wildcard (schema-only) |
 
-### Semantics: data vs schema
+### Schema traversal semantics
 
-The same path means different things against data and schema:
-
-- **Data:** the segment picks a specific entry. `crew.joe` returns the `:joe` value; `points[0]` returns the first element.
-- **Schema:** the segment picks the *template* describing entries at that position. Since schema specs have one template per slot (`:spec` for seq entries, `:value-spec` for dynamic map entries), index and key values that aren't in `:schema` are not discriminators — they resolve to the same template as `[*]` does.
+`schema-at` resolves each path segment against the schema tree. Because specs have one *template* per slot (`:spec` for seq entries, `:value-spec` for dynamic map entries), index and wildcard segments resolve to those templates:
 
 ```clojure
 (require '[c3kit.apron.schema.path :as path])
@@ -544,12 +542,6 @@ The same path means different things against data and schema:
            :crew {:type :map
                   :key-spec   {:type :keyword}
                   :value-spec {:type :map :schema {:name {:type :string}}}}})
-
-(def data {:kind :ship :crew {:joe  {:name "Joe"}
-                              :bill {:name "Bill"}}})
-
-(path/data-at data "crew.joe.name")
-;; => "Joe"
 
 (path/schema-at ship "crew.*")
 ;; => {:type :map :schema {:name {:type :string}}}
@@ -560,13 +552,11 @@ The same path means different things against data and schema:
 
 ### Known vs dynamic keys
 
-When the path names a keyword that is a known field in `:schema`, `schema-at` descends into that field's spec. When the keyword is not in `:schema`, the behavior depends on whether the map has a `:value-spec` — currently the function returns `nil`. Use `[*]` or `.*` explicitly when you mean the dynamic-entry template.
+When the path names a keyword that is a known field in `:schema`, `schema-at` descends into that field's spec. When the keyword is not in `:schema`, `schema-at` returns `nil`. Use `[*]` or `.*` explicitly when you mean the dynamic-entry template.
 
 ### Invalid paths
 
-- `data-at` returns `nil` for missing keys.
-- `schema-at` returns `nil` for missing fields.
-- Wildcards against `data-at` throw — data has concrete values, not templates.
+`schema-at` returns `nil` for missing fields.
 
 ## Rendering Schemas
 

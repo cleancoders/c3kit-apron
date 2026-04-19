@@ -37,12 +37,13 @@
    description wrapping, required marker, example line, and `→ ref`
    notation for named schemas). Honors `:color? false` for plain output.
  * New `schema.path` namespace — coordinate-based traversal of schemas
-   and data using the same grammar as `schema/message-seq`: dots for
-   keyword keys (`a.b.c`), brackets for indices (`points[0]`), string
-   keys (`crew["bill"]`), keyword literals (`crew[:joe]`), and
-   wildcards (`crew[*]` or `crew.*`). `schema-at` navigates schemas
-   (wildcard resolves to `:value-spec` on `:map` or `:spec` on `:seq`);
-   `data-at` walks concrete data (wildcards unsupported).
+   using the same grammar as `schema/message-seq`: dots for keyword
+   keys (`a.b.c`), brackets for indices (`points[0]`), string keys
+   (`crew["bill"]`), keyword literals (`crew[:joe]`), and wildcards
+   (`crew[*]` or `crew.*`). `schema-at` navigates a schema tree
+   (wildcard resolves to `:value-spec` on `:map` or `:spec` on `:seq`).
+   Data traversal is intentionally out of scope — callers use `get-in`,
+   Specter, or any other tree-walker.
  * New `c3kit.apron.version/current` — runtime access to the apron
    version string. The `VERSION` file moved from the project root to
    `resources/c3kit/apron/VERSION` and now ships inside the jar.
