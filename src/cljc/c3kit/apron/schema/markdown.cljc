@@ -53,7 +53,7 @@
     {:header (type-label (:type spec))
      :body   ""}))
 
-(defn schema->markdown
+(defn spec->markdown
   "Render a single spec as markdown (nested bullets). For a top-level map,
    the 'map' header is omitted and the field list is returned directly.
    For other composite types (seq, one-of), the header is kept and any
@@ -79,14 +79,14 @@
 
 (defn- render-body [request-schema]
   (when-let [body (:body request-schema)]
-    (str "### Request Body\n\n" (schema->markdown body))))
+    (str "### Request Body\n\n" (spec->markdown body))))
 
 (defn- render-responses [response-schema]
   (when (seq response-schema)
     (let [sections (for [[code {:keys [schema description]}] response-schema]
                      (str "#### " code
                           (when description (str " — " description))
-                          (when schema (str "\n\n" (schema->markdown schema)))))]
+                          (when schema (str "\n\n" (spec->markdown schema)))))]
       (str "### Responses\n\n" (s/join "\n\n" sections)))))
 
 (defn- render-route [{:keys [path method summary request-schema response-schema]}]
@@ -205,14 +205,14 @@
   (let [hashes (apply str (repeat (min (+ 1 depth) 6) "#"))]
     (str hashes " " title "\n\n" body)))
 
-(defn schema->markdown-table
+(defn spec->markdown-table
   "Render a spec as Markdown tables — one per object.
 
    Nested anonymous objects get their own sub-sections titled by path.
    Specs tagged with a :name are rendered once in a top-level Schemas section
    and linked from use sites via Markdown anchors.
 
-   Falls back to schema->markdown for non-map top-level specs."
+   Falls back to spec->markdown for non-map top-level specs."
   [spec]
   (let [spec  (schema/normalize-spec spec)
         named (collect-named spec {})]
@@ -227,6 +227,6 @@
                                (map #(update % :depth inc) anon)
                                named-secs)]
         (s/join "\n\n" (map render-section all)))
-      (schema->markdown spec))))
+      (spec->markdown spec))))
 
 ;; endregion

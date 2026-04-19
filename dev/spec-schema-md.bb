@@ -12,6 +12,6 @@
 (spit "target/spec-schema.md"
       (str "# apron spec-schema\n\n"
            "The shape every apron spec conforms to.\n\n"
-           (md/schema->markdown-table {:type :map :schema schema/spec-schema})
+           (md/spec->markdown-table {:type :map :schema schema/spec-schema})
            "\n"))
 (println "Wrote target/spec-schema.md")

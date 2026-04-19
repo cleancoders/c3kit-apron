@@ -113,8 +113,8 @@
 
 (def ^:private default-opts {:color? true :width 80 :deep? true})
 
-(defn schema->term
-  ([spec] (schema->term spec {}))
+(defn spec->term
+  ([spec] (spec->term spec {}))
   ([spec opts]
    (let [opts  (merge default-opts opts)
          spec  (schema/normalize-spec spec)

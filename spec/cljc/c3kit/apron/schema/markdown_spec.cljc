@@ -11,26 +11,26 @@
   (context "schema->markdown"
 
     (it "leaf: bare type"
-      (should= "string" (sut/schema->markdown {:type :string})))
+      (should= "string" (sut/spec->markdown {:type :string})))
 
     (it "leaf: with description and example"
-      (should-contain "string" (sut/schema->markdown {:type :string :description "hi"}))
-      (should-contain "int" (sut/schema->markdown {:type :int :example 42})))
+      (should-contain "string" (sut/spec->markdown {:type :string :description "hi"}))
+      (should-contain "int" (sut/spec->markdown {:type :int :example 42})))
 
     (it "map with known fields"
-      (let [md (sut/schema->markdown
+      (let [md (sut/spec->markdown
                  {:type :map :schema {:name {:type :string}
                                       :age  {:type :int}}})]
         (should-contain "- **name** (string)" md)
         (should-contain "- **age** (int)" md)))
 
     (it "map marks required fields"
-      (let [md (sut/schema->markdown
+      (let [md (sut/spec->markdown
                  {:type :map :schema {:name {:type :string :validate schema/present?}}})]
         (should-contain "- **name** (string, required)" md)))
 
     (it "map shows description and example"
-      (let [md (sut/schema->markdown
+      (let [md (sut/spec->markdown
                  {:type :map :schema {:name {:type :string
                                               :description "user name"
                                               :example "alice"}}})]
@@ -38,27 +38,27 @@
         (should-contain "_e.g._ `\"alice\"`" md)))
 
     (it "nested map indents"
-      (let [md (sut/schema->markdown
+      (let [md (sut/spec->markdown
                  {:type :map :schema {:parent {:type :map :schema {:name {:type :string}}}}})]
         (should-contain "- **parent** (map)" md)
         (should-contain "  - **name** (string)" md)))
 
     (it "seq of primitive"
       (should= "seq of int"
-               (sut/schema->markdown {:type :seq :spec {:type :int}})))
+               (sut/spec->markdown {:type :seq :spec {:type :int}})))
 
     (it "seq of map renders 'seq of map' with indented fields"
-      (let [md (sut/schema->markdown
+      (let [md (sut/spec->markdown
                  {:type :seq :spec {:type :map :schema {:name {:type :string}}}})]
         (should-contain "seq of map" md)
         (should-contain "  - **name** (string)" md)))
 
     (it "one-of"
       (should= "one of: int, string"
-               (sut/schema->markdown {:type :one-of :specs [{:type :int} {:type :string}]})))
+               (sut/spec->markdown {:type :one-of :specs [{:type :int} {:type :string}]})))
 
     (it "dynamic keys render with 'any other key'"
-      (let [md (sut/schema->markdown
+      (let [md (sut/spec->markdown
                  {:type :map
                   :schema {:captain {:type :string}}
                   :value-spec {:type :string :description "crew member name"}})]
@@ -71,7 +71,7 @@
   (context "schema->markdown-table"
 
     (it "renders a map as a table"
-      (let [md (sut/schema->markdown-table
+      (let [md (sut/spec->markdown-table
                  {:type :map :schema {:name {:type :string :validate schema/present?}
                                       :age  {:type :int}}})]
         (should-contain "| Field | Type | Required | Description | Example |" md)
@@ -80,20 +80,20 @@
 
     (it "references named schemas with a link"
       (let [pet {:type :map :name :pet :schema {:name {:type :string}}}
-            md  (sut/schema->markdown-table
+            md  (sut/spec->markdown-table
                   {:type :map :schema {:pet pet}})]
         (should-contain "map (see [pet](#pet))" md)
         (should-contain "## pet" md)))
 
     (it "dedups a named schema reached multiple ways"
       (let [pet {:type :map :name :pet :schema {:name {:type :string}}}
-            md  (sut/schema->markdown-table
+            md  (sut/spec->markdown-table
                   {:type :map :schema {:a pet :b pet}})
             pet-sections (re-seq #"(?m)^## pet" md)]
         (should= 1 (count pet-sections))))
 
     (it "named root skips the anonymous 'Schema' section"
-      (let [md (sut/schema->markdown-table
+      (let [md (sut/spec->markdown-table
                  {:type :map :name :user :schema {:name {:type :string}}})]
         (should-contain "## user" md)
         (should-not-contain "## Schema" md)))

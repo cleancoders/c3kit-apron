@@ -7,8 +7,10 @@
 (require '[c3kit.apron.schema :as schema]
          '[c3kit.apron.schema.term :as term])
 
+(def spec {:type :map :schema schema/spec-schema :name "c3kit.apron.schema Schema"})
+
 (let [color? (not (System/getenv "NO_COLOR"))]
   (println)
-  (println (term/schema->term
-             {:type :map :schema schema/spec-schema}
+  (println (term/spec->term
+             spec
              {:color? color?})))
