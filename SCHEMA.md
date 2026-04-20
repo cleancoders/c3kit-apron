@@ -27,6 +27,7 @@
   - [OpenAPI — `c3kit.apron.schema.openapi`](#openapi--c3kitapronschemaopenapi)
   - [Shared infrastructure — `c3kit.apron.schema.doc`](#shared-infrastructure--c3kitapronschemadoc)
 - [Good to Know](#good-to-know)
+  - [Bare vs Wrapped Schemas](#bare-vs-wrapped-schemas)
   - [Unspecified Fields are Lost](#unspecified-fields-are-lost)
   - [Merging Schema](#merging-schema)
   - [Self Referencing Schema](#self-referencing-schema)
@@ -619,11 +620,33 @@ Output aligns with JSON Schema Draft 2020-12 (which OpenAPI 3.1 uses) for the sc
 
 ### Shared infrastructure — `c3kit.apron.schema.doc`
 
-Small namespace holding the route/doc input schemas (`route-schema`, `doc-schema`) and format-agnostic helpers (`required?`, `required-fields`, `integer-keys?`, `schema-map?`, `maybe-invalid-doc`). Used internally by all three renderers; the only reason to require it directly is if you're writing a new renderer.
+Small namespace holding the route/doc input schemas (`route-schema`, `doc-schema`) and format-agnostic helpers (`required?`, `required-fields`, `integer-keys?`, `schema-map?`, `maybe-invalid-doc`). Used internally by the OpenAPI renderer; the only reason to require it directly is if you're writing a new renderer.
 
 ## Good to Know
 
 We've covered all the major facets of the `schema` library.  There's just a few things you should know before we part ways.    
+
+### Bare vs Wrapped Schemas
+
+So far we've defined schemas as bare field maps — `{:name {...} :age {...}}`. That's convenient for flat structures. When you nest, you reach for the wrapped form — `{:type :map :schema {...}}` — so the nested field can carry its own `:type :map`, `:validations`, etc.
+
+Both forms are accepted anywhere a schema can go: `coerce`, `validate`, `conform`, `present`, and `schema.path/schema-at` all take either form.
+
+```clojure
+(def bare    {:name {:type :string} :age {:type :int}})
+(def wrapped {:type :map :name :user :schema bare
+              :description "A user record."})
+
+(schema/coerce bare    {:name "Joe" :age "30"})
+;; => {:name "Joe" :age 30}
+
+(schema/coerce wrapped {:name "Joe" :age "30"})
+;; => {:name "Joe" :age 30}   ; identical
+```
+
+Use the wrapped form when you need the outer spec itself to carry `:description`, `:name` (for doc renderers), `:validations`, `:coerce`, or a `:value-spec` for dynamic keys. Use bare when a flat field map is enough.
+
+The return value is always the transformed entity, never wrapped — regardless of which form you passed in.
 
 ### Unspecified Fields are Lost
 

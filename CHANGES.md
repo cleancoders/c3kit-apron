@@ -1,4 +1,14 @@
 ### 2.6.0
+ * `coerce`, `validate`, `conform`, and `present` now accept either a
+   bare field map (`{:field spec ...}`) or a wrapped `:map` spec
+   (`{:type :map :schema {...}}`) as the root schema. Both forms
+   produce the same output (a transformed entity, never wrapped).
+   Wrapped form allows carrying top-level `:coerce`, `:validate`,
+   `:validations`, `:description`, and `:name` on the outer spec,
+   which previously had nowhere to live.
+ * `c3kit.apron.schema.path/schema-at` accepts the same two forms as
+   its input, so paths produced by `message-seq` navigate either form
+   without the caller unwrapping.
  * `c3kit.apron.schema` `:map` type now supports dynamic keys via two new
    optional spec keys: `:key-spec` (spec applied to every dynamic key) and
    `:value-spec` (spec applied to every dynamic value). Known keys listed in
