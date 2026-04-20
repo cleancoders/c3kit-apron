@@ -86,6 +86,13 @@
     (it "returns nil for an unknown path"
       (should= nil (sut/schema-at {:a {:type :int}} "zz")))
 
+    (it "accepts a wrapped spec as the root (with :type :map :schema ...)"
+      (let [wrapped {:type :map :name :root
+                     :schema {:user {:type :map :schema {:name {:type :string}}}}}]
+        (should= {:type :string} (sut/schema-at wrapped "user.name"))
+        (should= {:type :map :schema {:name {:type :string}}}
+                 (sut/schema-at wrapped "user"))))
+
     )
 
   (context "data-at"

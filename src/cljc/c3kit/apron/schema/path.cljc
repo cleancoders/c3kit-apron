@@ -102,9 +102,4 @@
     :str  (when (= :map (:type spec)) (:value-spec spec))))
 
 (defn schema-at [schema path]
-  (let [segments (parse path)
-        [seg0 & rest-segs] segments
-        start    (case (first seg0)
-                   :key (get schema (second seg0))
-                   nil)]
-    (reduce (fn [s seg] (descend-schema s seg)) start rest-segs)))
+  (reduce descend-schema schema (parse path)))
