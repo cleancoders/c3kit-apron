@@ -674,12 +674,14 @@
          (merge entity errors))))))
 
 (defn- attempt-process-schema-on-entity [process schema entity]
-  (try
-    (process-schema-on-entity process schema (->map entity))
-    (catch #?(:clj Exception :cljs :default) e
-      (if (:invalid-spec (ex-data e))
-        (throw e)
-        (-process-error process {:value entity :exception e})))))
+  (let [spec (if (= :map (:type schema)) schema {:type :map :schema schema})]
+    (try
+      (let [entity (or (->map entity) {})]
+        (-process-spec-on-value process spec entity))
+      (catch #?(:clj Exception :cljs :default) e
+        (if (:invalid-spec (ex-data e))
+          (throw e)
+          (-process-error process {:value entity :exception e}))))))
 
 (defn- process-value-or-error [process spec value]
   (let [result (-process-spec-on-value process spec value)]

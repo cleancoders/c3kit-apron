@@ -338,6 +338,13 @@
           (should-be-nil (:garbage result))
           (should-not-contain :garbage result)))
 
+      (it "accepts a wrapped :map spec as the root schema"
+        (let [wrapped {:type :map :name :root :schema pet}
+              bare    (schema/coerce pet valid-pet)
+              wrapd   (schema/coerce wrapped valid-pet)]
+          (should= false (schema/error? wrapd))
+          (should= bare wrapd)))
+
       )
 
     (context "multi field"
