@@ -16,12 +16,6 @@
     (it "parses a bracketed integer as an index"
       (should= [[:key :points] [:index 0]] (sut/parse "points[0]")))
 
-    (it "parses [*] as a wildcard"
-      (should= [[:key :crew] [:wildcard]] (sut/parse "crew[*]")))
-
-    (it "parses .* as a wildcard"
-      (should= [[:key :crew] [:wildcard]] (sut/parse "crew.*")))
-
     (it "parses [\"string\"] as a string key"
       (should= [[:key :crew] [:str "bill"]] (sut/parse "crew[\"bill\"]")))
 
@@ -44,14 +38,11 @@
     (it "emits string keys with quoted brackets"
       (should= "crew[\"bill\"]" (sut/unparse [[:key :crew] [:str "bill"]])))
 
-    (it "emits wildcards with [*]"
-      (should= "crew[*]" (sut/unparse [[:key :crew] [:wildcard]])))
-
     (it "escapes keywords with special chars using bracket form"
       (should= "a[:foo.bar]" (sut/unparse [[:key :a] [:key :foo.bar]])))
 
     (it "round-trips through parse for common segments"
-      (let [path "a.b[0].c[\"x\"].d[*]"]
+      (let [path "a.b[0].c[\"x\"].d.value"]
         (should= path (sut/unparse (sut/parse path)))))
 
     )
@@ -66,18 +57,37 @@
       (let [schema {:user {:type :map :schema {:name {:type :string}}}}]
         (should= {:type :string} (sut/schema-at schema "user.name"))))
 
-    (it "resolves wildcard on :map to :value-spec"
+    (it ":value on :map resolves to :value-spec"
       (let [schema {:crew {:type :map :value-spec {:type :map :schema {:name {:type :string}}}}}]
         (should= {:type :map :schema {:name {:type :string}}}
-                 (sut/schema-at schema "crew.*"))))
+                 (sut/schema-at schema "crew.value"))
+        (should= {:type :map :schema {:name {:type :string}}}
+                 (sut/schema-at schema "crew[:value]"))))
 
-    (it "resolves wildcard on :seq to :spec"
+    (it ":key on :map resolves to :key-spec"
+      (let [schema {:crew {:type :map :key-spec {:type :keyword}}}]
+        (should= {:type :keyword} (sut/schema-at schema "crew.key"))
+        (should= {:type :keyword} (sut/schema-at schema "crew[:key]"))))
+
+    (it ":value on :seq resolves to :spec"
       (let [schema {:points {:type :seq :spec {:type :int}}}]
-        (should= {:type :int} (sut/schema-at schema "points[*]"))))
+        (should= {:type :int} (sut/schema-at schema "points.value"))))
 
-    (it "[N] on :seq behaves like wildcard"
+    (it "[N] on :seq returns the entry template"
       (let [schema {:points {:type :seq :spec {:type :int}}}]
         (should= {:type :int} (sut/schema-at schema "points[0]"))))
+
+    (it ":value falls back to schema field lookup when no value-spec is present"
+      (let [schema {:wrap {:type :map :schema {:value {:type :string}}}}]
+        (should= {:type :string} (sut/schema-at schema "wrap.value"))))
+
+    (it ":key falls back to schema field lookup when no key-spec is present"
+      (let [schema {:wrap {:type :map :schema {:key {:type :int}}}}]
+        (should= {:type :int} (sut/schema-at schema "wrap.key"))))
+
+    (it "wildcard tokens are rejected with a migration message"
+      (should-throw (sut/parse "crew.*"))
+      (should-throw (sut/parse "crew[*]")))
 
     (it "keyword bracket descends like dot"
       (let [schema {:user {:type :map :schema {:name {:type :string}}}}]
@@ -111,9 +121,6 @@
 
     (it "reads keyword keys with [:kw]"
       (should= "Joe" (sut/data-at {:crew {:joe "Joe"}} "crew[:joe]")))
-
-    (it "throws on wildcard"
-      (should-throw (sut/data-at {:crew {:joe "Joe"}} "crew.*")))
 
     (it "returns nil for an unknown path"
       (should= nil (sut/data-at {:a 1} "zz")))

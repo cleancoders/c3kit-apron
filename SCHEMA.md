@@ -529,11 +529,12 @@ This closes the loop for error-driven navigation: validate → get a path from `
 | `[N]` | `points[0]` | seq index |
 | `["str"]` | `crew["bill"]` | string key |
 | `[:kw]` | `crew[:joe]` | explicit keyword literal |
-| `[*]` or `.*` | `crew[*]`, `crew.*` | wildcard (schema-only) |
+| `.value` or `[:value]` | `crew.value` | template for dynamic entries (schema only) |
+| `.key` or `[:key]` | `crew.key` | template for dynamic keys (schema only) |
 
 ### Schema traversal semantics
 
-`schema-at` resolves each path segment against the schema tree. Because specs have one *template* per slot (`:spec` for seq entries, `:value-spec` for dynamic map entries), index and wildcard segments resolve to those templates:
+`schema-at` resolves each path segment against the schema tree. Two reserved segment names — `:value` and `:key` — access the dynamic-entry templates on a `:map` (`:value-spec`, `:key-spec`) or the entry template on a `:seq` (`:spec`).
 
 ```clojure
 (require '[c3kit.apron.schema.path :as path])
@@ -543,16 +544,21 @@ This closes the loop for error-driven navigation: validate → get a path from `
                   :key-spec   {:type :keyword}
                   :value-spec {:type :map :schema {:name {:type :string}}}}})
 
-(path/schema-at ship "crew.*")
+(path/schema-at ship "crew.value")
 ;; => {:type :map :schema {:name {:type :string}}}
 
-(path/schema-at ship "crew[*].name")
+(path/schema-at ship "crew.value.name")
 ;; => {:type :string}
+
+(path/schema-at ship "crew.key")
+;; => {:type :keyword}
 ```
+
+`:value` and `:key` are context-dependent: when the spec has `:value-spec` / `:key-spec`, they resolve to those templates. When the spec doesn't, they fall back to ordinary field lookup in `:schema`. A schema whose literal fields are named `:value` or `:key` is reachable normally as long as the spec isn't also dynamic-keyed.
 
 ### Known vs dynamic keys
 
-When the path names a keyword that is a known field in `:schema`, `schema-at` descends into that field's spec. When the keyword is not in `:schema`, `schema-at` returns `nil`. Use `[*]` or `.*` explicitly when you mean the dynamic-entry template.
+When the path names a keyword that is a known field in `:schema`, `schema-at` descends into that field's spec. When the keyword is not in `:schema`, `schema-at` returns `nil`. Use `.value` or `.key` when you mean the dynamic-entry template.
 
 ### Data traversal
 
@@ -574,7 +580,7 @@ When the path names a keyword that is a known field in `:schema`, `schema-at` de
 ### Invalid paths
 
 - `schema-at` returns `nil` for missing fields.
-- `data-at` returns `nil` for missing keys; throws on wildcard segments (data has concrete values, not templates).
+- `data-at` returns `nil` for missing keys.
 
 ## Rendering Schemas
 

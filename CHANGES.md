@@ -1,4 +1,12 @@
 ### 2.6.0
+ * **Breaking** (for `schema.path` callers): wildcard path segments
+   (`[*]` and `.*`) have been replaced with explicit `:value` and `:key`
+   pseudo-segments. `crew.*` → `crew.value` (the value-spec template)
+   and the previously-unreachable key-spec is now `crew.key`. `:value`
+   on a `:seq` resolves to its `:spec`. When a spec has no matching
+   template, `:value` and `:key` fall back to ordinary field lookup in
+   `:schema`. Callers using the old wildcard syntax will now get a
+   migration-message exception at parse time.
  * `coerce`, `validate`, `conform`, and `present` now accept either a
    bare field map (`{:field spec ...}`) or a wrapped `:map` spec
    (`{:type :map :schema {...}}`) as the root schema. Both forms
