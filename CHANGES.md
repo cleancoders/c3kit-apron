@@ -1,12 +1,4 @@
 ### 2.6.0
- * **Breaking** (for `schema.path` callers): wildcard path segments
-   (`[*]` and `.*`) have been replaced with explicit `:value` and `:key`
-   pseudo-segments. `crew.*` → `crew.value` (the value-spec template)
-   and the previously-unreachable key-spec is now `crew.key`. `:value`
-   on a `:seq` resolves to its `:spec`. When a spec has no matching
-   template, `:value` and `:key` fall back to ordinary field lookup in
-   `:schema`. Callers using the old wildcard syntax will now get a
-   migration-message exception at parse time.
  * `coerce`, `validate`, `conform`, and `present` now accept either a
    bare field map (`{:field spec ...}`) or a wrapped `:map` spec
    (`{:type :map :schema {...}}`) as the root schema. Both forms
@@ -46,11 +38,13 @@
  * New `schema.path` namespace — coordinate-based traversal of schemas
    and data using the same grammar as `schema/message-seq`: dots for
    keyword keys (`a.b.c`), brackets for indices (`points[0]`), string
-   keys (`crew["bill"]`), keyword literals (`crew[:joe]`), and
-   wildcards (`crew[*]` or `crew.*`). `schema-at` navigates a schema
-   tree (wildcard resolves to `:value-spec` on `:map` or `:spec` on
-   `:seq`). `data-at` walks concrete data, with an optional
-   `{:lenient? true}` for keyword/string key equivalence.
+   keys (`crew["bill"]`), keyword literals (`crew[:joe]`). Two reserved
+   segment names access dynamic-entry templates on a `:map` or `:seq`:
+   `:value` (→ `:value-spec` on `:map`, `:spec` on `:seq`) and `:key`
+   (→ `:key-spec` on `:map`). `:value` / `:key` fall back to ordinary
+   field lookup when the spec has no matching template.
+   `schema-at` walks schemas; `data-at` walks concrete data, with an
+   optional `{:lenient? true}` for keyword/string key equivalence.
    `message-seq` uses `schema.path/unparse` for path rendering, so
    error paths round-trip cleanly through `parse`.
  * New `c3kit.apron.version/current` — runtime access to the apron
