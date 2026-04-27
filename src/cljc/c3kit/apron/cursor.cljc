@@ -18,6 +18,7 @@
 (defn- to-string [this path] (str "#<Cursor: " (pr-str @this) " @" (pr-str path) ">"))
 
 #?(:clj
+   ;; Cursor is atom-like at a fixed `path` inside `base`. See `cursor` constructor.
    (deftype Cursor [base path]
 
      IDeref
@@ -49,6 +50,7 @@
      )
 
    :cljs
+   ;; Cursor is atom-like at a fixed `path` inside `base`. See `cursor` constructor.
    (deftype Cursor [base path]
      IAtom
 
@@ -86,7 +88,12 @@
           (.write writer ">")))
 
 
-(defn cursor [a path]
+(defn cursor
+  "Construct a `Cursor` over base atom `a` at `path`. The returned value is
+  itself atom-like: deref reads `(get-in @a path)`; swap!/reset!/add-watch
+  operate at that path and write back through to `a`. If `path` is empty,
+  `a` is returned unchanged."
+  [a path]
   (if (seq path)
     (Cursor. a path)
     a))
