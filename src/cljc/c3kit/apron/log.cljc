@@ -1,4 +1,5 @@
 (ns c3kit.apron.log
+  "Cross-platform logging facade over Timbre. Re-exports level macros (`info`, `warn`, etc.), level controls (`info!`, `off!`, etc.), and a `capture-logs` helper for asserting log output in tests."
   #?(:cljs (:require-macros [c3kit.apron.log :refer [trace debug info warn error fatal report capture-logs]]))
   (:require [c3kit.apron.corec :as ccc]
             [clojure.string :as str]

@@ -1,4 +1,5 @@
 (ns c3kit.apron.util
+  "JVM-only utilities: filesystem traversal, namespace/path conversion, MD5 hashing, EDN resource reading, and dynamic var resolution."
   (:require [c3kit.apron.log :as log]
             [c3kit.apron.utilc :as utilc]
             [clojure.java.io :as io]

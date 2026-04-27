@@ -1,4 +1,5 @@
 (ns c3kit.apron.cursor
+  "Atom-like wrapper that points at a path inside a base atom, modeled after Reagent cursors. Deref / swap! / reset! / add-watch all operate on `(get-in @base path)` and write back to the base atom."
   #?(:clj (:import (clojure.lang IDeref IAtom IRef IAtom2))))
 
 (defn- do-swap!

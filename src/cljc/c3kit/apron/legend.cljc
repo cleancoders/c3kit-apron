@@ -1,4 +1,5 @@
 (ns c3kit.apron.legend
+  "Registry mapping `:kind` keywords to their conformed schemas. Provides `for-kind` lookup and throwing variants of schema's `present!`/`coerce!`/`conform!` that auto-resolve the schema from `(:kind entity)`."
   (:require
     [c3kit.apron.schema :as schema]))
 

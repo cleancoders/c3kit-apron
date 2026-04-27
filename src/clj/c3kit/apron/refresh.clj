@@ -1,4 +1,5 @@
 (ns c3kit.apron.refresh
+  "Workflow-aware namespace reloading. Wraps `clojure.tools.namespace` so that registered services (see `c3kit.apron.app`) are stopped before reload and restarted after, keeping app state coherent during interactive development."
   (:import (java.io File)
            (java.net URL))
   (:require

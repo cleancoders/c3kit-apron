@@ -1,4 +1,5 @@
 (ns c3kit.apron.verbose
+  "Ring middleware (`wrap-verbose`) that pretty-prints request and response maps to the log for development debugging."
   (:require
     [c3kit.apron.log :as log]
     ))

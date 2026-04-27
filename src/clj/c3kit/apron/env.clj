@@ -1,4 +1,5 @@
 (ns c3kit.apron.env
+  "Resolves configuration values from (in order): runtime overrides via `override!`, Java system properties, OS environment variables, and an optional `.env` Properties file at the project root."
   (:require [clojure.java.io :as io]
             [clojure.string :as str])
   (:import (java.io FileNotFoundException)))

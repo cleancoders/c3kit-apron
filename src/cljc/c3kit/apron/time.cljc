@@ -1,4 +1,5 @@
 (ns c3kit.apron.time
+  "Cross-platform time/date manipulation. JVM uses `java.util.Date`; CLJS uses `cljs-time`. The atomic unit throughout is the millisecond."
   #?(:clj (:import
             [java.util Date Calendar GregorianCalendar TimeZone]
             [java.text SimpleDateFormat]))
