@@ -50,13 +50,21 @@
     (when-let [stop-fn (util/resolve-var stop-fn-sym)]
       (alter-var-root #'app stop-fn))))
 
-(defn start! [services]
+(defn start!
+  "Start each service in `services` in declaration order. Each service map's
+  `:start` symbol must point to a fn `(fn [app] new-app)` that updates the
+  global `app` map (typically by `assoc`-ing whatever resource it manages)."
+  [services]
   (log/with-level :info
                   (log/info ">>>>> Starting App >>>>>")
                   (doseq [service services] (start-service! service))
                   (log/info "<<<<< App Started <<<<<")))
 
-(defn stop! [services]
+(defn stop!
+  "Stop services in *reverse* declaration order. Each service map's `:stop`
+  symbol must point to a fn `(fn [app] new-app)` that tears down the resource
+  and removes it from the global `app` map."
+  [services]
   (log/with-level :info
                   (log/info ">>>>> Stopping App >>>>>")
                   (doseq [service (reverse services)] (stop-service! service))
@@ -80,7 +88,11 @@
   "To be used as in a stop service fn."
   [app] (dissoc app :env))
 
-(defn set-env! [env] (alter-var-root #'app assoc :env env))
+(defn set-env!
+  "Imperatively set `:env` on the global `app` map. Prefer `start-env` inside
+  a service start fn for normal startup flow; `set-env!` is a convenience for
+  scripts and the REPL."
+  [env] (alter-var-root #'app assoc :env env))
 
 (def env (resolution :env))
 
