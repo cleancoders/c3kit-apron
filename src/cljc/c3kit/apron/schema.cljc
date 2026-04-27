@@ -31,9 +31,9 @@
   {:type #{:string :int}} {:type :one-of :specs [{:type :string} {:type :int}]}
   )
 
-;; TODO - MDM: [{:type :long}] - seq fields should contain a spec.  Processes on the seq field should act on the
-;;   seq value, not the values in the seq.  The spec will specify what processes act on the values in the seq.
-;; TODO - MDM: Deprecation print message on deprecated fns
+;; Design note: shorthand sequential fields like `[{:type :long}]` are normalized
+;; into `:seq` schemas where processes (coerce/validate/etc.) act on the seq value
+;; itself. To act on each element, use the `:spec` sub-key. See SCHEMA.md "Seq".
 
 ;; Macro preserves line numbers
 #?(:clj
