@@ -60,7 +60,7 @@ Define a schema, then coerce/validate data against it:
 
 See [SCHEMA.md](SCHEMA.md) for the full schema reference.
 
-# Development
+## Development
 
     # Run the JVM tests
     clj -M:test:spec
