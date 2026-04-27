@@ -1,4 +1,5 @@
 (ns c3kit.apron.app
+  "Application service and state management. Holds long-lived references (database connections, env, etc.) that should persist across `tools.namespace` reloads. Services are maps of `{:start sym :stop sym}` started/stopped via `start!`/`stop!`."
   (:import (clojure.lang IDeref))
   (:require
     [c3kit.apron.env :as env]

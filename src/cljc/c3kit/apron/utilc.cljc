@@ -1,4 +1,5 @@
 (ns c3kit.apron.utilc
+  "Cross-platform conversions: EDN, transit, JSON (JVM), hex, CSV, plus shared collection helpers that work in both Clojure and ClojureScript."
   #?(:clj (:import (java.util UUID)
                    (java.io ByteArrayInputStream ByteArrayOutputStream)))
   (:require #?(:bb  [babashka.json :as json]
