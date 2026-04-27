@@ -7,6 +7,8 @@ A library component of [c3kit - Clean Coders Clojure Kit](https://github.com/cle
 _"Where is thy leather apron and thy rule?"_ - Shakespeare
 
 [![Apron Build](https://github.com/cleancoders/c3kit-apron/actions/workflows/test.yml/badge.svg)](https://github.com/cleancoders/c3kit-apron/actions/workflows/test.yml)
+[![Clojars Project](https://img.shields.io/clojars/v/com.cleancoders.c3kit/apron.svg)](https://clojars.org/com.cleancoders.c3kit/apron)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 Apron consists of necessities that almost any clojure app would find useful.
 
@@ -20,6 +22,44 @@ Apron consists of necessities that almost any clojure app would find useful.
  * __time.cljc__ : simple platform independent time manipulation
  * __utilc.cljc__ : platform independent edn, transit, csv, etc..
 
+## Installation
+
+Add to your `deps.edn`:
+
+```clojure
+com.cleancoders.c3kit/apron {:mvn/version "2.1.5"}
+```
+
+Or to your `project.clj`:
+
+```clojure
+[com.cleancoders.c3kit/apron "2.1.5"]
+```
+
+Released artifacts: [Clojars](https://clojars.org/com.cleancoders.c3kit/apron). Changelog: [CHANGES.md](CHANGES.md).
+
+**Requirements:** Clojure 1.11+, JDK 21+ (CI runs against JDK 21).
+
+## Quickstart
+
+Define a schema, then coerce/validate data against it:
+
+```clojure
+(require '[c3kit.apron.schema :as schema])
+
+(def point {:kind {:type :keyword}
+            :x    {:type :int}
+            :y    {:type :int}})
+
+(schema/coerce point {:kind :point :x "1" :y "2"})
+;; => {:kind :point, :x 1, :y 2}
+
+(schema/validate point {:kind :point :x 1 :y 2})
+;; => {:kind :point, :x 1, :y 2}
+```
+
+See [SCHEMA.md](SCHEMA.md) for the full schema reference.
+
 # Development
 
     # Run the JVM tests
@@ -30,7 +70,7 @@ Apron consists of necessities that almost any clojure app would find useful.
     clj -M:test:cljs once
     clj -M:test:cljs            # auto runner
 
-# Deployment
+## Releasing (maintainers)
 
 In order to deploy to c3kit you must be a member of the Clojars group `com.cleancoders.c3kit`.
 
