@@ -11,8 +11,9 @@ permissions:
 jobs:
   check:
     runs-on: ubuntu-latest
-    # TEMP: maintainer exemption disabled for end-to-end testing. WILL BE REVERTED.
-    if: ${{ !endsWith(github.actor, '[bot]') }}
+    if: >-
+      !contains(fromJSON('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.pull_request.author_association)
+      && !endsWith(github.actor, '[bot]')
     steps:
       - uses: actions/github-script@v7
         with:
