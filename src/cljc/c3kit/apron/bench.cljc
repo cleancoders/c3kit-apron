@@ -1,4 +1,5 @@
 (ns c3kit.apron.bench
+  "Cross-platform benchmarking macros: `elapsed-time` for one-shot timing, `bench` for repeated runs returning `{:min :max :total :avg}` in milliseconds."
   #?(:cljs (:require-macros [c3kit.apron.bench :refer [elapsed-time bench]]))
   #?(:cljs (:require [goog.object :as gobj])))
 

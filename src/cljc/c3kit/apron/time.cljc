@@ -1,4 +1,5 @@
 (ns c3kit.apron.time
+  "Cross-platform time/date manipulation. JVM uses `java.util.Date`; CLJS uses `cljs-time`. The atomic unit throughout is the millisecond."
   (:require [clojure.math :as math]
             #?@(:cljs ([cljs-time.format :as timef]
                        [cljs-time.coerce :as timec]
