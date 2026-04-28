@@ -6,7 +6,7 @@
                        [cljs-time.core :as time])))
   #?(:clj (:import (java.util Date TimeZone)
                    (java.text SimpleDateFormat)
-                   (java.time LocalDateTime Month ZoneId Instant ZonedDateTime Period)))) )
+                   (java.time LocalDateTime Month ZoneId Instant ZonedDateTime Period))))
 
 (defn milliseconds
   "Our atomic unit"
