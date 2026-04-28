@@ -11,6 +11,6 @@ The most recent published `2.x` release on Clojars receives security fixes.
 
 ## Reporting a Vulnerability
 
-Please report security issues privately via [GitHub's "Report a vulnerability"](https://github.com/cleancoders/c3kit-apron/security/advisories/new) workflow, or by emailing the maintainer at alex.root-roatch@cleancoders.com. Do not open a public issue for security-sensitive reports.
+Please report security issues privately via [GitHub's "Report a vulnerability"](https://github.com/cleancoders/c3kit-apron/security/advisories/new) workflow, or by emailing the maintainer at gina@cleancoders.com. Do not open a public issue for security-sensitive reports.
 
 We aim to acknowledge reports within 5 business days.
