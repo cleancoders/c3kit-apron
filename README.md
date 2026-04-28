@@ -84,3 +84,4 @@ CLOJARS_PASSWORD=<your deploy key>
 
 3. Update VERSION file
 4. `clj -T:build deploy`
+
