@@ -16,6 +16,9 @@ clj -M:test:cljs once   # CLJS specs (one-shot, runs in headless browser via Pla
 
 ## Workflow
 
+**All pull requests must be linked to an open issue.** PRs without a linked issue will be closed without review. Open (or find) an issue first, get a thumbs-up from a maintainer that the change is wanted, then start work. This protects everyone's time — yours and ours.
+
+- Open or find an issue describing the bug or proposed change. Wait for maintainer acknowledgement before starting work on anything non-trivial.
 - Create a feature branch off `master`.
 - **Use TDD.** Write a failing spec first, then the minimum code to make it pass, then refactor.
 - Keep commits small and focused. Write descriptive commit messages.
@@ -30,9 +33,10 @@ clj -M:test:cljs once   # CLJS specs (one-shot, runs in headless browser via Pla
 
 ## Submitting a PR
 
-1. Ensure JVM and CLJS specs pass.
-2. Open a PR against `master`.
-3. Describe what changed and why; link any related issues.
+1. Confirm your PR is linked to an open issue (use `Closes #N` in the description).
+2. Ensure JVM and CLJS specs pass.
+3. Open a PR against `master`.
+4. Describe what changed and why.
 
 ## Reporting Bugs / Requesting Features
 
