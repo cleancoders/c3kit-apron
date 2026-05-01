@@ -2,8 +2,9 @@
   (:require
     [c3kit.apron.schema :as schema]
     [c3kit.apron.time :as time]
-    [speclj.core #?(:clj :refer :cljs :refer-macros) [context describe it should= should-contain should-not-contain should-throw should-be-a
-                                                      should should-not should-be-nil with-stubs stub should-not-have-invoked]]
+    [speclj.core #?(:clj :refer :cljs :refer-macros) [context describe it should= should-contain should-not-contain
+                                                      should-throw should-be-a should should-not should-be-nil
+                                                      with-stubs stub should-not-have-invoked before]]
     [clojure.string :as str]
     [c3kit.apron.utilc :as utilc]
     [c3kit.apron.corec :as ccc]
@@ -345,6 +346,42 @@
           (should= false (schema/error? wrapd))
           (should= bare wrapd)))
 
+      (it ":coercions coerce/message pairs"
+        (let [spec    (merge-with merge pet
+                                  {:name {:coerce     nil
+                                          :coercions  [{:coerce str/trim} {:coerce str/upper-case}]}})
+              result1 (schema/coerce spec (assoc valid-pet :name "  fluffy  "))]
+          (should= false (schema/error? result1))
+          (should= "FLUFFY" (:name result1))))
+
+      (it ":coercions use the entry :message on failure"
+        (let [spec   (merge-with merge pet
+                                 {:name {:coerce    nil
+                                         :coercions [{:coerce  (fn [_] (throw (ex-info "boom" {})))
+                                                      :message "name coercion failed"}]}})
+              result (schema/coerce spec valid-pet)]
+          (should= true (schema/error? result))
+          (should= "name coercion failed" (:name (schema/message-map result)))))
+
+      (it "coercions stop on first failure"
+        (let [spec   (merge-with merge pet
+                                 {:name {:coerce    nil
+                                         :coercions [{:coerce str/upper-case :message "first"}
+                                                     {:coerce (fn [_] (throw (ex-info "boom" {})))
+                                                      :message "second"}
+                                                     {:coerce (fn [_] (throw (ex-info "later" {})))
+                                                      :message "third"}]}})
+              result (schema/coerce spec valid-pet)]
+          (should= true (schema/error? result))
+          (should= "second" (:name (schema/message-map result)))))
+
+      (it ":coercions at entity level"
+        (let [schema (assoc pet :* {:stage-name {:type      :string
+                                                 :coercions [{:coerce #(str (:name %) " the " (:species %))}
+                                                             {:coerce #(str/upper-case (:stage-name %))}]}})
+              result (schema/coerce schema valid-pet)]
+          (should= "FLUFFYY THE DOG" (:stage-name result))))
+
       )
 
     (context "multi field"
@@ -681,13 +718,13 @@
 
     (it "with failed validation"
       (should-throw stdex "oh no!"
-        (schema/conform-value! {:type :int :validate even? :message "oh no!"} "123")))
+                    (schema/conform-value! {:type :int :validate even? :message "oh no!"} "123")))
 
     (it "of int the must be present"
       (should-throw stdex "is invalid"
-        (schema/conform-value! {:type :int :validate [schema/present?]} ""))
+                    (schema/conform-value! {:type :int :validate [schema/present?]} ""))
       (should-throw stdex "is invalid"
-        (schema/conform-value! {:type :long :validate schema/present?} "")))
+                    (schema/conform-value! {:type :long :validate schema/present?} "")))
 
     (it "success"
       (should= 123 (schema/conform-value! {:type :int :message "oh no!"} "123")))
@@ -1007,8 +1044,8 @@
 
       (it "with error on entity level presentation!"
         (should-throw stdex
-          (schema/present!
-            (assoc pet :* {:stage-name {:present #(throw (ex-info "blah" {:x %}))}}) valid-pet)))
+                      (schema/present!
+                        (assoc pet :* {:stage-name {:present #(throw (ex-info "blah" {:x %}))}}) valid-pet)))
       )
     )
 
@@ -1275,9 +1312,9 @@
                        (case (:type spec)
                          :map (select-keys children [:schema :key-spec :value-spec])
                          (name (:type spec))))
-                     {:type :map
-                      :schema {:name {:type :string}}
-                      :key-spec {:type :keyword}
+                     {:type       :map
+                      :schema     {:name {:type :string}}
+                      :key-spec   {:type :keyword}
                       :value-spec {:type :int}})]
         (should= {:schema {:name "string"} :key-spec "keyword" :value-spec "int"} result)))
 
@@ -1292,7 +1329,7 @@
 
     (it "set shorthand with bare-map member normalizes to one-of with :map"
       (let [seen-types (atom #{})
-            emit (fn [spec _children] (swap! seen-types conj (:type spec)) :ok)]
+            emit       (fn [spec _children] (swap! seen-types conj (:type spec)) :ok)]
         (schema/walk-schema emit {:type #{:string {:foo {:type :int}}}})
         (should= #{:one-of :string :map :int} @seen-types)))
 
@@ -1362,7 +1399,7 @@
       (let [crew-spec (assoc {:type       :map
                               :key-spec   {:type :keyword}
                               :value-spec {:type :map :schema {:name {:type :string}}}}
-                             :* {:size {:validate #(pos? (count %)) :message "no crew"}})
+                        :* {:size {:validate #(pos? (count %)) :message "no crew"}})
             schema    {:crew crew-spec}]
         (should-be-nil (schema/message-map (schema/validate schema {:crew {:joe {:name "Joe"}}})))))
 
@@ -1479,5 +1516,145 @@
 
       )
     )
+  )
+
+(describe "ref registry"
+
+  (before (schema/reset-ref-registry!))
+
+  (it "throws when looking up an unregistered ref"
+    (should-throw (schema/get-ref! :nope)))
+
+  (it "resolves a registered keyword to the registered value"
+    (schema/register-ref! :positive? pos?)
+    (should= pos? (schema/get-ref! :positive?)))
+
+  (it "stores a string-keyed registration as a keyword"
+    (schema/register-ref! "stringy" ::sentinel)
+    (should= ::sentinel (schema/get-ref! :stringy)))
+
+  (it "looks up by string for a keyword-registered ref"
+    (schema/register-ref! :strlook ::sentinel)
+    (should= ::sentinel (schema/get-ref! "strlook")))
+
+  (it "treats symbol keys as the keyword version"
+    (schema/register-ref! 'symly ::sentinel)
+    (should= ::sentinel (schema/get-ref! :symly))
+    (should= ::sentinel (schema/get-ref! 'symly)))
+
+  (it "preserves namespaces for symbol and string keys"
+    (schema/register-ref! 'ns/sym ::a)
+    (schema/register-ref! "ns/str" ::b)
+    (should= ::a (schema/get-ref! :ns/sym))
+    (should= ::a (schema/get-ref! "ns/sym"))
+    (should= ::b (schema/get-ref! :ns/str))
+    (should= ::b (schema/get-ref! 'ns/str)))
+
+  (it "applies a registered factory when looked up via vector form"
+    (schema/register-ref! :max-length (fn [n] (fn [s] (<= (count s) n))))
+    (let [pred (schema/get-ref! [:max-length 3])]
+      (should (pred "ab"))
+      (should-not (pred "abcd"))))
+
+  (it "resolves a zero-arg vector form like the bare key"
+    (schema/register-ref! :pos-pred pos?)
+    (should= pos? (schema/get-ref! [:pos-pred])))
+
+  (it "resolves a bare ref entry inside :validations"
+    (schema/register-ref! :ref/is-pos {:validate pos?})
+    (let [spec {:type :int :validations [:ref/is-pos] :message "must be positive"}]
+      (should= 5 (schema/validate-value! spec 5))
+      (should-throw (schema/validate-value! spec -1))))
+
+  (it "resolves a vector ref entry as a factory call inside :validations"
+    (schema/register-ref! :ref/max-len (fn [n] {:validate (fn [s] (<= (count s) n))}))
+    (let [spec {:type :string :validations [[:ref/max-len 3]] :message "too long"}]
+      (should= "ab" (schema/validate-value! spec "ab"))
+      (should-throw (schema/validate-value! spec "abcd"))))
+
+  (it "uses the registry default message when entry omits one"
+    (schema/register-ref! :ref/present {:validate schema/present? :message "is required"})
+    (let [spec {:type :string :validations [:ref/present]}]
+      (should-throw stdex "is required" (schema/validate-value! spec nil))))
+
+  (it "spec :message overrides the registry default"
+    (schema/register-ref! :ref/present2 {:validate schema/present? :message "is required"})
+    (let [spec {:type :string :validations [:ref/present2] :message "Name is mandatory"}]
+      (should-throw stdex "Name is mandatory" (schema/validate-value! spec nil))))
+
+  (it "throws when a :validations ref has no :validate key"
+    (schema/register-ref! :ref/coerce-only {:coerce str/trim})
+    (let [spec {:type :string :validations [:ref/coerce-only]}]
+      (should-throw stdex "ref :ref/coerce-only has no :validate"
+                    (schema/validate-value! spec "foo"))))
+
+  (it "applies a registered ref :coerce inside :coercions"
+    (schema/register-ref! :ref/trim {:coerce str/trim})
+    (let [spec {:type :string :coercions [:ref/trim]}]
+      (should= "foo" (schema/coerce-value! spec "  foo  "))))
+
+  (it "throws when a :coercions ref has no :coerce key"
+    (schema/register-ref! :ref/validate-only {:validate pos?})
+    (let [spec {:type :int :coercions [:ref/validate-only]}]
+      (should-throw stdex "ref :ref/validate-only has no :coerce"
+                    (schema/coerce-value! spec 5))))
+
+  (it "resolves a ref-valued :validate inside a map entry of :validations"
+    (schema/register-ref! :ref/positive {:validate pos? :message "must be pos"})
+    (let [spec {:type :int :validations [{:validate :ref/positive :message "no good"}]}]
+      (should= 1 (schema/validate-value! spec 1))
+      (should-throw stdex "no good" (schema/validate-value! spec -1))))
+
+  (it "resolves a ref-valued :coerce inside a map entry of :coercions"
+    (schema/register-ref! :ref/upper {:coerce str/upper-case})
+    (let [spec {:type :string :coercions [{:coerce :ref/upper}]}]
+      (should= "HI" (schema/coerce-value! spec "hi"))))
+
+  (it "isolates registrations inside a dynamic binding"
+    (binding [schema/*ref-registry* (atom {})]
+      (schema/register-ref! :iso/foo ::iso-only)
+      (should= ::iso-only (schema/get-ref! :iso/foo)))
+    (should-throw stdex (schema/get-ref! :iso/foo)))
+
+  (it "reset-registry! empties the registry"
+    (schema/register-ref! :reset/foo ::sentinel)
+    (schema/reset-ref-registry!)
+    (should-throw stdex (schema/get-ref! :reset/foo)))
+
+  (it "warns when re-registering an existing ref"
+    (let [warned (atom nil)]
+      (binding [schema/*warn-fn* #(reset! warned %)]
+        (schema/register-ref! :collide/x ::a)
+        (schema/register-ref! :collide/x ::b))
+      (should-contain "collide/x" @warned)))
+
+  (it "verify-schema-refs returns true when every ref resolves"
+    (schema/register-ref! :verify/str {:validate string?})
+    (schema/register-ref! :verify/trim {:coerce str/trim})
+    (let [schema {:foo {:type        :string
+                        :validations [:verify/str]
+                        :coercions   [:verify/trim]}}]
+      (should= true (schema/verify-schema-refs schema))))
+
+  (it "verify-schema-refs throws when a :validations ref is unregistered"
+    (let [schema {:foo {:type :string :validations [:never-registered]}}]
+      (should-throw stdex (schema/verify-schema-refs schema))))
+
+  (it "verify-schema-refs throws when a :coercions ref has no :coerce"
+    (schema/register-ref! :verify/v-only {:validate pos?})
+    (let [schema {:foo {:type :int :coercions [:verify/v-only]}}]
+      (should-throw stdex "ref :verify/v-only has no :coerce"
+                    (schema/verify-schema-refs schema))))
+
+  (it "missing ref on entity"
+    (let [pet    (schema/merge-schemas pet {:species {:validations [:plant?]}
+                                            :teeth {:validations [[:sharper-than? 6]]}
+                                            :name   {:coercions ["fruit!"]}
+                                            :length {:coercions [[(symbol "grow!") 1.5]]}})
+          result (schema/conform-message-map pet valid-pet)]
+      (should= "missing ref :plant?" (:species  result))
+      (should= "missing ref :fruit!" (:name  result))
+      (should= "missing ref :sharper-than?" (:teeth  result))
+      (should= "missing ref :grow!" (:length  result))))
   )
 

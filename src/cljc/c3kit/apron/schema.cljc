@@ -237,6 +237,52 @@
     :else (list v)))
 
 ;; endregion ^^^^^ Common Coercions ^^^^^
+
+;; region ----- Ref Registry -----
+
+(def ^:dynamic *ref-registry* (atom {}))
+
+(defn- default-warn [msg]
+  #?(:clj  (binding [*out* *err*] (println "WARN:" msg))
+     :cljs (js/console.warn msg)))
+
+(def ^:dynamic *warn-fn* default-warn)
+
+(defn register-ref! [k f]
+  (let [k (keyword k)]
+    (when (contains? @*ref-registry* k)
+      (*warn-fn* (str "ref " k " is being re-registered")))
+    (swap! *ref-registry* assoc k f)))
+
+(defn reset-ref-registry! []
+  (reset! *ref-registry* {}))
+
+(defn get-ref! [k]
+  (if (vector? k)
+    (let [v    (get-ref! (first k))
+          args (rest k)]
+      (if (seq args) (apply v args) v))
+    (let [kw-key (keyword k)]
+      (get @*ref-registry* kw-key)
+      (or (get @*ref-registry* kw-key)
+          (throw (ex-info (str "missing ref " kw-key) {:ref k}))))))
+
+(defn- -ref? [v]
+  (or (keyword? v) (symbol? v) (string? v)
+      (and (vector? v)
+           (let [h (first v)]
+             (or (keyword? h) (symbol? h) (string? h))))))
+
+(defn- -resolve-ref [v slot key]
+  (if (-ref? v)
+    (let [ref (get-ref! v)]
+      (when-not (key ref)
+        (throw (ex-info (str "ref " v " has no " key) {:ref v :slot slot})))
+      ref)
+    {key v}))
+
+;; endregion ^^^^^ Ref Registry ^^^^^
+
 ;; region ----- Type Tables -----
 
 (def type-validators
@@ -495,19 +541,43 @@
           (throw (ex-info (or message "is invalid") {:value value})))))))
 
 (defn- coerce-field-spec [spec value]
-  (let [{:keys [type message]} spec
-        coerce-fns (conj (->vec (:coerce spec)) (type-coercer! type))]
-    (try
-      (let [result (reduce (fn [result coerce-fn] (coerce-fn result)) value coerce-fns)]
-        result)
-      (catch #?(:clj Exception :cljs :default) e
-        (-process-error :coerce {:message message :exception e})))))
+  (let [{:keys [type message coercions]} spec
+        steps (concat
+                (map #(vector % message) (->vec (:coerce spec)))
+                (map (fn [e]
+                       (let [in (if (map? e) (:coerce e) e)
+                             m  (if (map? e) (:message e) message)]
+                         [(fn [v] ((:coerce (-resolve-ref in :coercions :coerce)) v)) m]))
+                     coercions)
+                [[(type-coercer! type) message]])]
+    (loop [v value, [step & rest-steps] steps]
+      (if (nil? step)
+        v
+        (let [[f step-msg] step
+              r (try {:value (f v)}
+                     (catch #?(:clj Exception :cljs :default) e
+                       {:error e :step-msg step-msg}))]
+          (if (:error r)
+            (let [{:keys [error step-msg]} r]
+              (-process-error :coerce
+                              {:message  (when-not (:ref (ex-data error)) step-msg)
+                               :exception error}))
+            (recur (:value r) rest-steps)))))))
+
+(defn- -normalize-validation-entry [e default-message]
+  (let [from-map? (map? e)
+        in        (if from-map? (:validate e) e)
+        resolved  (-resolve-ref in :validations :validate)
+        default-m (if from-map? (:message e) default-message)]
+    (-> (if from-map? e {})
+        (assoc :validate (:validate resolved)
+               :message  (or default-m (:message resolved))))))
 
 (defn- validate-field-spec [spec value]
   (let [{:keys [type validate validations message]} spec
         validations (concat [{:validate (type-validator! type) :message message}]
                             (if validate [{:validate validate :message message}] [])
-                            validations)]
+                            (map #(-normalize-validation-entry % message) validations))]
     (process-validations validations value)
     value))
 
@@ -530,13 +600,27 @@
     :present (present-field-spec spec value)))
 
 (defn- coerce-entity-level-spec [key spec entity]
-  (let [{:keys [coerce message]} spec
-        coerce-fns (->vec coerce)]
-    (try
-      (let [coerced-entity (reduce (fn [result coerce-fn] (assoc result key (coerce-fn result))) entity coerce-fns)]
-        (get coerced-entity key))
-      (catch #?(:clj Exception :cljs :default) e
-        (-process-error :coerce {:message message :exception e})))))
+  (let [{:keys [coerce message coercions]} spec
+        steps (concat
+                (map #(vector % message) (->vec coerce))
+                (map (fn [e]
+                       (let [in (if (map? e) (:coerce e) e)
+                             m  (if (map? e) (:message e) message)]
+                         [(fn [ent] ((:coerce (-resolve-ref in :coercions :coerce)) ent)) m]))
+                     coercions))]
+    (loop [ent entity, [step & rest-steps] steps]
+      (if (nil? step)
+        (get ent key)
+        (let [[f step-msg] step
+              r (try {:value (assoc ent key (f ent))}
+                     (catch #?(:clj Exception :cljs :default) e
+                       {:error e :step-msg step-msg}))]
+          (if (:error r)
+            (let [{:keys [error step-msg]} r]
+              (-process-error :coerce
+                              {:message  (when-not (:ref (ex-data error)) step-msg)
+                               :exception error}))
+            (recur (:value r) rest-steps)))))))
 
 (defn- validate-entity-level-spec [key spec entity]
   (let [{:keys [validate validations message]} spec
@@ -889,6 +973,22 @@
     (if (error? result)
       (throw (ex-info "Unpresentable entity" result))
       result)))
+
+(defn verify-schema-refs
+  "Walks schema; throws on the first :validations or :coercions ref that
+   doesn't resolve or is in the wrong slot. Returns true on success."
+  [schema]
+  (doseq [[_ spec] schema]
+    (walk-schema (fn [s _]
+                   (doseq [e (:validations s)]
+                     (-resolve-ref (if (map? e) (:validate e) e)
+                                   :validations :validate))
+                   (doseq [e (:coercions s)]
+                     (-resolve-ref (if (map? e) (:coerce e) e)
+                                   :coercions :coerce))
+                   nil)
+                 spec))
+  true)
 
 ;; endregion ^^^^^ API ^^^^^
 
