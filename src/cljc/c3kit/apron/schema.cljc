@@ -248,11 +248,16 @@
 
 (def ^:dynamic *warn-fn* default-warn)
 
-(defn register-ref! [k f]
-  (let [k (keyword k)]
-    (when (contains? @*ref-registry* k)
-      (*warn-fn* (str "ref " k " is being re-registered")))
-    (swap! *ref-registry* assoc k f)))
+(defn register-ref!
+  ([v]
+   (if-let [k (:key (meta v))]
+     (register-ref! k v)
+     (throw (ex-info "register-ref! 1-arg requires :key in (meta v)" {:value v}))))
+  ([k f]
+   (let [k (keyword k)]
+     (when (contains? @*ref-registry* k)
+       (*warn-fn* (str "ref " k " is being re-registered")))
+     (swap! *ref-registry* assoc k f))))
 
 (defn reset-ref-registry! []
   (reset! *ref-registry* {}))
@@ -545,9 +550,14 @@
         steps (concat
                 (map #(vector % message) (->vec (:coerce spec)))
                 (map (fn [e]
-                       (let [in (if (map? e) (:coerce e) e)
-                             m  (if (map? e) (:message e) message)]
-                         [(fn [v] ((:coerce (-resolve-ref in :coercions :coerce)) v)) m]))
+                       (let [from-map? (map? e)
+                             in        (if from-map? (:coerce e) e)
+                             entry-msg (when from-map? (:message e))]
+                         (try
+                           (let [resolved (-resolve-ref in :coercions :coerce)]
+                             [(:coerce resolved) (or entry-msg (:message resolved) message)])
+                           (catch #?(:clj Exception :cljs :default) ex
+                             [(fn [_] (throw ex)) nil]))))
                      coercions)
                 [[(type-coercer! type) message]])]
     (loop [v value, [step & rest-steps] steps]
@@ -604,9 +614,14 @@
         steps (concat
                 (map #(vector % message) (->vec coerce))
                 (map (fn [e]
-                       (let [in (if (map? e) (:coerce e) e)
-                             m  (if (map? e) (:message e) message)]
-                         [(fn [ent] ((:coerce (-resolve-ref in :coercions :coerce)) ent)) m]))
+                       (let [from-map? (map? e)
+                             in        (if from-map? (:coerce e) e)
+                             entry-msg (when from-map? (:message e))]
+                         (try
+                           (let [resolved (-resolve-ref in :coercions :coerce)]
+                             [(:coerce resolved) (or entry-msg (:message resolved) message)])
+                           (catch #?(:clj Exception :cljs :default) ex
+                             [(fn [_] (throw ex)) nil]))))
                      coercions))]
     (loop [ent entity, [step & rest-steps] steps]
       (if (nil? step)

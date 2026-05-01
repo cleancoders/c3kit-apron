@@ -1628,6 +1628,12 @@
         (schema/register-ref! :collide/x ::b))
       (should-contain "collide/x" @warned)))
 
+  (it "register-ref! 1-arg pulls :key from metadata"
+    (let [v (with-meta {:validate string? :message "must be a string"}
+                       {:key :metakey})]
+      (schema/register-ref! v)
+      (should= "must be a string" (:message (schema/get-ref! :metakey)))))
+
   (it "verify-schema-refs returns true when every ref resolves"
     (schema/register-ref! :verify/str {:validate string?})
     (schema/register-ref! :verify/trim {:coerce str/trim})
