@@ -1,19 +1,19 @@
-(ns c3kit.apron.schema.lib
+(ns c3kit.apron.schema.refs
   "Standard catalog of validators and coercers. Each ref is its own var
    for à-la-carte use; install! drains the catalog into c3kit.apron.schema's
    *ref-registry*."
   (:refer-clojure :exclude [string? integer? keyword? number? boolean? map?
                             pos? neg? zero? pos-int? neg-int? nat-int?
                             > < >= <= = not=])
-  #?(:cljs (:require-macros [c3kit.apron.schema.lib :refer [defref]]))
+  #?(:cljs (:require-macros [c3kit.apron.schema.refs :refer [defref]]))
   (:require
     [c3kit.apron.schema :as s]
     [clojure.string :as str]))
 
-(def -catalog (atom []))
+(def ^:private -catalog (atom []))
 
 #?(:clj
-   (defmacro defref [sym body]
+   (defmacro ^:private defref [sym body]
      `(let [v# (with-meta ~body {:key ~(keyword sym)})]
         (def ~sym v#)
         (swap! -catalog conj v#)

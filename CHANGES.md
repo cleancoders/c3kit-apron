@@ -1,3 +1,26 @@
+### 2.7.0
+ * New ref registry for EDN-loadable validations and coercions. Two new
+   field-spec keys, `:validations` and `:coercions`, accept registered refs
+   by name (keyword, symbol, or string), factory vectors `[:ref & args]`,
+   or map entries — so schemas can live entirely as data with no fn
+   literals. Existing `:validate` and `:coerce` remain function-only and
+   are unchanged.
+ * `c3kit.apron.schema.refs` ships a standard catalog of refs:
+   type/numeric/apron predicates, comparison and shape factories, string
+   and type coercers, and a `:default` coercion factory. Each ref is its
+   own var for à-la-carte use; `(refs/install!)` drains the catalog into
+   the registry. The registry is empty by default.
+ * Public API in `c3kit.apron.schema`: `register-ref!` (1- or 2-arg —
+   1-arg pulls `:key` from `(meta v)`), `get-ref!`, `reset-ref-registry!`,
+   `*ref-registry*` (bindable for plugin and test isolation), `*warn-fn*`,
+   and `verify-schema-refs` (walks a schema and throws on the first
+   unresolved or wrong-slot ref).
+ * Missing-ref errors surface as `"missing ref :X"` field errors rather
+   than blowing up the call chain, so partial failures are visible in the
+   error map.
+ * Per-entry `:message` honored on `:coercions` (matching `:validations`).
+   On a failure the precedence is entry → resolved ref → spec → ex-message.
+
 ### 2.6.0
  * `coerce`, `validate`, `conform`, and `present` now accept either a
    bare field map (`{:field spec ...}`) or a wrapped `:map` spec

@@ -8,6 +8,13 @@
 - [Example](#example)
 - [Coercion](#coercion)
 - [Validation](#validation)
+- [Reusable Refs](#reusable-refs)
+  - [The standard catalog — `c3kit.apron.schema.refs`](#the-standard-catalog--c3kitapronschemarefs)
+  - [Factory refs](#factory-refs)
+  - [Map entries with overrides](#map-entries-with-overrides)
+  - [Defining your own refs](#defining-your-own-refs)
+  - [Verifying refs early](#verifying-refs-early)
+  - [Bindable registry](#bindable-registry)
 - [Conform](#conform)
 - [Present](#present)
 - [Entity Level Specs](#entity-level-specs)
@@ -226,6 +233,131 @@ Also, let's make sure we get a descriptive error messages for each validation?
 The `:validations` entry in the spec allows us to have any number of validations, each with their own message.  Each validation is a map that must have `:validate` that maps to a **validate function**, and an optional `:message`.  If `:message` is not provided in the validation map, `schema` will use the `:message` value in the `spec` if it exists, or `"is invalid"`.
 
 `{:kind :point :x "101" :y "102"}` is invalid in all the ways we check.  But the message we get is `"must be an int"` which is our root `:message`.  This demonstrates that the **type-validation** has to pass first before any other validations take place.
+
+## Reusable Refs
+
+Up to this point every `:validate`, `:coerce`, `:validations`, and `:coercions` entry has been a Clojure function written inline. That works for application code but breaks down when you need schemas as **data** — loaded from EDN or JSON, shipped between systems, or carried by plugins that the host doesn't load code from.
+
+`schema` solves this with a **ref registry**: named operations (predicates, coercers, or factories) registered ahead of time and referenced from inside `:validations` and `:coercions` by their key. The original `:validate` and `:coerce` keys keep their function-only behavior — refs only appear under `:validations` and `:coercions`.
+
+```clojure
+(require '[c3kit.apron.schema :as s])
+
+(s/register-ref! :positive? {:validate pos? :message "must be positive"})
+
+(s/validate-value! {:type :int :validations [:positive?]} -1)
+;; => throws ExceptionInfo "must be positive"
+```
+
+A registered value is always a map containing some subset of `:validate`, `:coerce`, and `:message`. The slot the ref appears in determines which key is pulled:
+
+| Slot | Pulls from the registered map |
+| --- | --- |
+| `:validations [:foo?]` | `:validate` |
+| `:coercions [:trim]` | `:coerce` |
+
+If a ref doesn't carry the key its slot needs, you get a clear error — `ref :trim has no :validate` (or vice versa). And if a referenced key isn't registered at all, the failure surfaces as a regular field error with the message `"missing ref :X"` rather than blowing up the whole `coerce` / `validate` call.
+
+### The standard catalog — `c3kit.apron.schema.refs`
+
+The registry is **empty by default**. To load the standard catalog of validators and coercers, require `c3kit.apron.schema.refs` and call `install!`:
+
+```clojure
+(require '[c3kit.apron.schema     :as s]
+         '[c3kit.apron.schema.refs :as refs])
+
+(refs/install!)
+
+(s/validate-value! {:type :string :validations [:string?]} 42)
+;; => throws "must be a string"
+
+(s/coerce-value! {:type :string :coercions [:trim]} "  hi  ")
+;; => "hi"
+```
+
+Categories shipped:
+
+- **Type predicates** — `:string?`, `:integer?`, `:keyword?`, `:number?`, `:boolean?`, `:map?`
+- **Numeric predicates** — `:pos?`, `:neg?`, `:zero?`, `:pos-int?`, `:neg-int?`, `:nat-int?`
+- **Apron predicates** — `:present?`, `:email?`, `:bigdec?`, `:uri?`
+- **Comparison factories** — `:>`, `:<`, `:>=`, `:<=`, `:=`, `:not=`, `:between`
+- **Shape factories** — `:min-length`, `:max-length`, `:length`, `:matches`, `:one-of`, `:not-one-of`
+- **String coercers** — `:trim`, `:upper-case`, `:lower-case`, `:capitalize`
+- **Type coercers** — `:->string`, `:->int`, `:->float`, `:->bigdec`, `:->boolean`, `:->keyword`, `:->date`, `:->sql-date`, `:->timestamp`, `:->uri`, `:->uuid`
+- **Coercion factories** — `:default`
+
+Each ref is also exported as its own var for à-la-carte use without going through the registry:
+
+```clojure
+{:type :string
+ :validations [refs/string? (refs/min-length 3)]
+ :coercions   [refs/trim]}
+```
+
+### Factory refs
+
+Some refs take parameters. They register as a **function** that returns a validation/coercion map; you call them through the registry as a vector:
+
+```clojure
+(s/validate-value! {:type :int :validations [[:> 5]]}        3)   ;; throws "must be > 5"
+(s/validate-value! {:type :string :validations [[:max-length 3]]} "abcd")
+(s/coerce-value!   {:type :any :coercions   [[:default 99]]} nil) ;; => 99
+```
+
+The first element of the vector is the ref key; the rest are the factory's arguments.
+
+### Map entries with overrides
+
+A `:validations` or `:coercions` entry can also be a full map, which lets you reuse a registered predicate but override the message at the call site:
+
+```clojure
+{:type :string
+ :validations [{:validate :present? :message "Name is mandatory"}]}
+```
+
+When the message is omitted, the registered ref's `:message` is used; the spec-level `:message` fills in if neither is present.
+
+### Defining your own refs
+
+Plugin or application code registers refs with `register-ref!`:
+
+```clojure
+(s/register-ref! :app/non-empty-vec
+                 {:validate (every-pred vector? seq)
+                  :message  "must be a non-empty vector"})
+```
+
+Factories register as plain functions that return a validation/coercion map:
+
+```clojure
+(s/register-ref! :app/clamp
+                 (fn [lo hi]
+                   {:coerce  #(max lo (min hi %))
+                    :message (str "clamped to [" lo ", " hi "]")}))
+```
+
+Re-registering an existing key is allowed and emits a warning via `*warn-fn*` (default writes to `*err*` / `console.warn`); rebind it for tests or to route through your own logger.
+
+### Verifying refs early
+
+`verify-schema-refs` walks a schema and throws on the first ref that is unregistered or used in the wrong slot. Plugin hosts call it once after registering, to fail fast before any data flows:
+
+```clojure
+(s/verify-schema-refs my-plugin-schema)   ;; => true, or throws
+```
+
+### Bindable registry
+
+`*ref-registry*` is a dynamic var. Tests and plugin sandboxes can isolate their registrations by binding it to a fresh atom:
+
+```clojure
+(binding [s/*ref-registry* (atom {})]
+  (refs/install!)                       ;; populate this isolated copy
+  (s/validate my-schema my-data))
+;; outside the binding, the global registry is untouched
+```
+
+`reset-ref-registry!` empties the currently-bound registry.
 
 ## Conform
 
