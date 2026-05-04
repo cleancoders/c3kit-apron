@@ -27,13 +27,13 @@ Apron consists of necessities that almost any clojure app would find useful.
 Add to your `deps.edn`:
 
 ```clojure
-com.cleancoders.c3kit/apron {:mvn/version "2.1.5"}
+com.cleancoders.c3kit/apron {:mvn/version "2.7.0"}
 ```
 
 Or to your `project.clj`:
 
 ```clojure
-[com.cleancoders.c3kit/apron "2.1.5"]
+[com.cleancoders.c3kit/apron "2.7.0"]
 ```
 
 Released artifacts: [Clojars](https://clojars.org/com.cleancoders.c3kit/apron). Changelog: [CHANGES.md](CHANGES.md).
@@ -87,17 +87,28 @@ See [SCHEMA.md](SCHEMA.md) for the full schema reference.
     # MST JS tests
     TZ=America/Phoenix clj -M:test:cljs-mst
 
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for the development workflow, TDD
+expectations, and pull-request requirements. This project follows the
+[Contributor Covenant Code of Conduct](CODE_OF_CONDUCT.md). Security issues
+should be reported privately — see [SECURITY.md](SECURITY.md).
+
 ## Releasing (maintainers)
 
-In order to deploy to c3kit you must be a member of the Clojars group `com.cleancoders.c3kit`.
+You must be a member of the Clojars group `com.cleancoders.c3kit`.
 
-1. Go to https://clojars.org/tokens and configure a token with the appropriate scope
-2. Set the following environment variables
+1. Generate a deploy token at https://clojars.org/tokens with the appropriate scope.
+2. Export credentials:
 
 ```
 CLOJARS_USERNAME=<your username>
 CLOJARS_PASSWORD=<your deploy key>
 ```
 
-3. Update `resources/c3kit/apron/VERSION`
+3. Update `resources/c3kit/apron/VERSION`.
 4. `clj -T:build deploy`
+
+## License
+
+[MIT](LICENSE) © Clean Coders.
