@@ -3,7 +3,7 @@
    for à-la-carte use; install! drains the catalog into c3kit.apron.schema's
    *ref-registry*."
   (:refer-clojure :exclude [string? integer? keyword? number? boolean? map?
-                            pos? neg? zero? pos-int? neg-int? nat-int?
+                            pos? neg? zero? pos-int? neg-int? nat-int? uri?
                             > < >= <= = not=])
   #?(:cljs (:require-macros [c3kit.apron.schema.refs :refer [defref]]))
   (:require
