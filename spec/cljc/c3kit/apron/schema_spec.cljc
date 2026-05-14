@@ -1662,5 +1662,115 @@
       (should= "missing ref :fruit!" (:name  result))
       (should= "missing ref :sharper-than?" (:teeth  result))
       (should= "missing ref :grow!" (:length  result))))
+
+  (context "entity-scoped refs"
+
+    (before (schema/register-ref! :req-when-dog
+                                  {:validate (fn [entity field-key]
+                                               (or (not= "dog" (:species entity))
+                                                   (schema/present? (get entity field-key))))
+                                   :scope    :entity
+                                   :message  "needed for dogs"}))
+
+    (it "validation fails when sibling triggers requirement and field is absent"
+      (let [schema {:species     {:type :string}
+                    :tail-length {:type :int :validations [:req-when-dog]}}]
+        (should= {:tail-length "needed for dogs"}
+                 (schema/validate-message-map schema {:species "dog"}))))
+
+    (it "validation passes when sibling condition does not trigger requirement"
+      (let [schema {:species     {:type :string}
+                    :tail-length {:type :int :validations [:req-when-dog]}}]
+        (should-be-nil (schema/validate-message-map schema {:species "cat"}))))
+
+    (it "validation passes when sibling triggers and field is present"
+      (let [schema {:species     {:type :string}
+                    :tail-length {:type :int :validations [:req-when-dog]}}]
+        (should-be-nil (schema/validate-message-map schema {:species "dog" :tail-length 5}))))
+
+    (it "validate-value! on a single field bypasses entity-scoped validations"
+      (let [field-spec {:type :int :validations [:req-when-dog]}]
+        (should= 0 (schema/validate-value! field-spec 0))
+        (should-be-nil (schema/validate-value! field-spec nil))))
+
+    (it "factory ref form binds args before validation runs"
+      (schema/register-ref! :req-when
+                            (fn [other-key expected]
+                              {:validate (fn [entity field-key]
+                                           (or (not= expected (get entity other-key))
+                                               (schema/present? (get entity field-key))))
+                               :scope    :entity
+                               :message  (str "is required when " other-key " is " expected)}))
+      (let [schema {:species     {:type :string}
+                    :tail-length {:type :int :validations [[:req-when :species "dog"]]}}]
+        (should= {:tail-length "is required when :species is dog"}
+                 (schema/validate-message-map schema {:species "dog"}))
+        (should-be-nil (schema/validate-message-map schema {:species "cat"}))))
+
+    (it "entity-scoped validation rebinds inside a nested map"
+      (schema/register-ref! :req-when-snake
+                            {:validate (fn [entity field-key]
+                                         (or (not= "snake" (:species entity))
+                                             (schema/present? (get entity field-key))))
+                             :scope    :entity
+                             :message  "needed for snakes"})
+      (let [inner  {:species {:type :string}
+                    :length  {:type :int :validations [:req-when-snake]}}
+            outer  {:owner {:type :string}
+                    :pet   {:type :map :schema inner}}]
+        (should= {:pet {:length "needed for snakes"}}
+                 (schema/validate-message-map outer {:owner "Joe" :pet {:species "snake"}}))
+        (should-be-nil
+          (schema/validate-message-map outer {:owner "Joe" :pet {:species "snake" :length 4}}))))
+
+    (it "value-scoped and entity-scoped validations on the same field both run"
+      (let [schema {:species     {:type :string}
+                    :tail-length {:type        :int
+                                  :validations [{:validate (schema/nil?-or pos?) :message "must be positive"}
+                                                :req-when-dog]}}]
+        (should= {:tail-length "must be positive"}
+                 (schema/validate-message-map schema {:species "cat" :tail-length -1}))
+        (should= {:tail-length "needed for dogs"}
+                 (schema/validate-message-map schema {:species "dog"}))
+        (should-be-nil (schema/validate-message-map schema {:species "dog" :tail-length 5}))))
+
+    (it "entity-scoped coerce derives a value from sibling fields"
+      (schema/register-ref! :full-name-from-parts
+                            {:coerce (fn [entity _field-key]
+                                       (str (:first-name entity) " " (:last-name entity)))
+                             :scope  :entity})
+      (let [schema {:first-name {:type :string}
+                    :last-name  {:type :string}
+                    :full-name  {:type :string :coercions [:full-name-from-parts]}}]
+        (should= "Ada Lovelace"
+                 (:full-name (schema/coerce schema {:first-name "Ada" :last-name "Lovelace"})))))
+
+    (it "value-scoped coerce runs before entity-scoped coerce on the same field"
+      (schema/register-ref! :double-it
+                            {:coerce (fn [entity field-key] (* 2 (get entity field-key)))
+                             :scope  :entity})
+      (let [schema {:n {:type :int :coerce inc :coercions [:double-it]}}]
+        (should= 8 (:n (schema/coerce schema {:n 3})))))
+
+    (it "entity-scoped coerce runs before entity-scoped validate on the same field in conform"
+      (schema/register-ref! :default-tail
+                            {:coerce (fn [entity field-key]
+                                       (or (get entity field-key)
+                                           (when (= "dog" (:species entity)) 0)))
+                             :scope  :entity})
+      (let [schema {:species     {:type :string}
+                    :tail-length {:type        :int
+                                  :coercions   [:default-tail]
+                                  :validations [:req-when-dog]}}]
+        (should= 0 (:tail-length (schema/conform schema {:species "dog"})))
+        (should-be-nil (schema/conform-message-map schema {:species "dog"}))))
+
+    (it "coerce-value! on a single field bypasses entity-scoped coerce"
+      (schema/register-ref! :sibling-coerce
+                            {:coerce (fn [_entity _field-key] "would-have-derived")
+                             :scope  :entity})
+      (should= "raw"
+               (schema/coerce-value! {:type :string :coercions [:sibling-coerce]} "raw")))
+    )
   )
 

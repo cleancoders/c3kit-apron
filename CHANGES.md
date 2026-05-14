@@ -1,3 +1,15 @@
+### 2.8.0
+ * Entity-scoped refs. A registered ref can set `:scope :entity`; its
+   `:validate`/`:coerce` fn then receives `(entity field-key)` instead of
+   `(value)` and runs after the field-level pass. Lets cross-field rules
+   like `[:required-when :species "dog"]` live next to the field they
+   constrain rather than being lifted into `:*`.
+ * Pipeline order for an entity is now: (1) per-field value-scoped
+   coerce → validate, (2) per-field entity-scoped coerce → validate,
+   (3) `:*` entity-level coerce → validate. `validate-value!`,
+   `coerce-value!`, and `conform-value!` bypass entity-scoped entries
+   since they operate on a single value with no entity context.
+
 ### 2.7.0
  * New ref registry for EDN-loadable validations and coercions. Two new
    field-spec keys, `:validations` and `:coercions`, accept registered refs

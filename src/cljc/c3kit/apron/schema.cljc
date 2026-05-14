@@ -549,16 +549,18 @@
   (let [{:keys [type message coercions]} spec
         steps (concat
                 (map #(vector % message) (->vec (:coerce spec)))
-                (map (fn [e]
-                       (let [from-map? (map? e)
-                             in        (if from-map? (:coerce e) e)
-                             entry-msg (when from-map? (:message e))]
-                         (try
-                           (let [resolved (-resolve-ref in :coercions :coerce)]
-                             [(:coerce resolved) (or entry-msg (:message resolved) message)])
-                           (catch #?(:clj Exception :cljs :default) ex
-                             [(fn [_] (throw ex)) nil]))))
-                     coercions)
+                (->> coercions
+                     (map (fn [e]
+                            (let [from-map? (map? e)
+                                  in        (if from-map? (:coerce e) e)
+                                  entry-msg (when from-map? (:message e))]
+                              (try
+                                (let [resolved (-resolve-ref in :coercions :coerce)]
+                                  (when-not (= :entity (:scope resolved))
+                                    [(:coerce resolved) (or entry-msg (:message resolved) message)]))
+                                (catch #?(:clj Exception :cljs :default) ex
+                                  [(fn [_] (throw ex)) nil])))))
+                     (remove nil?))
                 [[(type-coercer! type) message]])]
     (loop [v value, [step & rest-steps] steps]
       (if (nil? step)
@@ -578,16 +580,23 @@
   (let [from-map? (map? e)
         in        (if from-map? (:validate e) e)
         resolved  (-resolve-ref in :validations :validate)
-        default-m (if from-map? (:message e) default-message)]
-    (-> (if from-map? e {})
-        (assoc :validate (:validate resolved)
-               :message  (or default-m (:message resolved))))))
+        default-m (if from-map? (:message e) default-message)
+        base      (-> (if from-map? e {})
+                      (assoc :validate (:validate resolved)
+                             :message  (or default-m (:message resolved))))]
+    (if-let [scope (:scope resolved)]
+      (assoc base :scope scope)
+      base)))
+
+(defn- entity-scoped? [entry] (= :entity (:scope entry)))
 
 (defn- validate-field-spec [spec value]
   (let [{:keys [type validate validations message]} spec
         validations (concat [{:validate (type-validator! type) :message message}]
                             (if validate [{:validate validate :message message}] [])
-                            (map #(-normalize-validation-entry % message) validations))]
+                            (->> validations
+                                 (map #(-normalize-validation-entry % message))
+                                 (remove entity-scoped?)))]
     (process-validations validations value)
     value))
 
@@ -755,6 +764,68 @@
                     (assoc acc k' v')
                     acc)))))
 
+(defn- -resolve-coercion-entry [e default-message]
+  (let [from-map? (map? e)
+        in        (if from-map? (:coerce e) e)
+        resolved  (-resolve-ref in :coercions :coerce)
+        entry-msg (when from-map? (:message e))]
+    {:coerce  (:coerce resolved)
+     :message (or entry-msg (:message resolved) default-message)
+     :scope   (:scope resolved)}))
+
+(defn- entity-scoped-validations [spec]
+  (->> (:validations spec)
+       (map #(-normalize-validation-entry % (:message spec)))
+       (filter entity-scoped?)))
+
+(defn- entity-scoped-coercions [spec]
+  (->> (:coercions spec)
+       (map #(-resolve-coercion-entry % (:message spec)))
+       (filter entity-scoped?)))
+
+(defn- run-entity-scoped-validation [process entity field-key {:keys [validate message]}]
+  (let [value        (get entity field-key)
+        validate-fns (if (multiple? validate) validate [validate])]
+    (some (fn [v-fn]
+            (try
+              (when-not (v-fn entity field-key)
+                (-process-error process {:message (or message "is invalid") :value value}))
+              (catch #?(:clj Exception :cljs :default) e
+                (-process-error process {:exception e :value value}))))
+          validate-fns)))
+
+(defn- apply-entity-scoped-validate [process result field-key spec]
+  (let [validations (entity-scoped-validations spec)]
+    (if (empty? validations)
+      result
+      (if-let [err (some (partial run-entity-scoped-validation process (:entity result) field-key)
+                         validations)]
+        (assoc-in result [:errors field-key] err)
+        result))))
+
+(defn- apply-entity-scoped-coerce [process result field-key spec]
+  (let [coercions (entity-scoped-coercions spec)]
+    (loop [entity (:entity result), coercions coercions]
+      (if (empty? coercions)
+        (assoc result :entity entity)
+        (let [{:keys [coerce message]} (first coercions)
+              r (try {:value (coerce entity field-key)}
+                     (catch #?(:clj Exception :cljs :default) e {:exception e}))]
+          (if (:exception r)
+            (assoc-in result [:errors field-key]
+                      (-process-error process {:exception (:exception r) :message message}))
+            (recur (assoc entity field-key (:value r)) (rest coercions))))))))
+
+(defn- apply-entity-scoped-field-spec [process result [field-key spec]]
+  (case process
+    :coerce   (apply-entity-scoped-coerce process result field-key spec)
+    :validate (apply-entity-scoped-validate process result field-key spec)
+    :conform  (let [r (apply-entity-scoped-coerce process result field-key spec)]
+                (if (get-in r [:errors field-key])
+                  r
+                  (apply-entity-scoped-validate process r field-key spec)))
+    result))
+
 (defn- process-schema-on-entity
   ([process schema entity] (process-schema-on-entity process schema entity nil nil))
   ([process schema entity key-spec value-spec]
@@ -769,7 +840,8 @@
                             base   (apply dissoc entity :* (keys extras))]
                         (reduce (partial process-dynamic-entry process key-spec value-spec) base extras))
                       entity)
-             {:keys [entity errors]} (reduce (partial process-entity-level-spec process) {:entity entity} (:* schema))]
+             init   (reduce (partial apply-entity-scoped-field-spec process) {:entity entity} field-specs)
+             {:keys [entity errors]} (reduce (partial process-entity-level-spec process) init (:* schema))]
          (merge entity errors))))))
 
 (defn- attempt-process-schema-on-entity [process schema entity]
@@ -1044,7 +1116,9 @@
                             {:type :seq :spec {:type :fn} :validate seq :message "must not be empty"}]
               :message     "must be an ifn or seq of ifn"
               :description "Predicate or seq of predicates applied to the value."}
-   :message  {:type :string :description "Error message surfaced when this validation fails."}})
+   :message  {:type :string :description "Error message surfaced when this validation fails."}
+   :scope    {:type        :keyword
+              :description "When :entity (set on a registered ref), the validate fn receives (entity field-key) instead of (value) and runs after all field-level validations."}})
 
 (def validation-entry-spec
   {:type :map :name :validation :schema validation-schema :message "must be schema/validation-schema"})

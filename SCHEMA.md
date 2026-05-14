@@ -13,6 +13,7 @@
   - [Factory refs](#factory-refs)
   - [Map entries with overrides](#map-entries-with-overrides)
   - [Defining your own refs](#defining-your-own-refs)
+  - [Entity-scoped refs](#entity-scoped-refs)
   - [Verifying refs early](#verifying-refs-early)
   - [Bindable registry](#bindable-registry)
 - [Conform](#conform)
@@ -337,6 +338,55 @@ Factories register as plain functions that return a validation/coercion map:
 ```
 
 Re-registering an existing key is allowed and emits a warning via `*warn-fn*` (default writes to `*err*` / `console.warn`); rebind it for tests or to route through your own logger.
+
+### Entity-scoped refs
+
+Sometimes a field's validity depends on other fields in the entity — e.g. `:tail-length` is only required when `:species` is `"dog"`. `:*` (see [Entity Level Specs](#entity-level-specs)) handles this, but it pulls the rule away from the field it belongs to.
+
+A registered ref can opt into **entity scope** by setting `:scope :entity`. Its `:validate`/`:coerce` fn then receives `(entity field-key)` instead of `(value)`, and runs after the field-level pass:
+
+```clojure
+(s/register-ref! :required-when
+                 (fn [other-key expected]
+                   {:validate (fn [entity field-key]
+                                (or (not= expected (get entity other-key))
+                                    (s/present? (get entity field-key))))
+                    :scope    :entity
+                    :message  (str "is required when " other-key " is " expected)}))
+
+(def pet
+  {:species     {:type :string}
+   :tail-length {:type :int :validations [[:required-when :species "dog"]]}})
+
+(s/validate-message-map pet {:species "dog"})
+;; => {:tail-length "is required when :species is dog"}
+
+(s/validate-message-map pet {:species "cat"})
+;; => nil
+```
+
+The same `:scope :entity` flag works inside `:coercions`, letting a ref derive a value from sibling fields:
+
+```clojure
+(s/register-ref! :full-name-from-parts
+                 {:coerce (fn [entity _field-key]
+                           (str (:first-name entity) " " (:last-name entity)))
+                  :scope  :entity})
+
+(s/coerce {:first-name {:type :string}
+           :last-name  {:type :string}
+           :full-name  {:type :string :coercions [:full-name-from-parts]}}
+          {:first-name "Ada" :last-name "Lovelace"})
+;; => {:first-name "Ada", :last-name "Lovelace", :full-name "Ada Lovelace"}
+```
+
+Pipeline order for an entity:
+
+1. **Per-field, value-scoped**: coerce → validate
+2. **Per-field, entity-scoped**: coerce → validate (runs only after step 1 finishes for every field)
+3. **`:*` entity-level**: coerce → validate
+
+`validate-value!`, `coerce-value!`, and `conform-value!` operate on a single value with no entity context, so entity-scoped entries are silently bypassed in those calls — only the full-entity APIs (`validate`/`coerce`/`conform`) run them.
 
 ### Verifying refs early
 
