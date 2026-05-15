@@ -286,6 +286,24 @@
       ref)
     {key v}))
 
+(defn ->validate-fn
+  "Resolves a value, ref name, or factory invocation to a validate fn.
+  Combinator factories use this to accept either inline fns or registered refs."
+  [v]
+  (if (-ref? v)
+    (or (:validate (get-ref! v))
+        (throw (ex-info (str "ref " v " has no :validate") {:ref v})))
+    v))
+
+(defn ->coerce-fn
+  "Resolves a value, ref name, or factory invocation to a coerce fn.
+  Combinator factories use this to accept either inline fns or registered refs."
+  [v]
+  (if (-ref? v)
+    (or (:coerce (get-ref! v))
+        (throw (ex-info (str "ref " v " has no :coerce") {:ref v})))
+    v))
+
 ;; endregion ^^^^^ Ref Registry ^^^^^
 
 ;; region ----- Type Tables -----

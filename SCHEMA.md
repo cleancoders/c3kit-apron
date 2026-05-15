@@ -11,6 +11,7 @@
 - [Reusable Refs](#reusable-refs)
   - [The standard catalog — `c3kit.apron.schema.refs`](#the-standard-catalog--c3kitapronschemarefs)
   - [Factory refs](#factory-refs)
+  - [Combinator factories](#combinator-factories)
   - [Map entries with overrides](#map-entries-with-overrides)
   - [Defining your own refs](#defining-your-own-refs)
   - [Entity-scoped refs](#entity-scoped-refs)
@@ -283,6 +284,7 @@ Categories shipped:
 - **Apron predicates** — `:present?`, `:email?`, `:bigdec?`, `:uri?`
 - **Comparison factories** — `:>`, `:<`, `:>=`, `:<=`, `:=`, `:not=`, `:between`
 - **Shape factories** — `:min-length`, `:max-length`, `:length`, `:matches`, `:one-of`, `:not-one-of`
+- **Combinator factories** — `:nil-or?`, `:not?`, `:and?`, `:or?` (compose other refs or fns)
 - **String coercers** — `:trim`, `:upper-case`, `:lower-case`, `:capitalize`
 - **Type coercers** — `:->string`, `:->int`, `:->float`, `:->bigdec`, `:->boolean`, `:->keyword`, `:->date`, `:->sql-date`, `:->timestamp`, `:->uri`, `:->uuid`
 - **Coercion factories** — `:default`
@@ -306,6 +308,37 @@ Some refs take parameters. They register as a **function** that returns a valida
 ```
 
 The first element of the vector is the ref key; the rest are the factory's arguments.
+
+### Combinator factories
+
+The standard catalog includes four combinators — `:nil-or?`, `:not?`, `:and?`, `:or?` — that take other predicates as arguments. The argument may be a registered ref name, a factory invocation, or an inline function:
+
+```clojure
+;; nil-tolerant version of any predicate
+(s/validate-value! {:type :any :validations [[:nil-or? :pos?]]} nil)   ;; => nil
+(s/validate-value! {:type :any :validations [[:nil-or? [:between 0 10]]]} 5) ;; => 5
+
+;; compose multiple constraints
+(s/validate-value! {:type :any :validations [[:and? :integer? :pos?]]} 4)
+(s/validate-value! {:type :any :validations [[:or?  :pos? :zero?]]} 0)
+
+;; invert a predicate
+(s/validate-value! {:type :any :validations [[:not? :pos?]]} -1)
+```
+
+Combinator factories use `s/->validate-fn` to resolve their arguments. Custom combinators do the same:
+
+```clojure
+(s/register-ref! :every-of?
+                 (fn [pred-ref]
+                   (let [pred (s/->validate-fn pred-ref)]
+                     {:validate (fn [coll] (every? pred coll))
+                      :message  "every element must satisfy predicate"})))
+
+(s/validate-value! {:type :any :validations [[:every-of? :pos?]]} [1 2 3])
+```
+
+The companion `s/->coerce-fn` handles the same job for combinator coercers.
 
 ### Map entries with overrides
 

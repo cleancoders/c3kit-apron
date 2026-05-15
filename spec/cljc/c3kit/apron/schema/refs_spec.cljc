@@ -280,4 +280,52 @@
       (should-throw stdex "must be a string"
                     (s/coerce-value! {:type :any :coercions [:trim]} 42)))
     )
+
+  (context "combinator factories"
+
+    (it ":nil-or? passes when value is nil"
+      (should= nil (s/validate-value! {:type :any :validations [[:nil-or? :pos?]]} nil)))
+
+    (it ":nil-or? passes when inner pred passes"
+      (should= 5 (s/validate-value! {:type :any :validations [[:nil-or? :pos?]]} 5)))
+
+    (it ":nil-or? fails when inner pred fails on a non-nil value"
+      (should-throw stdex (s/validate-value! {:type :any :validations [[:nil-or? :pos?]]} -1)))
+
+    (it ":nil-or? composes with a factory invocation"
+      (should= nil (s/validate-value! {:type :any :validations [[:nil-or? [:between 0 10]]]} nil))
+      (should= 5  (s/validate-value! {:type :any :validations [[:nil-or? [:between 0 10]]]} 5))
+      (should-throw stdex (s/validate-value! {:type :any :validations [[:nil-or? [:between 0 10]]]} 11)))
+
+    (it ":nil-or? accepts an inline fn"
+      (should= 4 (s/validate-value! {:type :any :validations [[:nil-or? even?]]} 4))
+      (should-throw stdex (s/validate-value! {:type :any :validations [[:nil-or? even?]]} 3)))
+
+    (it ":not? inverts a ref predicate"
+      (should= 0  (s/validate-value! {:type :any :validations [[:not? :pos?]]} 0))
+      (should= -1 (s/validate-value! {:type :any :validations [[:not? :pos?]]} -1))
+      (should-throw stdex (s/validate-value! {:type :any :validations [[:not? :pos?]]} 1)))
+
+    (it ":and? requires every inner pred to pass"
+      (should= 4 (s/validate-value! {:type :any :validations [[:and? :integer? :pos?]]} 4))
+      (should-throw stdex (s/validate-value! {:type :any :validations [[:and? :integer? :pos?]]} -1))
+      (should-throw stdex (s/validate-value! {:type :any :validations [[:and? :integer? :pos?]]} 1.5)))
+
+    (it ":or? passes if any inner pred passes"
+      (should= 1   (s/validate-value! {:type :any :validations [[:or? :pos? :zero?]]} 1))
+      (should= 0   (s/validate-value! {:type :any :validations [[:or? :pos? :zero?]]} 0))
+      (should-throw stdex (s/validate-value! {:type :any :validations [[:or? :pos? :zero?]]} -1)))
+
+    (it ":and? composes nested factory invocations"
+      (should= 5 (s/validate-value!
+                   {:type :any :validations [[:and? :integer? [:between 0 10]]]} 5))
+      (should-throw stdex (s/validate-value!
+                            {:type :any :validations [[:and? :integer? [:between 0 10]]]} 11)))
+
+    (it "combinator messages compose from inner ref messages"
+      (should-throw stdex "may be nil or must be positive"
+                    (s/validate-value! {:type :any :validations [[:nil-or? :pos?]]} -1))
+      (should-throw stdex "must be an integer and must be positive"
+                    (s/validate-value! {:type :any :validations [[:and? :integer? :pos?]]} -1.5)))
+    )
   )

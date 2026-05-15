@@ -72,6 +72,37 @@
 (defref not-one-of (fn [& xs] {:validate (complement (set xs))
                                :message  (str "must not be one of " (vec xs))}))
 
+;; ---------- combinator factories
+
+(defn- -inner-msg [pred]
+  (when-not (fn? pred)
+    (try (:message (s/get-ref! pred))
+         (catch #?(:clj Exception :cljs :default) _ nil))))
+
+(defref nil-or? (fn [pred]
+                  (let [f   (s/->validate-fn pred)
+                        msg (-inner-msg pred)]
+                    {:validate (some-fn nil? f)
+                     :message  (if msg (str "may be nil or " msg) "is invalid")})))
+
+(defref not?    (fn [pred]
+                  (let [f   (s/->validate-fn pred)
+                        msg (-inner-msg pred)]
+                    {:validate (complement f)
+                     :message  (if msg (str "must not: " msg) "is invalid")})))
+
+(defref and?    (fn [& preds]
+                  (let [fs   (mapv s/->validate-fn preds)
+                        msgs (keep -inner-msg preds)]
+                    {:validate (apply every-pred fs)
+                     :message  (if (seq msgs) (str/join " and " msgs) "is invalid")})))
+
+(defref or?     (fn [& preds]
+                  (let [fs   (mapv s/->validate-fn preds)
+                        msgs (keep -inner-msg preds)]
+                    {:validate (apply some-fn fs)
+                     :message  (if (seq msgs) (str/join " or " msgs) "is invalid")})))
+
 ;; ---------- string coercers
 
 (defref trim       {:coerce str/trim       :message "must be a string"})

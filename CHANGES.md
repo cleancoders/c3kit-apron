@@ -9,6 +9,13 @@
    (3) `:*` entity-level coerce → validate. `validate-value!`,
    `coerce-value!`, and `conform-value!` bypass entity-scoped entries
    since they operate on a single value with no entity context.
+ * New combinator refs in `c3kit.apron.schema.refs`: `:nil-or?`, `:not?`,
+   `:and?`, `:or?`. They take other refs (or inline fns) as arguments and
+   compose them — e.g. `[:nil-or? :pos?]`, `[:and? :integer? [:between 0 10]]`.
+   Default messages compose from inner refs' `:message`.
+ * New public helpers `schema/->validate-fn` and `schema/->coerce-fn`.
+   Combinator factories call these to resolve a ref name, factory
+   invocation, or inline fn into the underlying fn.
 
 ### 2.7.0
  * New ref registry for EDN-loadable validations and coercions. Two new
