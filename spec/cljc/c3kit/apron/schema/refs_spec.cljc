@@ -285,11 +285,33 @@
       (should-throw stdex "must be one of [:a :b :c]"
                     (s/validate-value! {:type :any :validations [[:one-of :a :b :c]]} :z)))
 
-    (it ":one-of's field-level :message default overrides resolved ref message"
-      (should-throw stdex "kind required"
+    (it "resolved ref message wins over field-level :message default"
+      (should-throw stdex "must be one of [:a :b :c]"
                     (s/validate-value! {:type :any
                                         :message "kind required"
-                                        :validations [[:one-of :a :b :c]]} :z)))
+                                        :validations [[:one-of :a :b :c]]} :z))
+      (should-throw stdex "must be positive"
+                    (s/validate-value! {:type :any
+                                        :message "must be valid"
+                                        :validations [:pos?]} -1)))
+
+    (it "entry's own :message still wins over resolved ref message"
+      (should-throw stdex "custom"
+                    (s/validate-value! {:type :any
+                                        :validations [{:validate :pos? :message "custom"}]} -1)))
+
+    (it "field-level :message is used when neither entry nor ref provides one"
+      (should-throw stdex "field-default"
+                    (s/validate-value! {:type :any
+                                        :message "field-default"
+                                        :validations [{:validate even?}]} 3)))
+
+    (it "vector and map ref forms produce the same error message"
+      (let [field-spec {:type :any :message "must be present"
+                        :validations [[:one-of :a :b :c]]}
+            map-spec   (assoc field-spec :validations [(refs/one-of :a :b :c)])]
+        (should-throw stdex "must be one of [:a :b :c]" (s/validate-value! field-spec :z))
+        (should-throw stdex "must be one of [:a :b :c]" (s/validate-value! map-spec   :z))))
     )
 
   (context "combinator factories"

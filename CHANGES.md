@@ -1,3 +1,12 @@
+### 2.9.2
+ * Fix: resolved ref `:message` on a `:validations` entry now wins over
+   the spec's field-level `:message`. Vector form `[:one-of ...]` and
+   map form `(refs/one-of ...)` now produce the same error message; the
+   validation-side precedence is now `entry :message → ref :message →
+   spec :message`, matching the coercion side. **Behavior change:** if
+   you relied on a field-level `:message` shadowing a registered ref's
+   `:message`, give the entry its own `:message` (or remove the ref's).
+
 ### 2.9.1
  * Fix: `[:one-of ...]` (and any ref whose `:validate` is a set) now
    works through `validate-value!` / `conform!`. The validation iterator

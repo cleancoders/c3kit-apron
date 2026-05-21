@@ -1577,10 +1577,15 @@
     (let [spec {:type :string :validations [:ref/present]}]
       (should-throw stdex "is required" (schema/validate-value! spec nil))))
 
-  (it "spec :message overrides the registry default"
-    (schema/register-ref! :ref/present2 {:validate schema/present? :message "is required"})
-    (let [spec {:type :string :validations [:ref/present2] :message "Name is mandatory"}]
+  (it "spec :message is the fallback when neither entry nor ref provides one"
+    (schema/register-ref! :ref/present-no-msg {:validate schema/present?})
+    (let [spec {:type :string :validations [:ref/present-no-msg] :message "Name is mandatory"}]
       (should-throw stdex "Name is mandatory" (schema/validate-value! spec nil))))
+
+  (it "registry :message wins over the spec's field-level :message"
+    (schema/register-ref! :ref/present-with-msg {:validate schema/present? :message "is required"})
+    (let [spec {:type :string :validations [:ref/present-with-msg] :message "Name is mandatory"}]
+      (should-throw stdex "is required" (schema/validate-value! spec nil))))
 
   (it "throws when a :validations ref has no :validate key"
     (schema/register-ref! :ref/coerce-only {:coerce str/trim})

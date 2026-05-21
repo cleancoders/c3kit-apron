@@ -602,10 +602,10 @@
   (let [from-map? (map? e)
         in        (if from-map? (:validate e) e)
         resolved  (-resolve-ref in :validations :validate)
-        default-m (if from-map? (:message e) default-message)
+        entry-msg (when from-map? (:message e))
         base      (-> (if from-map? e {})
                       (assoc :validate (:validate resolved)
-                             :message  (or default-m (:message resolved))))]
+                             :message  (or entry-msg (:message resolved) default-message)))]
     (if-let [scope (:scope resolved)]
       (assoc base :scope scope)
       base)))
