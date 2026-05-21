@@ -562,7 +562,7 @@
 
 (defn- process-validations [validations value]
   (doseq [{:keys [validate message]} validations]
-    (let [validate-fns (if (multiple? validate) validate [validate])]
+    (let [validate-fns (if (sequential? validate) validate [validate])]
       (doseq [v-fn validate-fns]
         (when-not (v-fn value)
           (throw (ex-info (or message "is invalid") {:value value})))))))
@@ -807,7 +807,7 @@
 
 (defn- run-entity-scoped-validation [process entity field-key {:keys [validate message]}]
   (let [value        (get entity field-key)
-        validate-fns (if (multiple? validate) validate [validate])]
+        validate-fns (if (sequential? validate) validate [validate])]
     (some (fn [v-fn]
             (try
               (when-not (v-fn entity field-key)

@@ -279,6 +279,17 @@
     (it "coercer message surfaces through coerce-value!"
       (should-throw stdex "must be a string"
                     (s/coerce-value! {:type :any :coercions [:trim]} 42)))
+
+    (it ":one-of validates via validate-value! (set as predicate)"
+      (should= :a (s/validate-value! {:type :any :validations [[:one-of :a :b :c]]} :a))
+      (should-throw stdex "must be one of [:a :b :c]"
+                    (s/validate-value! {:type :any :validations [[:one-of :a :b :c]]} :z)))
+
+    (it ":one-of's field-level :message default overrides resolved ref message"
+      (should-throw stdex "kind required"
+                    (s/validate-value! {:type :any
+                                        :message "kind required"
+                                        :validations [[:one-of :a :b :c]]} :z)))
     )
 
   (context "combinator factories"

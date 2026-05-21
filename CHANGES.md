@@ -1,3 +1,10 @@
+### 2.9.1
+ * Fix: `[:one-of ...]` (and any ref whose `:validate` is a set) now
+   works through `validate-value!` / `conform!`. The validation iterator
+   was treating sets as "multiple validate fns" and trying to call each
+   member as a function, which surfaced as a misleading "must be present"
+   (or other field-level fallback) error.
+
 ### 2.9.0
  * `schema/->validate-fn` and `schema/->coerce-fn` now also accept a
    resolved ref map (anything with `:validate` / `:coerce`). Lets
