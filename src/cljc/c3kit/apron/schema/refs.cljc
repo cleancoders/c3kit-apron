@@ -87,6 +87,12 @@
                     {:validate (some-fn nil? f)
                      :message  (if msg (str "may be nil or " msg) "is invalid")})))
 
+(defref maybe?  (fn [pred]
+                  (let [f   (s/->validate-fn pred)
+                        msg (-inner-msg pred)]
+                    {:validate (some-fn nil? f)
+                     :message  (or msg "is invalid")})))
+
 (defref not?    (fn [pred]
                   (let [f   (s/->validate-fn pred)
                         msg (-inner-msg pred)]
@@ -132,3 +138,18 @@
 
 (defn install! []
   (run! s/register-ref! @-catalog))
+
+(defn installed?
+  "True if the refs catalog has been installed into the currently-bound
+   c3kit.apron.schema/*ref-registry*. Checks for the presence of any
+   catalog key, so it tracks the current binding rather than a global flag."
+  []
+  (let [k (some-> @-catalog first clojure.core/meta :key)]
+    (boolean (and k (contains? @s/*ref-registry* k)))))
+
+(defn ensure-installed!
+  "Idempotent install! — installs only when [[installed?]] is false in the
+   currently-bound *ref-registry*. Safe to call from library init, test
+   `around` hooks, or the REPL without re-registering or log spam."
+  []
+  (when-not (installed?) (install!)))

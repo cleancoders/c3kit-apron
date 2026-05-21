@@ -4,7 +4,7 @@
     [c3kit.apron.schema.refs :as refs]
     [clojure.string :as str]
     [speclj.core #?(:clj :refer :cljs :refer-macros)
-     [around context describe it should should= should-not should-not-be-nil should-throw]]))
+     [around context describe it should should= should-not should-not= should-not-be-nil should-throw]]))
 
 (def stdex
   #?(:clj  clojure.lang.ExceptionInfo
@@ -361,5 +361,57 @@
         (should     ((:validate r) 5))
         (should-not ((:validate r) 11))
         (should= "may be nil or must be between 0 and 10" (:message r))))
+
+    (it ":maybe? is the silent nil-or? — passes nil and inner pred"
+      (let [r (refs/maybe? refs/pos?)]
+        (should     ((:validate r) nil))
+        (should     ((:validate r) 1))
+        (should-not ((:validate r) -1))))
+
+    (it ":maybe? uses the inner pred's message without a prefix"
+      (should= "must be positive" (:message (refs/maybe? refs/pos?)))
+      (should= "must be between 0 and 10" (:message (refs/maybe? (refs/between 0 10))))
+      (should= "must be positive" (:message (refs/maybe? :pos?))))
+
+    (it ":maybe? falls back to \"is invalid\" when inner has no message"
+      (should= "is invalid" (:message (refs/maybe? even?))))
+
+    (it ":maybe? composes through validate-value!"
+      (should= nil (s/validate-value! {:type :any :validations [[:maybe? :pos?]]} nil))
+      (should= 5   (s/validate-value! {:type :any :validations [[:maybe? :pos?]]} 5))
+      (should-throw stdex "must be positive"
+                    (s/validate-value! {:type :any :validations [[:maybe? :pos?]]} -1)))
+    )
+
+  (context "installation"
+
+    (it "installed? is true after install!"
+      (should (refs/installed?)))
+
+    (it "installed? is false on a fresh registry"
+      (binding [s/*ref-registry* (atom {})]
+        (should-not (refs/installed?))))
+
+    (it "ensure-installed! installs when registry is empty"
+      (binding [s/*ref-registry* (atom {})]
+        (should-not (refs/installed?))
+        (refs/ensure-installed!)
+        (should (refs/installed?))
+        (should-not-be-nil (get @s/*ref-registry* :string?))))
+
+    (it "ensure-installed! is a no-op when already installed"
+      (let [warnings (atom [])]
+        (binding [s/*warn-fn* (fn [msg] (swap! warnings conj msg))]
+          (refs/ensure-installed!)
+          (refs/ensure-installed!))
+        (should= [] @warnings)))
+
+    (it "ensure-installed! writes to the currently-bound registry, not the outer one"
+      (let [outer-atom s/*ref-registry*]
+        (reset! outer-atom {:sentinel ::marker})
+        (binding [s/*ref-registry* (atom {})]
+          (refs/ensure-installed!)
+          (should-not-be-nil (get @s/*ref-registry* :string?)))
+        (should= {:sentinel ::marker} @outer-atom)))
     )
   )
