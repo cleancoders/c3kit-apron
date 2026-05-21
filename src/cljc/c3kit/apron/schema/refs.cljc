@@ -75,9 +75,11 @@
 ;; ---------- combinator factories
 
 (defn- -inner-msg [pred]
-  (when-not (fn? pred)
-    (try (:message (s/get-ref! pred))
-         (catch #?(:clj Exception :cljs :default) _ nil))))
+  (cond
+    (fn? pred)  nil
+    (clojure.core/map? pred) (:message pred)
+    :else (try (:message (s/get-ref! pred))
+               (catch #?(:clj Exception :cljs :default) _ nil))))
 
 (defref nil-or? (fn [pred]
                   (let [f   (s/->validate-fn pred)

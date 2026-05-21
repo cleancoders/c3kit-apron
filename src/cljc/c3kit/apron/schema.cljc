@@ -287,22 +287,26 @@
     {key v}))
 
 (defn ->validate-fn
-  "Resolves a value, ref name, or factory invocation to a validate fn.
-  Combinator factories use this to accept either inline fns or registered refs."
+  "Resolves a value, ref name, factory invocation, or validation map to a validate fn.
+  Combinator factories use this to accept inline fns, registered refs, or resolved
+  ref maps (e.g. refs/pos?)."
   [v]
-  (if (-ref? v)
-    (or (:validate (get-ref! v))
-        (throw (ex-info (str "ref " v " has no :validate") {:ref v})))
-    v))
+  (cond
+    (-ref? v) (or (:validate (get-ref! v))
+                  (throw (ex-info (str "ref " v " has no :validate") {:ref v})))
+    (and (map? v) (contains? v :validate)) (:validate v)
+    :else v))
 
 (defn ->coerce-fn
-  "Resolves a value, ref name, or factory invocation to a coerce fn.
-  Combinator factories use this to accept either inline fns or registered refs."
+  "Resolves a value, ref name, factory invocation, or coercion map to a coerce fn.
+  Combinator factories use this to accept inline fns, registered refs, or resolved
+  ref maps (e.g. refs/->int)."
   [v]
-  (if (-ref? v)
-    (or (:coerce (get-ref! v))
-        (throw (ex-info (str "ref " v " has no :coerce") {:ref v})))
-    v))
+  (cond
+    (-ref? v) (or (:coerce (get-ref! v))
+                  (throw (ex-info (str "ref " v " has no :coerce") {:ref v})))
+    (and (map? v) (contains? v :coerce)) (:coerce v)
+    :else v))
 
 ;; endregion ^^^^^ Ref Registry ^^^^^
 

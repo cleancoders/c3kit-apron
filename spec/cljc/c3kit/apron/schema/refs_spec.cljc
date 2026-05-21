@@ -327,5 +327,39 @@
                     (s/validate-value! {:type :any :validations [[:nil-or? :pos?]]} -1))
       (should-throw stdex "must be an integer and must be positive"
                     (s/validate-value! {:type :any :validations [[:and? :integer? :pos?]]} -1.5)))
+
+    (it ":nil-or? accepts a validation map directly"
+      (let [r (refs/nil-or? refs/pos?)]
+        (should     ((:validate r) nil))
+        (should     ((:validate r) 1))
+        (should-not ((:validate r) -1))
+        (should= "may be nil or must be positive" (:message r))))
+
+    (it ":not? accepts a validation map directly"
+      (let [r (refs/not? refs/pos?)]
+        (should     ((:validate r) 0))
+        (should-not ((:validate r) 1))
+        (should= "must not: must be positive" (:message r))))
+
+    (it ":and? accepts validation maps directly"
+      (let [r (refs/and? refs/integer? refs/pos?)]
+        (should     ((:validate r) 4))
+        (should-not ((:validate r) -1))
+        (should-not ((:validate r) 1.5))
+        (should= "must be an integer and must be positive" (:message r))))
+
+    (it ":or? accepts validation maps directly"
+      (let [r (refs/or? refs/pos? refs/zero?)]
+        (should     ((:validate r) 1))
+        (should     ((:validate r) 0))
+        (should-not ((:validate r) -1))
+        (should= "must be positive or must be zero" (:message r))))
+
+    (it "combinators accept factory invocations as resolved maps"
+      (let [r (refs/nil-or? (refs/between 0 10))]
+        (should     ((:validate r) nil))
+        (should     ((:validate r) 5))
+        (should-not ((:validate r) 11))
+        (should= "may be nil or must be between 0 and 10" (:message r))))
     )
   )
