@@ -242,33 +242,31 @@
 
 (def ^:dynamic *ref-registry* (atom {}))
 
-(def ^:dynamic *validation-lexicon* {})
-(def ^:dynamic *coercion-lexicon* {})
+(def default-lexicon
+  {:types         {}
+   :validations   {}
+   :coercions     {}
+   :presentations {}})
+
+(def ^:dynamic *lexicon* default-lexicon)
 
 (defn update-lexicon!
-  "Updates the root binding of a lexicon. kind is :validation or :coercion.
-   Intended for load-time extension by client namespaces; for scoped
-   overrides (e.g. tests, request-local), prefer with-lexicon."
-  [kind f & args]
-  #?(:clj  (apply alter-var-root
-                  (case kind
-                    :validation #'*validation-lexicon*
-                    :coercion   #'*coercion-lexicon*)
-                  f args)
-     :cljs (case kind
-             :validation (set! *validation-lexicon* (apply f *validation-lexicon* args))
-             :coercion   (set! *coercion-lexicon*   (apply f *coercion-lexicon* args)))))
+  "Updates a slot in the lexicon root binding. slot is :types, :validations,
+   :coercions, or :presentations. Intended for load-time extension by client
+   namespaces; for scoped overrides (e.g. tests, request-local), use
+   with-lexicon."
+  [slot f & args]
+  #?(:clj  (alter-var-root #'*lexicon* update slot #(apply f % args))
+     :cljs (set! *lexicon* (update *lexicon* slot #(apply f % args)))))
 
 #?(:clj
    (defmacro with-lexicon
-     "Scopes lexicon overrides for the duration of body. Accepts a map with
-      :validation and/or :coercion keys, each a lexicon map merged onto the
-      current dynamic binding."
-     [lexicons & body]
-     `(let [lex# ~lexicons]
-        (binding [*validation-lexicon* (merge *validation-lexicon* (:validation lex#))
-                  *coercion-lexicon*   (merge *coercion-lexicon*   (:coercion lex#))]
-          ~@body))))
+     "Scopes lexicon overrides for the duration of body. Takes a partial
+      lexicon map (with :types / :validations / :coercions / :presentations
+      keys); each sub-map merges over the current binding."
+     [overrides & body]
+     `(binding [*lexicon* (merge-with merge *lexicon* ~overrides)]
+        ~@body)))
 
 (defn- default-warn [msg]
   #?(:clj  (binding [*out* *err*] (println "WARN:" msg))
@@ -299,10 +297,10 @@
       (or (get @*ref-registry* kw-key)
           (throw (ex-info (str "missing ref " kw-key) {:ref k}))))))
 
-(defn- -lexicon-for [slot-key]
+(defn- -lexicon-slot [slot-key]
   (case slot-key
-    :validate *validation-lexicon*
-    :coerce   *coercion-lexicon*
+    :validate :validations
+    :coerce   :coercions
     nil))
 
 (defn- get-ref-for! [k slot-key]
@@ -310,8 +308,9 @@
     (let [v    (get-ref-for! (first k) slot-key)
           args (rest k)]
       (if (seq args) (apply v args) v))
-    (let [kw-key (keyword k)]
-      (or (get (-lexicon-for slot-key) kw-key)
+    (let [kw-key (keyword k)
+          slot   (-lexicon-slot slot-key)]
+      (or (when slot (get-in *lexicon* [slot kw-key]))
           (get @*ref-registry* kw-key)
           (throw (ex-info (str "missing ref " kw-key) {:ref k}))))))
 
