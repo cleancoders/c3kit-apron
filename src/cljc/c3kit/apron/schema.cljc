@@ -1,11 +1,16 @@
 (ns c3kit.apron.schema
   "Defines data structure, coerces, validates."
   (:refer-clojure :exclude [uri?])
-  #?(:cljs (:require-macros [c3kit.apron.schema :refer [coerce-ex with-lexicon]]))
+  #?(:cljs (:require-macros [c3kit.apron.schema :refer [with-lexicon]]
+                            [c3kit.apron.schema.coercers :refer [coerce-ex]]))
   (:require
     [c3kit.apron.corec :as ccc]
     [c3kit.apron.log :as log]
+    [c3kit.apron.schema.coercers :as coercers]
+    [c3kit.apron.schema.coercions :as coercions]
     [c3kit.apron.schema.path :as path]
+    [c3kit.apron.schema.validators :as validators]
+    [c3kit.apron.schema.validations :as validations]
     [clojure.edn :as edn]
     [clojure.string :as str]
     #?(:cljs [com.cognitect.transit.types])                 ;; https://github.com/cognitect/transit-cljs/issues/41
@@ -35,206 +40,40 @@
 ;; into `:seq` schemas where processes (coerce/validate/etc.) act on the seq value
 ;; itself. To act on each element, use the `:spec` sub-key. See SCHEMA.md "Seq".
 
-;; Macro preserves line numbers
-#?(:clj
-   (defmacro ^:private coerce-ex [value type]
-     `(let [value#     ~value
-            type#      ~type
-            value-str# (pr-str value#)
-            value-str# (if (< 50 (count value-str#))
-                         (str (subs value-str# 0 45) "...")
-                         value-str#)]
-        (ex-info (str "can't coerce " value-str# " to " type#) {:value value# :type type#}))))
+(def date coercers/date)
 
-(def date #?(:clj java.util.Date :cljs js/Date))
+;; region ----- Common Validations (re-exported from c3kit.apron.schema.validate) -----
 
-;; region ----- Common Validations -----
-
-(defn present? [v]
-  (not (or (nil? v)
-           (and (string? v) (str/blank? v)))))
-
-(def required {:validate present? :message "is required"})
-
-(defn nil-or [f] (log/warn "schema/nil-or deprecated.  Use nil?-or instead") (some-fn nil? f))
-(defn nil?-or [f] (some-fn nil? f))
-
-(def email-pattern #"[A-Za-z0-9!#$%&'*+/=?^_`{|}~-]+(?:\.[A-Za-z0-9!#$%&'*+/=?^_`{|}~-]+)*@(?:[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?\.)+[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?")
-
-(defn email? [value] (boolean (re-matches email-pattern value)))
-
-(defn bigdec? [v] #?(:clj (instance? BigDecimal v) :cljs (number? v)))
-
-(defn uri? [value]
-  #?(:clj  (instance? java.net.URI value)
-     :cljs (string? value)))
-
-(defn is-enum? [enum]
-  (let [enum-name (name (:enum enum))
-        enum-set  (ccc/map-set #(keyword enum-name (name %)) (:values enum))]
-    (fn [value]
-      (or (nil? value)
-          (contains? enum-set value)))))
+(def present?      validators/present?)
+(def nil-or        validators/nil-or)
+(def nil?-or       validators/nil?-or)
+(def email-pattern validators/email-pattern)
+(def email?        validators/email?)
+(def bigdec?       validators/bigdec?)
+(def uri?          validators/uri?)
+(def is-enum?      validators/is-enum?)
+(def required      validations/required)
 
 ;; endregion ^^^^^ Common Validations ^^^^^
-;; region ----- Common Coercions -----
+;; region ----- Common Coercions (re-exported from c3kit.apron.schema.coerce) -----
 
-#?(:cljs
-   (defn parse! [f v]
-     (let [result (f v)]
-       (if (js/isNaN result)
-         (throw (js/Error "parsed NaN"))
-         result))))
-
-(defn ->boolean [value]
-  (cond (nil? value) nil
-        (boolean? value) value
-        (string? value) (not= "false" (str/lower-case value))
-        :else (boolean value)))
-
-(defn ->string [value] (some-> value str))
-(defn str-or-nil [v] (->string v))
-
-(defn ->keyword [value]
-  (cond
-    (nil? value) nil
-    (keyword? value) value
-    :else (let [s (str value)]
-            (if (str/starts-with? s ":")
-              (keyword (subs s 1))
-              (keyword s)))))
-
-(defn ->float [v]
-  (cond
-    (nil? v) nil
-    (string? v) (when-not (str/blank? v)
-                  (try
-                    #?(:clj (Double/parseDouble v) :cljs (parse! js/parseFloat v))
-                    (catch #?(:clj Exception :cljs :default) _
-                      (throw (coerce-ex v "float")))))
-    #?@(:clj [(char? v) (-> v str ->float)])
-    #?@(:cljs [(js/isNaN v) nil])
-    (integer? v) (double v)
-    (#?(:clj float? :cljs number?) v) v
-    (bigdec? v) #?(:clj (.doubleValue v) :cljs v)
-    :else (throw (coerce-ex v "float"))))
-
-(defn ->int [v]
-  (cond
-    (nil? v) nil
-    (string? v) (when-not (str/blank? v)
-                  (try
-                    #?(:clj  (long (Double/parseDouble v))
-                       :cljs (parse! js/parseInt v))
-                    (catch #?(:clj Exception :cljs :default) _
-                      (throw (coerce-ex v "int")))))
-    (keyword? v) (throw (coerce-ex v "int"))
-    #?@(:clj [(char? v) (-> v str ->int)])
-    #?@(:cljs [(js/isNaN v) nil])
-    (integer? v) v
-    (#?(:clj float? :cljs number?) v) (long v)
-    (bigdec? v) #?(:clj (.intValue v) :cljs v)
-    :else (throw (coerce-ex v "int"))))
-
-(defn ->bigdec [v]
-  (cond
-    (nil? v) nil
-    (string? v) (when-not (str/blank? v)
-                  (try
-                    #?(:clj  (bigdec v)
-                       :cljs (parse! js/parseFloat v))
-                    (catch #?(:clj Exception :cljs :default) _
-                      (throw (coerce-ex v "bigdec")))))
-    #?@(:clj [(char? v) (-> v str ->bigdec)])
-    #?@(:cljs [(js/isNaN v) nil])
-    (integer? v) #?(:clj (bigdec v) :cljs (double v))
-    (#?(:clj float? :cljs number?) v) #?(:clj (bigdec v) :cljs v)
-    #?(:clj (bigdec? v)) #?(:clj v)
-    :else (throw (coerce-ex v "bigdec"))))
-
-(defn ->date [v]
-  (cond
-    (nil? v) nil
-    (instance? date v) v
-    (integer? v) (doto (new #?(:clj java.util.Date :cljs js/Date)) (.setTime v))
-    #?(:cljs (instance? goog.date.Date v)) #?(:cljs (js/Date. (.getTime v)))
-    (string? v) (cond
-                  (str/blank? v) nil
-                  (str/starts-with? v "#inst") (edn/read-string v)
-                  :else (throw (coerce-ex v "date")))
-    :else (throw (coerce-ex v "date"))))
-
-(defn ->sql-date [v]
-  (cond
-    (nil? v) nil
-    (instance? #?(:clj java.sql.Date :cljs js/Date) v) v
-    #?(:clj (instance? java.util.Date v)) #?(:clj (java.sql.Date. (.getTime v)))
-    (integer? v) #?(:clj (java.sql.Date. v) :cljs (doto (new js/Date) (.setTime v)))
-    #?(:cljs (instance? goog.date.Date v)) #?(:cljs (js/Date. (.getTime v)))
-    (string? v) (cond
-                  (str/blank? v) nil
-                  (str/starts-with? v "#inst") #?(:clj (java.sql.Date. (.getTime (edn/read-string v))) :cljs (edn/read-string v))
-                  :else (throw (coerce-ex v "sql-date")))
-    :else (throw (coerce-ex v "sql-date"))))
-
-(defn ->timestamp [v]
-  (cond
-    (nil? v) nil
-    (instance? #?(:bb java.util.Date :clj java.sql.Timestamp :cljs js/Date) v) v
-    #?@(:bb  []
-        :clj [(instance? java.util.Date v) (java.sql.Timestamp. (.getTime v))])
-    (integer? v) #?(:bb   (java.util.Date. v)
-                    :clj  (java.sql.Timestamp. v)
-                    :cljs (doto (new js/Date) (.setTime v)))
-    #?@(:cljs [(instance? goog.date.Date v) (js/Date. (.getTime v))])
-    (string? v) (cond
-                  (str/blank? v) nil
-                  (str/starts-with? v "#inst")
-                  (let [date (edn/read-string v)]
-                    #?(:bb   date
-                       :clj  (java.sql.Timestamp. (.getTime date))
-                       :cljs date))
-                  :else (throw (coerce-ex v "timestamp")))
-    :else (throw (coerce-ex v "timestamp"))))
-
-(defn ->uri [v]
-  (cond
-    (nil? v) nil
-    #?@(:clj [(instance? java.net.URI v) v])
-    (string? v) #?(:clj (java.net.URI/create v) :cljs v)
-    :else (throw (coerce-ex v "uri"))))
-
-(defn- ->map [m]
-  (cond (nil? m) m
-        (map? m) m
-        (sequential? m) (into {} m)
-        :else (throw (coerce-ex m "map"))))
-
-;; MDM : https://github.com/cognitect/transit-cljs/issues/41
-#?(:cljs (extend-type com.cognitect.transit.types/UUID IUUID))
-
-(defn ->uuid [v]
-  (cond
-    (nil? v) nil
-    (uuid? v) v
-    (string? v) #?(:clj (java.util.UUID/fromString v) :cljs (uuid v))
-    :else (throw (coerce-ex v "uuid"))))
-
-(defn- multiple? [thing]
-  (or (sequential? thing)
-      (set? thing)))
-
-(defn- ->vec [v]
-  (cond
-    (nil? v) []
-    (multiple? v) (vec v)
-    :else [v]))
-
-(defn ->seq [v]
-  (cond
-    (nil? v) []
-    (multiple? v) v
-    :else (list v)))
+#?(:cljs (def parse! coercers/parse!))
+(def ->boolean   coercers/->boolean)
+(def ->string    coercers/->string)
+(def str-or-nil  coercers/str-or-nil)
+(def ->keyword   coercers/->keyword)
+(def ->float     coercers/->float)
+(def ->int       coercers/->int)
+(def ->bigdec    coercers/->bigdec)
+(def ->date      coercers/->date)
+(def ->sql-date  coercers/->sql-date)
+(def ->timestamp coercers/->timestamp)
+(def ->uri       coercers/->uri)
+(def ->uuid      coercers/->uuid)
+(def multiple?   coercers/multiple?)
+(def ->vec       coercers/->vec)
+(def ->seq       coercers/->seq)
+(def ->map       coercers/->map)
 
 ;; endregion ^^^^^ Common Coercions ^^^^^
 
@@ -242,8 +81,8 @@
 
 (def default-lexicon
   {:types         {}
-   :validations   {}
-   :coercions     {}
+   :validations   validations/default-validations
+   :coercions     coercions/default-coercions
    :presentations {}})
 
 (def ^:dynamic *lexicon* default-lexicon)
@@ -309,23 +148,22 @@
       entry)
     {key v}))
 
-(defn ->validate-fn
+(def ->validate-fn
   "Resolves a value, lex name, or factory invocation to a validate fn.
   Combinator factories use this to accept either inline fns or registered lexes."
-  [v]
-  (if (-lex-name? v)
-    (or (:validate (lex! :validations v))
-        (throw (ex-info (str "lex " v " has no :validate") {:lex v})))
-    v))
+  validators/->validate-fn)
 
 (defn ->coerce-fn
-  "Resolves a value, lex name, or factory invocation to a coerce fn.
-  Combinator factories use this to accept either inline fns or registered lexes."
+  "Resolves a value, lex name, or factory invocation to a coerce fn."
   [v]
   (if (-lex-name? v)
     (or (:coerce (lex! :coercions v))
         (throw (ex-info (str "lex " v " has no :coerce") {:lex v})))
     v))
+
+;; Wire validate's combinator resolver to our lexicon lookup. Must happen
+;; after lex! is defined.
+(validators/set-validation-resolver! (fn [n] (lex! :validations n)))
 
 ;; endregion ^^^^^ Lexicon ^^^^^
 

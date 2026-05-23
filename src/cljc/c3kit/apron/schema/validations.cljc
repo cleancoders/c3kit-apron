@@ -1,15 +1,13 @@
 (ns c3kit.apron.schema.validations
-  "Standard validation lexes for the schema lexicon. Each lex is its own
-   var for à-la-carte use; default-validations bundles them and is
-   merged into (:validations c3kit.apron.schema/*lexicon*) at namespace
-   load via update-lexicon!. Requiring this namespace is the opt-in for
-   the built-in validation vocabulary."
+  "Standard validation lexes. Each lex is its own var for à-la-carte use;
+   default-validations bundles them as a {name → lex} map that
+   c3kit.apron.schema merges into the default lexicon at its load.
+   This namespace is pure data — it does not require c3kit.apron.schema."
   (:refer-clojure :exclude [string? integer? keyword? number? boolean? map?
                             pos? neg? zero? pos-int? neg-int? nat-int? uri?
                             > < >= <= = not=])
   (:require
-    [c3kit.apron.schema :as s]
-    [clojure.string :as str]))
+    [c3kit.apron.schema.validators :as validators]))
 
 ;; ---------- type predicates
 
@@ -31,10 +29,11 @@
 
 ;; ---------- apron predicates
 
-(def present? {:validate s/present? :message "is required"})
-(def email?   {:validate s/email?   :message "must be a valid email"})
-(def bigdec?  {:validate s/bigdec?  :message "must be a bigdec"})
-(def uri?     {:validate s/uri?     :message "must be a URI"})
+(def present? {:validate validators/present? :message "is required"})
+(def required present?)
+(def email?   {:validate validators/email?   :message "must be a valid email"})
+(def bigdec?  {:validate validators/bigdec?  :message "must be a bigdec"})
+(def uri?     {:validate validators/uri?     :message "must be a URI"})
 
 ;; ---------- comparison factories
 
@@ -75,38 +74,7 @@
   {:validate (complement (set xs))
    :message  (str "must not be one of " (vec xs))})
 
-;; ---------- combinator factories
-
-(defn- -inner-msg [pred]
-  (when-not (fn? pred)
-    (try (:message (s/lex! :validations pred))
-         (catch #?(:clj Exception :cljs :default) _ nil))))
-
-(defn nil-or? [pred]
-  (let [f   (s/->validate-fn pred)
-        msg (-inner-msg pred)]
-    {:validate (some-fn nil? f)
-     :message  (if msg (str "may be nil or " msg) "is invalid")}))
-
-(defn not? [pred]
-  (let [f   (s/->validate-fn pred)
-        msg (-inner-msg pred)]
-    {:validate (complement f)
-     :message  (if msg (str "must not: " msg) "is invalid")}))
-
-(defn and? [& preds]
-  (let [fs   (mapv s/->validate-fn preds)
-        msgs (keep -inner-msg preds)]
-    {:validate (apply every-pred fs)
-     :message  (if (seq msgs) (str/join " and " msgs) "is invalid")}))
-
-(defn or? [& preds]
-  (let [fs   (mapv s/->validate-fn preds)
-        msgs (keep -inner-msg preds)]
-    {:validate (apply some-fn fs)
-     :message  (if (seq msgs) (str/join " or " msgs) "is invalid")}))
-
-;; ---------- lexicon registration
+;; ---------- lexicon bundle
 
 (def default-validations
   {:string?    string?
@@ -122,6 +90,7 @@
    :neg-int?   neg-int?
    :nat-int?   nat-int?
    :present?   present?
+   :required   required
    :email?     email?
    :bigdec?    bigdec?
    :uri?       uri?
@@ -138,9 +107,7 @@
    :matches    matches
    :one-of     one-of
    :not-one-of not-one-of
-   :nil-or?    nil-or?
-   :not?       not?
-   :and?       and?
-   :or?        or?})
-
-(s/update-lexicon! :validations merge default-validations)
+   :nil-or?    validators/nil-or?
+   :not?       validators/not?
+   :and?       validators/and?
+   :or?        validators/or?})

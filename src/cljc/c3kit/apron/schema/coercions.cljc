@@ -1,11 +1,10 @@
 (ns c3kit.apron.schema.coercions
-  "Standard coercion lexes for the schema lexicon. Each lex is its own
-   var for à-la-carte use; default-coercions bundles them and is merged
-   into (:coercions c3kit.apron.schema/*lexicon*) at namespace load via
-   update-lexicon!. Requiring this namespace is the opt-in for the
-   built-in coercion vocabulary."
+  "Standard coercion lexes. Each lex is its own var for à-la-carte use;
+   default-coercions bundles them as a {name → lex} map that
+   c3kit.apron.schema merges into the default lexicon at its load.
+   This namespace is pure data — it does not require c3kit.apron.schema."
   (:require
-    [c3kit.apron.schema :as s]
+    [c3kit.apron.schema.coercers :as coercers]
     [clojure.string :as str]))
 
 ;; ---------- string coercers
@@ -17,23 +16,23 @@
 
 ;; ---------- type coercers
 
-(def ->string    {:coerce s/->string    :message "could not coerce to string"})
-(def ->int       {:coerce s/->int       :message "could not coerce to int"})
-(def ->float     {:coerce s/->float     :message "could not coerce to float"})
-(def ->bigdec    {:coerce s/->bigdec    :message "could not coerce to bigdec"})
-(def ->boolean   {:coerce s/->boolean   :message "could not coerce to boolean"})
-(def ->keyword   {:coerce s/->keyword   :message "could not coerce to keyword"})
-(def ->date      {:coerce s/->date      :message "could not coerce to date"})
-(def ->sql-date  {:coerce s/->sql-date  :message "could not coerce to sql-date"})
-(def ->timestamp {:coerce s/->timestamp :message "could not coerce to timestamp"})
-(def ->uri       {:coerce s/->uri       :message "could not coerce to URI"})
-(def ->uuid      {:coerce s/->uuid      :message "could not coerce to UUID"})
+(def ->string    {:coerce coercers/->string    :message "could not coerce to string"})
+(def ->int       {:coerce coercers/->int       :message "could not coerce to int"})
+(def ->float     {:coerce coercers/->float     :message "could not coerce to float"})
+(def ->bigdec    {:coerce coercers/->bigdec    :message "could not coerce to bigdec"})
+(def ->boolean   {:coerce coercers/->boolean   :message "could not coerce to boolean"})
+(def ->keyword   {:coerce coercers/->keyword   :message "could not coerce to keyword"})
+(def ->date      {:coerce coercers/->date      :message "could not coerce to date"})
+(def ->sql-date  {:coerce coercers/->sql-date  :message "could not coerce to sql-date"})
+(def ->timestamp {:coerce coercers/->timestamp :message "could not coerce to timestamp"})
+(def ->uri       {:coerce coercers/->uri       :message "could not coerce to URI"})
+(def ->uuid      {:coerce coercers/->uuid      :message "could not coerce to UUID"})
 
 ;; ---------- coercion factories
 
 (defn default [v] {:coerce #(if (nil? %) v %)})
 
-;; ---------- lexicon registration
+;; ---------- lexicon bundle
 
 (def default-coercions
   {:trim        trim
@@ -52,5 +51,3 @@
    :->uri       ->uri
    :->uuid      ->uuid
    :default     default})
-
-(s/update-lexicon! :coercions merge default-coercions)
