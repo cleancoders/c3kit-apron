@@ -1,5 +1,5 @@
 (ns c3kit.apron.schema.validations
-  "Standard validation refs for the schema lexicon. Each ref is its own
+  "Standard validation lexes for the schema lexicon. Each lex is its own
    var for à-la-carte use; default-validations bundles them and is
    merged into (:validations c3kit.apron.schema/*lexicon*) at namespace
    load via update-lexicon!. Requiring this namespace is the opt-in for
@@ -79,7 +79,7 @@
 
 (defn- -inner-msg [pred]
   (when-not (fn? pred)
-    (try (:message (s/validation-ref! pred))
+    (try (:message (s/lex! :validations pred))
          (catch #?(:clj Exception :cljs :default) _ nil))))
 
 (defn nil-or? [pred]

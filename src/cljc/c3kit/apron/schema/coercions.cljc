@@ -1,5 +1,5 @@
 (ns c3kit.apron.schema.coercions
-  "Standard coercion refs for the schema lexicon. Each ref is its own
+  "Standard coercion lexes for the schema lexicon. Each lex is its own
    var for à-la-carte use; default-coercions bundles them and is merged
    into (:coercions c3kit.apron.schema/*lexicon*) at namespace load via
    update-lexicon!. Requiring this namespace is the opt-in for the

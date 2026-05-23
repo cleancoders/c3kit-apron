@@ -1519,132 +1519,142 @@
     )
   )
 
-(describe "ref lookup"
+(describe "lex lookup"
 
-  (context "validation-ref!"
+  (context "lex! on :validations"
 
-    (it "throws when looking up an unregistered ref"
-      (should-throw (schema/validation-ref! :nope)))
+    (it "throws when looking up an unregistered lex"
+      (should-throw (schema/lex! :validations :nope)))
 
     (it "looks up by string-form name"
       (schema/with-lexicon {:validations {:my-pos {:validate pos?}}}
-        (should= {:validate pos?} (schema/validation-ref! "my-pos"))))
+        (should= {:validate pos?} (schema/lex! :validations "my-pos"))))
 
     (it "looks up by symbol-form name"
       (schema/with-lexicon {:validations {:my-pos {:validate pos?}}}
-        (should= {:validate pos?} (schema/validation-ref! 'my-pos))))
+        (should= {:validate pos?} (schema/lex! :validations 'my-pos))))
 
     (it "preserves namespaces for symbol and string keys"
       (schema/with-lexicon {:validations {:ns/sym {:validate pos?}}}
-        (should= {:validate pos?} (schema/validation-ref! :ns/sym))
-        (should= {:validate pos?} (schema/validation-ref! "ns/sym"))
-        (should= {:validate pos?} (schema/validation-ref! 'ns/sym))))
+        (should= {:validate pos?} (schema/lex! :validations :ns/sym))
+        (should= {:validate pos?} (schema/lex! :validations "ns/sym"))
+        (should= {:validate pos?} (schema/lex! :validations 'ns/sym))))
 
     (it "applies a registered factory when looked up via vector form"
       (schema/with-lexicon {:validations {:max-len (fn [n] {:validate #(<= (count %) n)})}}
-        (let [{:keys [validate]} (schema/validation-ref! [:max-len 3])]
+        (let [{:keys [validate]} (schema/lex! :validations [:max-len 3])]
           (should     (validate "ab"))
           (should-not (validate "abcd")))))
 
     (it "resolves a zero-arg vector form like the bare key"
       (schema/with-lexicon {:validations {:pos-pred {:validate pos?}}}
-        (should= {:validate pos?} (schema/validation-ref! [:pos-pred]))))
+        (should= {:validate pos?} (schema/lex! :validations [:pos-pred]))))
     )
 
-  (context "coercion-ref!"
+  (context "lex! on :coercions"
 
-    (it "throws when looking up an unregistered ref"
-      (should-throw (schema/coercion-ref! :nope)))
+    (it "throws when looking up an unregistered lex"
+      (should-throw (schema/lex! :coercions :nope)))
 
-    (it "looks up a coercion ref"
+    (it "looks up a coercion lex"
       (schema/with-lexicon {:coercions {:trimify {:coerce str/trim}}}
-        (should= str/trim (:coerce (schema/coercion-ref! :trimify)))))
+        (should= str/trim (:coerce (schema/lex! :coercions :trimify)))))
+    )
+
+  (context "lex (nil on miss)"
+
+    (it "returns nil for an unregistered name"
+      (should= nil (schema/lex :validations :nope)))
+
+    (it "returns the entry when present"
+      (schema/with-lexicon {:validations {:my-pos {:validate pos?}}}
+        (should= {:validate pos?} (schema/lex :validations :my-pos))))
     )
   )
 
-(describe "refs in :validations and :coercions"
+(describe "lexes in :validations and :coercions"
 
-  (it "resolves a bare ref entry inside :validations"
-    (schema/with-lexicon {:validations {:ref/is-pos {:validate pos?}}}
-      (let [spec {:type :int :validations [:ref/is-pos] :message "must be positive"}]
+  (it "resolves a bare lex entry inside :validations"
+    (schema/with-lexicon {:validations {:lex/is-pos {:validate pos?}}}
+      (let [spec {:type :int :validations [:lex/is-pos] :message "must be positive"}]
         (should= 5 (schema/validate-value! spec 5))
         (should-throw (schema/validate-value! spec -1)))))
 
-  (it "resolves a vector ref entry as a factory call inside :validations"
-    (schema/with-lexicon {:validations {:ref/max-len (fn [n] {:validate (fn [s] (<= (count s) n))})}}
-      (let [spec {:type :string :validations [[:ref/max-len 3]] :message "too long"}]
+  (it "resolves a vector lex entry as a factory call inside :validations"
+    (schema/with-lexicon {:validations {:lex/max-len (fn [n] {:validate (fn [s] (<= (count s) n))})}}
+      (let [spec {:type :string :validations [[:lex/max-len 3]] :message "too long"}]
         (should= "ab" (schema/validate-value! spec "ab"))
         (should-throw (schema/validate-value! spec "abcd")))))
 
   (it "uses the lexicon default message when entry omits one"
-    (schema/with-lexicon {:validations {:ref/present {:validate schema/present? :message "is required"}}}
-      (let [spec {:type :string :validations [:ref/present]}]
+    (schema/with-lexicon {:validations {:lex/present {:validate schema/present? :message "is required"}}}
+      (let [spec {:type :string :validations [:lex/present]}]
         (should-throw stdex "is required" (schema/validate-value! spec nil)))))
 
   (it "spec :message overrides the lexicon default"
-    (schema/with-lexicon {:validations {:ref/present2 {:validate schema/present? :message "is required"}}}
-      (let [spec {:type :string :validations [:ref/present2] :message "Name is mandatory"}]
+    (schema/with-lexicon {:validations {:lex/present2 {:validate schema/present? :message "is required"}}}
+      (let [spec {:type :string :validations [:lex/present2] :message "Name is mandatory"}]
         (should-throw stdex "Name is mandatory" (schema/validate-value! spec nil)))))
 
-  (it "throws when a :validations ref has no :validate key"
-    (schema/with-lexicon {:validations {:ref/coerce-only {:coerce str/trim}}}
-      (let [spec {:type :string :validations [:ref/coerce-only]}]
-        (should-throw stdex "ref :ref/coerce-only has no :validate"
+  (it "throws when a :validations lex has no :validate key"
+    (schema/with-lexicon {:validations {:lex/coerce-only {:coerce str/trim}}}
+      (let [spec {:type :string :validations [:lex/coerce-only]}]
+        (should-throw stdex "lex :lex/coerce-only has no :validate"
                       (schema/validate-value! spec "foo")))))
 
-  (it "applies a registered ref :coerce inside :coercions"
-    (schema/with-lexicon {:coercions {:ref/trim {:coerce str/trim}}}
-      (let [spec {:type :string :coercions [:ref/trim]}]
+  (it "applies a registered lex :coerce inside :coercions"
+    (schema/with-lexicon {:coercions {:lex/trim {:coerce str/trim}}}
+      (let [spec {:type :string :coercions [:lex/trim]}]
         (should= "foo" (schema/coerce-value! spec "  foo  ")))))
 
-  (it "throws when a :coercions ref has no :coerce key"
-    (schema/with-lexicon {:coercions {:ref/validate-only {:validate pos?}}}
-      (let [spec {:type :int :coercions [:ref/validate-only]}]
-        (should-throw stdex "ref :ref/validate-only has no :coerce"
+  (it "throws when a :coercions lex has no :coerce key"
+    (schema/with-lexicon {:coercions {:lex/validate-only {:validate pos?}}}
+      (let [spec {:type :int :coercions [:lex/validate-only]}]
+        (should-throw stdex "lex :lex/validate-only has no :coerce"
                       (schema/coerce-value! spec 5)))))
 
-  (it "resolves a ref-valued :validate inside a map entry of :validations"
-    (schema/with-lexicon {:validations {:ref/positive {:validate pos? :message "must be pos"}}}
-      (let [spec {:type :int :validations [{:validate :ref/positive :message "no good"}]}]
+  (it "resolves a lex-valued :validate inside a map entry of :validations"
+    (schema/with-lexicon {:validations {:lex/positive {:validate pos? :message "must be pos"}}}
+      (let [spec {:type :int :validations [{:validate :lex/positive :message "no good"}]}]
         (should= 1 (schema/validate-value! spec 1))
         (should-throw stdex "no good" (schema/validate-value! spec -1)))))
 
-  (it "resolves a ref-valued :coerce inside a map entry of :coercions"
-    (schema/with-lexicon {:coercions {:ref/upper {:coerce str/upper-case}}}
-      (let [spec {:type :string :coercions [{:coerce :ref/upper}]}]
+  (it "resolves a lex-valued :coerce inside a map entry of :coercions"
+    (schema/with-lexicon {:coercions {:lex/upper {:coerce str/upper-case}}}
+      (let [spec {:type :string :coercions [{:coerce :lex/upper}]}]
         (should= "HI" (schema/coerce-value! spec "hi")))))
 
-  (it "verify-schema-refs returns true when every ref resolves"
+  (it "verify-schema-lexes returns true when every lex resolves"
     (schema/with-lexicon {:validations {:verify/str  {:validate string?}}
                           :coercions   {:verify/trim {:coerce str/trim}}}
       (let [schema {:foo {:type        :string
                           :validations [:verify/str]
                           :coercions   [:verify/trim]}}]
-        (should= true (schema/verify-schema-refs schema)))))
+        (should= true (schema/verify-schema-lexes schema)))))
 
-  (it "verify-schema-refs throws when a :validations ref is unregistered"
+  (it "verify-schema-lexes throws when a :validations lex is unregistered"
     (let [schema {:foo {:type :string :validations [:never-registered]}}]
-      (should-throw stdex (schema/verify-schema-refs schema))))
+      (should-throw stdex (schema/verify-schema-lexes schema))))
 
-  (it "verify-schema-refs throws when a :coercions ref entry is missing its :coerce key"
+  (it "verify-schema-lexes throws when a :coercions lex entry is missing its :coerce key"
     (schema/with-lexicon {:coercions {:verify/shapeless {:message "I have no :coerce key"}}}
       (let [schema {:foo {:type :int :coercions [:verify/shapeless]}}]
-        (should-throw stdex "ref :verify/shapeless has no :coerce"
-                      (schema/verify-schema-refs schema)))))
+        (should-throw stdex "lex :verify/shapeless has no :coerce"
+                      (schema/verify-schema-lexes schema)))))
 
-  (it "missing ref on entity"
+  (it "missing lex on entity"
     (let [pet    (schema/merge-schemas pet {:species {:validations [:plant?]}
                                             :teeth   {:validations [[:sharper-than? 6]]}
                                             :name    {:coercions   ["fruit!"]}
                                             :length  {:coercions   [[(symbol "grow!") 1.5]]}})
           result (schema/conform-message-map pet valid-pet)]
-      (should= "missing ref :plant?" (:species  result))
-      (should= "missing ref :fruit!" (:name  result))
-      (should= "missing ref :sharper-than?" (:teeth  result))
-      (should= "missing ref :grow!" (:length  result))))
+      (should= "missing lex :plant? in :validations"      (:species result))
+      (should= "missing lex :fruit! in :coercions"        (:name    result))
+      (should= "missing lex :sharper-than? in :validations" (:teeth  result))
+      (should= "missing lex :grow! in :coercions"         (:length  result))))
   )
 
-(describe "entity-scoped refs"
+(describe "entity-scoped lexes"
 
   (around [it]
     (schema/with-lexicon

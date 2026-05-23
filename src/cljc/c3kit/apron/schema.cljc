@@ -266,62 +266,62 @@
      `(binding [*lexicon* (merge-with merge *lexicon* ~overrides)]
         ~@body)))
 
-(defn- -lexicon-slot [slot-key]
-  (case slot-key
-    :validate :validations
-    :coerce   :coercions
-    nil))
+(defn lex
+  "Returns the lex named by `name` in the given lexicon `slot`, or nil if
+   not found. `slot` is one of :types, :validations, :coercions,
+   :presentations. `name` is a keyword/symbol/string, or [name & args]
+   for a factory invocation. A lex is the unit stored under each slot
+   key — for :validations and :coercions it's a {:validate ...} or
+   {:coerce ...} map; for factories, a fn returning such a map."
+  [slot name]
+  (if (vector? name)
+    (when-let [factory (lex slot (first name))]
+      (let [args (rest name)]
+        (if (seq args) (apply factory args) factory)))
+    (get-in *lexicon* [slot (keyword name)])))
 
-(defn- get-ref-for! [k slot-key]
-  (if (vector? k)
-    (let [v    (get-ref-for! (first k) slot-key)
-          args (rest k)]
-      (if (seq args) (apply v args) v))
-    (let [kw-key (keyword k)
-          slot   (-lexicon-slot slot-key)]
-      (or (when slot (get-in *lexicon* [slot kw-key]))
-          (throw (ex-info (str "missing ref " kw-key) {:ref k}))))))
+(defn lex!
+  "Like lex, but throws if `name` is not found in `slot`."
+  [slot name]
+  (if (vector? name)
+    (let [factory (lex! slot (first name))
+          args    (rest name)]
+      (if (seq args) (apply factory args) factory))
+    (or (get-in *lexicon* [slot (keyword name)])
+        (throw (ex-info (str "missing lex " (keyword name) " in " slot)
+                        {:slot slot :lex name})))))
 
-(defn validation-ref!
-  "Resolves a validation ref by name (keyword/symbol/string) or factory
-   form [name & args] from (:validations *lexicon*). Throws if missing."
-  [k] (get-ref-for! k :validate))
-
-(defn coercion-ref!
-  "Resolves a coercion ref by name (keyword/symbol/string) or factory
-   form [name & args] from (:coercions *lexicon*). Throws if missing."
-  [k] (get-ref-for! k :coerce))
-
-(defn- -ref? [v]
+(defn- -lex-name? [v]
   (or (keyword? v) (symbol? v) (string? v)
       (and (vector? v)
            (let [h (first v)]
              (or (keyword? h) (symbol? h) (string? h))))))
 
-(defn- -resolve-ref [v slot key]
-  (if (-ref? v)
-    (let [ref (get-ref-for! v key)]
-      (when-not (key ref)
-        (throw (ex-info (str "ref " v " has no " key) {:ref v :slot slot})))
-      ref)
+(defn- -resolve-lex [v slot key]
+  (if (-lex-name? v)
+    (let [lex-slot (case key :validate :validations :coerce :coercions)
+          entry    (lex! lex-slot v)]
+      (when-not (key entry)
+        (throw (ex-info (str "lex " v " has no " key) {:lex v :slot slot})))
+      entry)
     {key v}))
 
 (defn ->validate-fn
-  "Resolves a value, ref name, or factory invocation to a validate fn.
-  Combinator factories use this to accept either inline fns or registered refs."
+  "Resolves a value, lex name, or factory invocation to a validate fn.
+  Combinator factories use this to accept either inline fns or registered lexes."
   [v]
-  (if (-ref? v)
-    (or (:validate (get-ref-for! v :validate))
-        (throw (ex-info (str "ref " v " has no :validate") {:ref v})))
+  (if (-lex-name? v)
+    (or (:validate (lex! :validations v))
+        (throw (ex-info (str "lex " v " has no :validate") {:lex v})))
     v))
 
 (defn ->coerce-fn
-  "Resolves a value, ref name, or factory invocation to a coerce fn.
-  Combinator factories use this to accept either inline fns or registered refs."
+  "Resolves a value, lex name, or factory invocation to a coerce fn.
+  Combinator factories use this to accept either inline fns or registered lexes."
   [v]
-  (if (-ref? v)
-    (or (:coerce (get-ref-for! v :coerce))
-        (throw (ex-info (str "ref " v " has no :coerce") {:ref v})))
+  (if (-lex-name? v)
+    (or (:coerce (lex! :coercions v))
+        (throw (ex-info (str "lex " v " has no :coerce") {:lex v})))
     v))
 
 ;; endregion ^^^^^ Lexicon ^^^^^
@@ -593,7 +593,7 @@
                                   in        (if from-map? (:coerce e) e)
                                   entry-msg (when from-map? (:message e))]
                               (try
-                                (let [resolved (-resolve-ref in :coercions :coerce)]
+                                (let [resolved (-resolve-lex in :coercions :coerce)]
                                   (when-not (= :entity (:scope resolved))
                                     [(:coerce resolved) (or entry-msg (:message resolved) message)]))
                                 (catch #?(:clj Exception :cljs :default) ex
@@ -610,14 +610,14 @@
           (if (:error r)
             (let [{:keys [error step-msg]} r]
               (-process-error :coerce
-                              {:message  (when-not (:ref (ex-data error)) step-msg)
+                              {:message  (when-not (:lex (ex-data error)) step-msg)
                                :exception error}))
             (recur (:value r) rest-steps)))))))
 
 (defn- -normalize-validation-entry [e default-message]
   (let [from-map? (map? e)
         in        (if from-map? (:validate e) e)
-        resolved  (-resolve-ref in :validations :validate)
+        resolved  (-resolve-lex in :validations :validate)
         default-m (if from-map? (:message e) default-message)
         base      (-> (if from-map? e {})
                       (assoc :validate (:validate resolved)
@@ -665,7 +665,7 @@
                              in        (if from-map? (:coerce e) e)
                              entry-msg (when from-map? (:message e))]
                          (try
-                           (let [resolved (-resolve-ref in :coercions :coerce)]
+                           (let [resolved (-resolve-lex in :coercions :coerce)]
                              [(:coerce resolved) (or entry-msg (:message resolved) message)])
                            (catch #?(:clj Exception :cljs :default) ex
                              [(fn [_] (throw ex)) nil]))))
@@ -680,7 +680,7 @@
           (if (:error r)
             (let [{:keys [error step-msg]} r]
               (-process-error :coerce
-                              {:message  (when-not (:ref (ex-data error)) step-msg)
+                              {:message  (when-not (:lex (ex-data error)) step-msg)
                                :exception error}))
             (recur (:value r) rest-steps)))))))
 
@@ -805,7 +805,7 @@
 (defn- -resolve-coercion-entry [e default-message]
   (let [from-map? (map? e)
         in        (if from-map? (:coerce e) e)
-        resolved  (-resolve-ref in :coercions :coerce)
+        resolved  (-resolve-lex in :coercions :coerce)
         entry-msg (when from-map? (:message e))]
     {:coerce  (:coerce resolved)
      :message (or entry-msg (:message resolved) default-message)
@@ -1104,17 +1104,17 @@
 (defn conform-with   [lexicons schema entity] (with-lexicon lexicons (conform!  schema entity)))
 (defn present-with   [lexicons schema entity] (with-lexicon lexicons (present!  schema entity)))
 
-(defn verify-schema-refs
-  "Walks schema; throws on the first :validations or :coercions ref that
+(defn verify-schema-lexes
+  "Walks schema; throws on the first :validations or :coercions lex that
    doesn't resolve or is in the wrong slot. Returns true on success."
   [schema]
   (doseq [[_ spec] schema]
     (walk-schema (fn [s _]
                    (doseq [e (:validations s)]
-                     (-resolve-ref (if (map? e) (:validate e) e)
+                     (-resolve-lex (if (map? e) (:validate e) e)
                                    :validations :validate))
                    (doseq [e (:coercions s)]
-                     (-resolve-ref (if (map? e) (:coerce e) e)
+                     (-resolve-lex (if (map? e) (:coerce e) e)
                                    :coercions :coerce))
                    nil)
                  spec))
@@ -1161,7 +1161,7 @@
               :description "Predicate or seq of predicates applied to the value."}
    :message  {:type :string :description "Error message surfaced when this validation fails."}
    :scope    {:type        :keyword
-              :description "When :entity (set on a registered ref), the validate fn receives (entity field-key) instead of (value) and runs after all field-level validations."}})
+              :description "When :entity (set on a registered lex), the validate fn receives (entity field-key) instead of (value) and runs after all field-level validations."}})
 
 (def validation-entry-spec
   {:type :map :name :validation :schema validation-schema :message "must be schema/validation-schema"})
