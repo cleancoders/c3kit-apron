@@ -823,6 +823,24 @@
       (should= {:validations {0 {:validate "must be an ifn or seq of ifn"}}}
                (schema/validate-message-map schema/spec-schema {:type :string :validations [{:validate "blah"}]})))
 
+    (it "coercions"
+      (should= {:coercions "[:map] expected"}
+               (schema/validate-message-map schema/spec-schema {:type :string :coercions "blah"}))
+      (should-be-nil (schema/validate-message-map schema/spec-schema {:type :string :coercions []}))
+      (should= {:coercions {0 "must be schema/coercion-schema"}}
+               (schema/validate-message-map schema/spec-schema {:type :string :coercions [:blah]}))
+      (should= {:coercions {0 {:coerce "must be an ifn or seq of ifn"}}}
+               (schema/validate-message-map schema/spec-schema {:type :string :coercions [{:coerce "blah"}]})))
+
+    (it "presentations"
+      (should= {:presentations "[:map] expected"}
+               (schema/validate-message-map schema/spec-schema {:type :string :presentations "blah"}))
+      (should-be-nil (schema/validate-message-map schema/spec-schema {:type :string :presentations []}))
+      (should= {:presentations {0 "must be schema/presentation-schema"}}
+               (schema/validate-message-map schema/spec-schema {:type :string :presentations [:blah]}))
+      (should= {:presentations {0 {:present "must be an ifn or seq of ifn"}}}
+               (schema/validate-message-map schema/spec-schema {:type :string :presentations [{:present "blah"}]})))
+
     (it "spec"
       (should= {:spec "only used with type :seq"}
                (schema/validate-message-map schema/spec-schema {:type :string :spec {:type :string}}))

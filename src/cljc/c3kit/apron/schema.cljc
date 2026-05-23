@@ -9,6 +9,7 @@
     [c3kit.apron.schema.coercers :as coercers]
     [c3kit.apron.schema.coercions :as coercions]
     [c3kit.apron.schema.path :as path]
+    [c3kit.apron.schema.presentations :as presentations]
     [c3kit.apron.schema.validators :as validators]
     [c3kit.apron.schema.validations :as validations]
     [clojure.edn :as edn]
@@ -83,7 +84,7 @@
   {:types         {}
    :validations   validations/default-validations
    :coercions     coercions/default-coercions
-   :presentations {}})
+   :presentations presentations/default-presentations})
 
 (def ^:dynamic *lexicon* default-lexicon)
 
@@ -1020,25 +1021,54 @@
 (def validation-entry-spec
   {:type :map :name :validation :schema validation-schema :message "must be schema/validation-schema"})
 
+(def coercion-schema
+  {:coerce  {:type        :one-of
+             :specs       [{:type :fn :validations [required] :message "must be an ifn"}
+                           {:type :seq :spec {:type :fn} :validate seq :message "must not be empty"}]
+             :message     "must be an ifn or seq of ifn"
+             :description "Function (or seq) applied to coerce the value."}
+   :message {:type :string :description "Error message surfaced when this coercion fails."}
+   :scope   {:type        :keyword
+             :description "When :entity (set on a registered lex), the coerce fn receives (entity field-key) instead of (value) and runs after all field-level coercions."}})
+
+(def coercion-entry-spec
+  {:type :map :name :coercion :schema coercion-schema :message "must be schema/coercion-schema"})
+
+(def presentation-schema
+  {:present {:type        :one-of
+             :specs       [{:type :fn :validations [required] :message "must be an ifn"}
+                           {:type :seq :spec {:type :fn} :validate seq :message "must not be empty"}]
+             :message     "must be an ifn or seq of ifn"
+             :description "Function (or seq) applied to transform the value for presentation."}})
+
+(def presentation-entry-spec
+  {:type :map :name :presentation :schema presentation-schema :message "must be schema/presentation-schema"})
+
 (def -spec-schema
-  {:type        {:type        :keyword
-                 :validations [required validate-type]
-                 :description "Required. The kind of value this spec describes (see schema/valid-types)."
-                 :example     :string}
-   :validate    (assoc process-spec-schema
-                  :description "Predicate (or seq) run against the value. Returns truthy when valid.")
-   :coerce      (assoc process-spec-schema
-                  :description "Function (or seq) that transforms input into the target type.")
-   :present     (assoc process-spec-schema
-                  :description "Function (or seq) that transforms the value for presentation.")
-   :message     {:type :string :description "Error message used when validate/coerce fails."}
-   :description {:type :string :description "Human-readable documentation string for this field."}
-   :example     {:type :any :description "An example value that conforms to this spec."}
-   :name        {:type        :keyword
-                 :description "Marks this spec as a named, reusable definition. Doc renderers collect named specs once and reference them elsewhere."}
-   :validations {:type        :seq
-                 :spec        validation-entry-spec
-                 :description "Multiple validate/message pairs, applied in order."}})
+  {:type          {:type        :keyword
+                   :validations [required validate-type]
+                   :description "Required. The kind of value this spec describes (see schema/valid-types)."
+                   :example     :string}
+   :validate      (assoc process-spec-schema
+                    :description "Predicate (or seq) run against the value. Returns truthy when valid.")
+   :coerce        (assoc process-spec-schema
+                    :description "Function (or seq) that transforms input into the target type.")
+   :present       (assoc process-spec-schema
+                    :description "Function (or seq) that transforms the value for presentation.")
+   :message       {:type :string :description "Error message used when validate/coerce fails."}
+   :description   {:type :string :description "Human-readable documentation string for this field."}
+   :example       {:type :any :description "An example value that conforms to this spec."}
+   :name          {:type        :keyword
+                   :description "Marks this spec as a named, reusable definition. Doc renderers collect named specs once and reference them elsewhere."}
+   :validations   {:type        :seq
+                   :spec        validation-entry-spec
+                   :description "Multiple validate/message pairs, applied in order."}
+   :coercions     {:type        :seq
+                   :spec        coercion-entry-spec
+                   :description "Multiple coerce/message pairs, applied in order."}
+   :presentations {:type        :seq
+                   :spec        presentation-entry-spec
+                   :description "Multiple present fns, applied in order."}})
 
 (def nested-spec-schema
   {:type :map :name :spec :schema -spec-schema :message "must be schema/spec-schema"})
