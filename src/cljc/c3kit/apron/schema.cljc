@@ -9,6 +9,7 @@
     [c3kit.apron.schema.coercions :as coercions]
     [c3kit.apron.schema.path :as path]
     [c3kit.apron.schema.presentations :as presentations]
+    [c3kit.apron.schema.types :as types]
     [c3kit.apron.schema.validators :as validators]
     [c3kit.apron.schema.validations :as validations]
     [clojure.edn :as edn]
@@ -79,7 +80,7 @@
 ;; region ----- Lexicon -----
 
 (def default-lexicon
-  {:types         {}
+  {:types         types/default-types
    :validations   validations/default-validations
    :coercions     coercions/default-coercions
    :presentations presentations/default-presentations})
@@ -166,55 +167,6 @@
 
 ;; endregion ^^^^^ Lexicon ^^^^^
 
-;; region ----- Type Tables -----
-
-(def type-validators
-  {:any       (constantly true)
-   :bigdec    (nil?-or bigdec?)
-   :boolean   (nil?-or boolean?)
-   :date      (nil?-or #?(:clj #(instance? java.sql.Date %) :cljs #(instance? date %)))
-   :double    (nil?-or #?(:clj float? :cljs number?))
-   :float     (nil?-or #?(:clj float? :cljs number?))
-   :fn        (nil?-or ifn?)
-   :ignore    (constantly true)
-   :instant   (nil?-or #(instance? date %))
-   :int       (nil?-or integer?)
-   :keyword   (nil?-or keyword?)
-   :kw-ref    (nil?-or keyword?)
-   :long      (nil?-or integer?)
-   :map       (nil?-or map?)
-   :ref       (nil?-or integer?)
-   :seq       (nil?-or multiple?)
-   :string    (nil?-or string?)
-   :timestamp (nil?-or #?(:clj #(instance? java.sql.Timestamp %) :cljs #(instance? date %)))
-   :uri       (nil?-or uri?)
-   :uuid      (nil?-or uuid?)})
-
-(def type-coercers
-  {:any       identity
-   :bigdec    ->bigdec
-   :boolean   ->boolean
-   :date      ->sql-date
-   :double    ->float
-   :float     ->float
-   :fn        identity
-   :ignore    identity
-   :instant   ->date
-   :int       ->int
-   :keyword   ->keyword
-   :kw-ref    ->keyword
-   :long      ->int
-   :map       ->map
-   :ref       ->int
-   :seq       identity
-   :string    ->string
-   :timestamp ->timestamp
-   :uri       ->uri
-   :uuid      ->uuid})
-
-(def valid-types (set (concat (keys type-coercers) [:one-of])))
-
-;; endregion ^^^^^ Type Tables ^^^^^
 
 ;; region ----- shorthands -----
 
@@ -318,12 +270,18 @@
 ;; endregion ^^^^^ Common Schema Attributes ^^^^^
 ;; region ----- Processing -----
 
+(defn valid-types
+  "Returns the set of type names currently in (:types *lexicon*).
+   Dynamic — picks up types added via update-lexicon! or with-lexicon."
+  []
+  (set (keys (:types *lexicon*))))
+
 (defn type-coercer! [type]
-  (or (get type-coercers type)
+  (or (:coerce (lex :types type))
       (throw (ex-info (str "unhandled coercion type: " (pr-str type)) {:coerce? true}))))
 
 (defn type-validator! [type]
-  (or (get type-validators type)
+  (or (:validate (lex :types type))
       (throw (ex-info (str "unhandled validation type: " (pr-str type)) {}))))
 
 (defprotocol FieldError)
@@ -944,7 +902,7 @@
 
 ;; region ----- spec schema -----
 
-(def ^:private validate-type {:validate #(contains? valid-types %) :message "must be one of schema/valid-types"})
+(def ^:private validate-type {:validate #(contains? (valid-types) %) :message "must be one of schema/valid-types"})
 (def process-spec-schema {:type    :one-of
                           :specs   [{:type :fn} {:type :seq :spec {:type :fn}}]
                           :message "must be an ifn or seq of ifn"})
@@ -1036,7 +994,7 @@
 
 (def entity-spec-schema
   (assoc spec-schema
-    :type {:type    :keyword :validate (nil?-or #(contains? valid-types %))
+    :type {:type    :keyword :validate (nil?-or #(contains? (valid-types) %))
            :message "must be one of schema/valid-types"}))
 
 (defn- conform-preserving-extras! [schema spec]
