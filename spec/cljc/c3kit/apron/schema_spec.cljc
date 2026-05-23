@@ -1784,6 +1784,55 @@
         (should= 10 (schema/coerce-value! {:type :any :coercions [:double-it]} 5))))
     )
 
+  (context "presentations slot"
+
+    (it "present-value! resolves a name from *lexicon* :presentations"
+      (schema/with-lexicon {:presentations {:shout {:present clojure.string/upper-case}}}
+        (should= "HELLO" (schema/present-value! {:type :string :presentations [:shout]} "hello"))))
+
+    (it "applies multiple presentations in order"
+      (schema/with-lexicon {:presentations {:trim  {:present clojure.string/trim}
+                                            :shout {:present clojure.string/upper-case}}}
+        (should= "HI"
+                 (schema/present-value! {:type :string :presentations [:trim :shout]} "  hi  "))))
+
+    (it "combines inline :present with :presentations"
+      (schema/with-lexicon {:presentations {:shout {:present clojure.string/upper-case}}}
+        (should= "HELLO!"
+                 (schema/present-value! {:type    :string
+                                         :present #(str % "!")
+                                         :presentations [:shout]} "hello"))))
+
+    (it "applies a registered factory via vector form"
+      (schema/with-lexicon {:presentations {:prefix-with (fn [p] {:present #(str p %)})}}
+        (should= ">>hi"
+                 (schema/present-value! {:type :string :presentations [[:prefix-with ">>"]]} "hi"))))
+
+    (it "resolves a map entry form {:present <name>}"
+      (schema/with-lexicon {:presentations {:shout {:present clojure.string/upper-case}}}
+        (should= "HELLO"
+                 (schema/present-value! {:type :string :presentations [{:present :shout}]} "hello"))))
+
+    (it "present-with scopes a :presentations override"
+      (let [lex {:presentations {:pw-shout {:present clojure.string/upper-case}}}
+            sch {:n {:type :string :presentations [:pw-shout]}}]
+        (should= {:n "HI"} (schema/present-with lex sch {:n "hi"}))))
+
+    (it "update-lexicon! :presentations extends at root"
+      (try
+        (schema/update-lexicon! :presentations assoc :ulex-yell
+                                {:present #(str % "!!!")})
+        (should= "hi!!!"
+                 (schema/present-value! {:type :string :presentations [:ulex-yell]} "hi"))
+        (finally
+          (schema/update-lexicon! :presentations dissoc :ulex-yell))))
+
+    (it "throws when a :presentations lex has no :present key"
+      (schema/with-lexicon {:presentations {:bad {:message "no :present here"}}}
+        (should-throw stdex "lex :bad has no :present"
+                      (schema/present-value! {:type :string :presentations [:bad]} "hi"))))
+    )
+
   (context "slot isolation"
 
     (it "the same name can mean different things in :validations and :coercions"

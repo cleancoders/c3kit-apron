@@ -299,7 +299,10 @@
 
 (defn- -resolve-lex [v slot key]
   (if (-lex-name? v)
-    (let [lex-slot (case key :validate :validations :coerce :coercions)
+    (let [lex-slot (case key
+                     :validate :validations
+                     :coerce   :coercions
+                     :present  :presentations)
           entry    (lex! lex-slot v)]
       (when-not (key entry)
         (throw (ex-info (str "lex " v " has no " key) {:lex v :slot slot})))
@@ -646,8 +649,12 @@
         field-result-or-failure))))
 
 (defn- present-field-spec [spec value]
-  (let [present-fns (->vec (:present spec))]
-    (reduce (fn [result present-fn] (present-fn result)) value present-fns)))
+  (let [inline-fns       (->vec (:present spec))
+        presentation-fns (map (fn [e]
+                                (let [in (if (map? e) (:present e) e)]
+                                  (:present (-resolve-lex in :presentations :present))))
+                              (:presentations spec))]
+    (reduce (fn [result f] (f result)) value (concat inline-fns presentation-fns))))
 
 (defn -process-field-spec [process spec value]
   (case process
@@ -697,8 +704,14 @@
       (entity-result-or-error :validate key spec (assoc entity key coerce-result)))))
 
 (defn- present-entity-level-spec [key spec entity]
-  (let [present-fns      (->vec (:present spec))
-        presented-entity (reduce (fn [result present-fn] (assoc result key (present-fn result))) entity present-fns)]
+  (let [inline-fns       (->vec (:present spec))
+        presentation-fns (map (fn [e]
+                                (let [in (if (map? e) (:present e) e)]
+                                  (:present (-resolve-lex in :presentations :present))))
+                              (:presentations spec))
+        presented-entity (reduce (fn [result f] (assoc result key (f result)))
+                                 entity
+                                 (concat inline-fns presentation-fns))]
     (get presented-entity key)))
 
 (defn -process-entity-level-spec [process key spec entity]
@@ -1105,8 +1118,8 @@
 (defn present-with   [lexicons schema entity] (with-lexicon lexicons (present!  schema entity)))
 
 (defn verify-schema-lexes
-  "Walks schema; throws on the first :validations or :coercions lex that
-   doesn't resolve or is in the wrong slot. Returns true on success."
+  "Walks schema; throws on the first :validations, :coercions, or :presentations
+   lex that doesn't resolve or is in the wrong slot. Returns true on success."
   [schema]
   (doseq [[_ spec] schema]
     (walk-schema (fn [s _]
@@ -1116,6 +1129,9 @@
                    (doseq [e (:coercions s)]
                      (-resolve-lex (if (map? e) (:coerce e) e)
                                    :coercions :coerce))
+                   (doseq [e (:presentations s)]
+                     (-resolve-lex (if (map? e) (:present e) e)
+                                   :presentations :present))
                    nil)
                  spec))
   true)
