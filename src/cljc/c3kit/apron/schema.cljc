@@ -1068,7 +1068,7 @@
                    :description "Multiple coerce/message pairs, applied in order."}
    :presentations {:type        :seq
                    :spec        presentation-entry-spec
-                   :description "Multiple present fns, applied in order."}})
+                   :description "Multiple {:present fn} entries, applied in order."}})
 
 (def nested-spec-schema
   {:type :map :name :spec :schema -spec-schema :message "must be schema/spec-schema"})
