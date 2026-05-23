@@ -5,7 +5,7 @@
     [c3kit.apron.time :as time]
     [speclj.core #?(:clj :refer :cljs :refer-macros) [context describe it should= should-contain should-not-contain
                                                       should-throw should-be-a should should-not should-be-nil
-                                                      with-stubs stub should-not-have-invoked before]]
+                                                      with-stubs stub should-not-have-invoked before around]]
     [clojure.string :as str]
     [c3kit.apron.utilc :as utilc]
     [c3kit.apron.corec :as ccc]
@@ -1519,260 +1519,241 @@
     )
   )
 
-(describe "ref registry"
+(describe "ref lookup"
 
-  (before (schema/reset-ref-registry!))
+  (context "validation-ref!"
 
-  (it "throws when looking up an unregistered ref"
-    (should-throw (schema/get-ref! :nope)))
+    (it "throws when looking up an unregistered ref"
+      (should-throw (schema/validation-ref! :nope)))
 
-  (it "resolves a registered keyword to the registered value"
-    (schema/register-ref! :positive? pos?)
-    (should= pos? (schema/get-ref! :positive?)))
+    (it "looks up by string-form name"
+      (schema/with-lexicon {:validations {:my-pos {:validate pos?}}}
+        (should= {:validate pos?} (schema/validation-ref! "my-pos"))))
 
-  (it "stores a string-keyed registration as a keyword"
-    (schema/register-ref! "stringy" ::sentinel)
-    (should= ::sentinel (schema/get-ref! :stringy)))
+    (it "looks up by symbol-form name"
+      (schema/with-lexicon {:validations {:my-pos {:validate pos?}}}
+        (should= {:validate pos?} (schema/validation-ref! 'my-pos))))
 
-  (it "looks up by string for a keyword-registered ref"
-    (schema/register-ref! :strlook ::sentinel)
-    (should= ::sentinel (schema/get-ref! "strlook")))
+    (it "preserves namespaces for symbol and string keys"
+      (schema/with-lexicon {:validations {:ns/sym {:validate pos?}}}
+        (should= {:validate pos?} (schema/validation-ref! :ns/sym))
+        (should= {:validate pos?} (schema/validation-ref! "ns/sym"))
+        (should= {:validate pos?} (schema/validation-ref! 'ns/sym))))
 
-  (it "treats symbol keys as the keyword version"
-    (schema/register-ref! 'symly ::sentinel)
-    (should= ::sentinel (schema/get-ref! :symly))
-    (should= ::sentinel (schema/get-ref! 'symly)))
+    (it "applies a registered factory when looked up via vector form"
+      (schema/with-lexicon {:validations {:max-len (fn [n] {:validate #(<= (count %) n)})}}
+        (let [{:keys [validate]} (schema/validation-ref! [:max-len 3])]
+          (should     (validate "ab"))
+          (should-not (validate "abcd")))))
 
-  (it "preserves namespaces for symbol and string keys"
-    (schema/register-ref! 'ns/sym ::a)
-    (schema/register-ref! "ns/str" ::b)
-    (should= ::a (schema/get-ref! :ns/sym))
-    (should= ::a (schema/get-ref! "ns/sym"))
-    (should= ::b (schema/get-ref! :ns/str))
-    (should= ::b (schema/get-ref! 'ns/str)))
+    (it "resolves a zero-arg vector form like the bare key"
+      (schema/with-lexicon {:validations {:pos-pred {:validate pos?}}}
+        (should= {:validate pos?} (schema/validation-ref! [:pos-pred]))))
+    )
 
-  (it "applies a registered factory when looked up via vector form"
-    (schema/register-ref! :max-length (fn [n] (fn [s] (<= (count s) n))))
-    (let [pred (schema/get-ref! [:max-length 3])]
-      (should (pred "ab"))
-      (should-not (pred "abcd"))))
+  (context "coercion-ref!"
 
-  (it "resolves a zero-arg vector form like the bare key"
-    (schema/register-ref! :pos-pred pos?)
-    (should= pos? (schema/get-ref! [:pos-pred])))
+    (it "throws when looking up an unregistered ref"
+      (should-throw (schema/coercion-ref! :nope)))
+
+    (it "looks up a coercion ref"
+      (schema/with-lexicon {:coercions {:trimify {:coerce str/trim}}}
+        (should= str/trim (:coerce (schema/coercion-ref! :trimify)))))
+    )
+  )
+
+(describe "refs in :validations and :coercions"
 
   (it "resolves a bare ref entry inside :validations"
-    (schema/register-ref! :ref/is-pos {:validate pos?})
-    (let [spec {:type :int :validations [:ref/is-pos] :message "must be positive"}]
-      (should= 5 (schema/validate-value! spec 5))
-      (should-throw (schema/validate-value! spec -1))))
+    (schema/with-lexicon {:validations {:ref/is-pos {:validate pos?}}}
+      (let [spec {:type :int :validations [:ref/is-pos] :message "must be positive"}]
+        (should= 5 (schema/validate-value! spec 5))
+        (should-throw (schema/validate-value! spec -1)))))
 
   (it "resolves a vector ref entry as a factory call inside :validations"
-    (schema/register-ref! :ref/max-len (fn [n] {:validate (fn [s] (<= (count s) n))}))
-    (let [spec {:type :string :validations [[:ref/max-len 3]] :message "too long"}]
-      (should= "ab" (schema/validate-value! spec "ab"))
-      (should-throw (schema/validate-value! spec "abcd"))))
+    (schema/with-lexicon {:validations {:ref/max-len (fn [n] {:validate (fn [s] (<= (count s) n))})}}
+      (let [spec {:type :string :validations [[:ref/max-len 3]] :message "too long"}]
+        (should= "ab" (schema/validate-value! spec "ab"))
+        (should-throw (schema/validate-value! spec "abcd")))))
 
-  (it "uses the registry default message when entry omits one"
-    (schema/register-ref! :ref/present {:validate schema/present? :message "is required"})
-    (let [spec {:type :string :validations [:ref/present]}]
-      (should-throw stdex "is required" (schema/validate-value! spec nil))))
+  (it "uses the lexicon default message when entry omits one"
+    (schema/with-lexicon {:validations {:ref/present {:validate schema/present? :message "is required"}}}
+      (let [spec {:type :string :validations [:ref/present]}]
+        (should-throw stdex "is required" (schema/validate-value! spec nil)))))
 
-  (it "spec :message overrides the registry default"
-    (schema/register-ref! :ref/present2 {:validate schema/present? :message "is required"})
-    (let [spec {:type :string :validations [:ref/present2] :message "Name is mandatory"}]
-      (should-throw stdex "Name is mandatory" (schema/validate-value! spec nil))))
+  (it "spec :message overrides the lexicon default"
+    (schema/with-lexicon {:validations {:ref/present2 {:validate schema/present? :message "is required"}}}
+      (let [spec {:type :string :validations [:ref/present2] :message "Name is mandatory"}]
+        (should-throw stdex "Name is mandatory" (schema/validate-value! spec nil)))))
 
   (it "throws when a :validations ref has no :validate key"
-    (schema/register-ref! :ref/coerce-only {:coerce str/trim})
-    (let [spec {:type :string :validations [:ref/coerce-only]}]
-      (should-throw stdex "ref :ref/coerce-only has no :validate"
-                    (schema/validate-value! spec "foo"))))
+    (schema/with-lexicon {:validations {:ref/coerce-only {:coerce str/trim}}}
+      (let [spec {:type :string :validations [:ref/coerce-only]}]
+        (should-throw stdex "ref :ref/coerce-only has no :validate"
+                      (schema/validate-value! spec "foo")))))
 
   (it "applies a registered ref :coerce inside :coercions"
-    (schema/register-ref! :ref/trim {:coerce str/trim})
-    (let [spec {:type :string :coercions [:ref/trim]}]
-      (should= "foo" (schema/coerce-value! spec "  foo  "))))
+    (schema/with-lexicon {:coercions {:ref/trim {:coerce str/trim}}}
+      (let [spec {:type :string :coercions [:ref/trim]}]
+        (should= "foo" (schema/coerce-value! spec "  foo  ")))))
 
   (it "throws when a :coercions ref has no :coerce key"
-    (schema/register-ref! :ref/validate-only {:validate pos?})
-    (let [spec {:type :int :coercions [:ref/validate-only]}]
-      (should-throw stdex "ref :ref/validate-only has no :coerce"
-                    (schema/coerce-value! spec 5))))
+    (schema/with-lexicon {:coercions {:ref/validate-only {:validate pos?}}}
+      (let [spec {:type :int :coercions [:ref/validate-only]}]
+        (should-throw stdex "ref :ref/validate-only has no :coerce"
+                      (schema/coerce-value! spec 5)))))
 
   (it "resolves a ref-valued :validate inside a map entry of :validations"
-    (schema/register-ref! :ref/positive {:validate pos? :message "must be pos"})
-    (let [spec {:type :int :validations [{:validate :ref/positive :message "no good"}]}]
-      (should= 1 (schema/validate-value! spec 1))
-      (should-throw stdex "no good" (schema/validate-value! spec -1))))
+    (schema/with-lexicon {:validations {:ref/positive {:validate pos? :message "must be pos"}}}
+      (let [spec {:type :int :validations [{:validate :ref/positive :message "no good"}]}]
+        (should= 1 (schema/validate-value! spec 1))
+        (should-throw stdex "no good" (schema/validate-value! spec -1)))))
 
   (it "resolves a ref-valued :coerce inside a map entry of :coercions"
-    (schema/register-ref! :ref/upper {:coerce str/upper-case})
-    (let [spec {:type :string :coercions [{:coerce :ref/upper}]}]
-      (should= "HI" (schema/coerce-value! spec "hi"))))
-
-  (it "isolates registrations inside a dynamic binding"
-    (binding [schema/*ref-registry* (atom {})]
-      (schema/register-ref! :iso/foo ::iso-only)
-      (should= ::iso-only (schema/get-ref! :iso/foo)))
-    (should-throw stdex (schema/get-ref! :iso/foo)))
-
-  (it "reset-registry! empties the registry"
-    (schema/register-ref! :reset/foo ::sentinel)
-    (schema/reset-ref-registry!)
-    (should-throw stdex (schema/get-ref! :reset/foo)))
-
-  (it "warns when re-registering an existing ref"
-    (let [warned (atom nil)]
-      (binding [schema/*warn-fn* #(reset! warned %)]
-        (schema/register-ref! :collide/x ::a)
-        (schema/register-ref! :collide/x ::b))
-      (should-contain "collide/x" @warned)))
-
-  (it "register-ref! 1-arg pulls :key from metadata"
-    (let [v (with-meta {:validate string? :message "must be a string"}
-                       {:key :metakey})]
-      (schema/register-ref! v)
-      (should= "must be a string" (:message (schema/get-ref! :metakey)))))
+    (schema/with-lexicon {:coercions {:ref/upper {:coerce str/upper-case}}}
+      (let [spec {:type :string :coercions [{:coerce :ref/upper}]}]
+        (should= "HI" (schema/coerce-value! spec "hi")))))
 
   (it "verify-schema-refs returns true when every ref resolves"
-    (schema/register-ref! :verify/str {:validate string?})
-    (schema/register-ref! :verify/trim {:coerce str/trim})
-    (let [schema {:foo {:type        :string
-                        :validations [:verify/str]
-                        :coercions   [:verify/trim]}}]
-      (should= true (schema/verify-schema-refs schema))))
+    (schema/with-lexicon {:validations {:verify/str  {:validate string?}}
+                          :coercions   {:verify/trim {:coerce str/trim}}}
+      (let [schema {:foo {:type        :string
+                          :validations [:verify/str]
+                          :coercions   [:verify/trim]}}]
+        (should= true (schema/verify-schema-refs schema)))))
 
   (it "verify-schema-refs throws when a :validations ref is unregistered"
     (let [schema {:foo {:type :string :validations [:never-registered]}}]
       (should-throw stdex (schema/verify-schema-refs schema))))
 
-  (it "verify-schema-refs throws when a :coercions ref has no :coerce"
-    (schema/register-ref! :verify/v-only {:validate pos?})
-    (let [schema {:foo {:type :int :coercions [:verify/v-only]}}]
-      (should-throw stdex "ref :verify/v-only has no :coerce"
-                    (schema/verify-schema-refs schema))))
+  (it "verify-schema-refs throws when a :coercions ref entry is missing its :coerce key"
+    (schema/with-lexicon {:coercions {:verify/shapeless {:message "I have no :coerce key"}}}
+      (let [schema {:foo {:type :int :coercions [:verify/shapeless]}}]
+        (should-throw stdex "ref :verify/shapeless has no :coerce"
+                      (schema/verify-schema-refs schema)))))
 
   (it "missing ref on entity"
     (let [pet    (schema/merge-schemas pet {:species {:validations [:plant?]}
-                                            :teeth {:validations [[:sharper-than? 6]]}
-                                            :name   {:coercions ["fruit!"]}
-                                            :length {:coercions [[(symbol "grow!") 1.5]]}})
+                                            :teeth   {:validations [[:sharper-than? 6]]}
+                                            :name    {:coercions   ["fruit!"]}
+                                            :length  {:coercions   [[(symbol "grow!") 1.5]]}})
           result (schema/conform-message-map pet valid-pet)]
       (should= "missing ref :plant?" (:species  result))
       (should= "missing ref :fruit!" (:name  result))
       (should= "missing ref :sharper-than?" (:teeth  result))
       (should= "missing ref :grow!" (:length  result))))
+  )
 
-  (context "entity-scoped refs"
+(describe "entity-scoped refs"
 
-    (before (schema/register-ref! :req-when-dog
-                                  {:validate (fn [entity field-key]
-                                               (or (not= "dog" (:species entity))
-                                                   (schema/present? (get entity field-key))))
-                                   :scope    :entity
-                                   :message  "needed for dogs"}))
+  (around [it]
+    (schema/with-lexicon
+      {:validations {:req-when-dog {:validate (fn [entity field-key]
+                                                (or (not= "dog" (:species entity))
+                                                    (schema/present? (get entity field-key))))
+                                    :scope    :entity
+                                    :message  "needed for dogs"}}}
+      (it)))
 
-    (it "validation fails when sibling triggers requirement and field is absent"
-      (let [schema {:species     {:type :string}
-                    :tail-length {:type :int :validations [:req-when-dog]}}]
-        (should= {:tail-length "needed for dogs"}
-                 (schema/validate-message-map schema {:species "dog"}))))
+  (it "validation fails when sibling triggers requirement and field is absent"
+    (let [schema {:species     {:type :string}
+                  :tail-length {:type :int :validations [:req-when-dog]}}]
+      (should= {:tail-length "needed for dogs"}
+               (schema/validate-message-map schema {:species "dog"}))))
 
-    (it "validation passes when sibling condition does not trigger requirement"
-      (let [schema {:species     {:type :string}
-                    :tail-length {:type :int :validations [:req-when-dog]}}]
-        (should-be-nil (schema/validate-message-map schema {:species "cat"}))))
+  (it "validation passes when sibling condition does not trigger requirement"
+    (let [schema {:species     {:type :string}
+                  :tail-length {:type :int :validations [:req-when-dog]}}]
+      (should-be-nil (schema/validate-message-map schema {:species "cat"}))))
 
-    (it "validation passes when sibling triggers and field is present"
-      (let [schema {:species     {:type :string}
-                    :tail-length {:type :int :validations [:req-when-dog]}}]
-        (should-be-nil (schema/validate-message-map schema {:species "dog" :tail-length 5}))))
+  (it "validation passes when sibling triggers and field is present"
+    (let [schema {:species     {:type :string}
+                  :tail-length {:type :int :validations [:req-when-dog]}}]
+      (should-be-nil (schema/validate-message-map schema {:species "dog" :tail-length 5}))))
 
-    (it "validate-value! on a single field bypasses entity-scoped validations"
-      (let [field-spec {:type :int :validations [:req-when-dog]}]
-        (should= 0 (schema/validate-value! field-spec 0))
-        (should-be-nil (schema/validate-value! field-spec nil))))
+  (it "validate-value! on a single field bypasses entity-scoped validations"
+    (let [field-spec {:type :int :validations [:req-when-dog]}]
+      (should= 0 (schema/validate-value! field-spec 0))
+      (should-be-nil (schema/validate-value! field-spec nil))))
 
-    (it "factory ref form binds args before validation runs"
-      (schema/register-ref! :req-when
-                            (fn [other-key expected]
-                              {:validate (fn [entity field-key]
-                                           (or (not= expected (get entity other-key))
-                                               (schema/present? (get entity field-key))))
-                               :scope    :entity
-                               :message  (str "is required when " other-key " is " expected)}))
+  (it "factory ref form binds args before validation runs"
+    (schema/with-lexicon
+      {:validations {:req-when (fn [other-key expected]
+                                 {:validate (fn [entity field-key]
+                                              (or (not= expected (get entity other-key))
+                                                  (schema/present? (get entity field-key))))
+                                  :scope    :entity
+                                  :message  (str "is required when " other-key " is " expected)})}}
       (let [schema {:species     {:type :string}
                     :tail-length {:type :int :validations [[:req-when :species "dog"]]}}]
         (should= {:tail-length "is required when :species is dog"}
                  (schema/validate-message-map schema {:species "dog"}))
-        (should-be-nil (schema/validate-message-map schema {:species "cat"}))))
+        (should-be-nil (schema/validate-message-map schema {:species "cat"})))))
 
-    (it "entity-scoped validation rebinds inside a nested map"
-      (schema/register-ref! :req-when-snake
-                            {:validate (fn [entity field-key]
-                                         (or (not= "snake" (:species entity))
-                                             (schema/present? (get entity field-key))))
-                             :scope    :entity
-                             :message  "needed for snakes"})
-      (let [inner  {:species {:type :string}
-                    :length  {:type :int :validations [:req-when-snake]}}
-            outer  {:owner {:type :string}
-                    :pet   {:type :map :schema inner}}]
+  (it "entity-scoped validation rebinds inside a nested map"
+    (schema/with-lexicon
+      {:validations {:req-when-snake {:validate (fn [entity field-key]
+                                                  (or (not= "snake" (:species entity))
+                                                      (schema/present? (get entity field-key))))
+                                      :scope    :entity
+                                      :message  "needed for snakes"}}}
+      (let [inner {:species {:type :string}
+                   :length  {:type :int :validations [:req-when-snake]}}
+            outer {:owner {:type :string}
+                   :pet   {:type :map :schema inner}}]
         (should= {:pet {:length "needed for snakes"}}
                  (schema/validate-message-map outer {:owner "Joe" :pet {:species "snake"}}))
         (should-be-nil
-          (schema/validate-message-map outer {:owner "Joe" :pet {:species "snake" :length 4}}))))
+          (schema/validate-message-map outer {:owner "Joe" :pet {:species "snake" :length 4}})))))
 
-    (it "value-scoped and entity-scoped validations on the same field both run"
-      (let [schema {:species     {:type :string}
-                    :tail-length {:type        :int
-                                  :validations [{:validate (schema/nil?-or pos?) :message "must be positive"}
-                                                :req-when-dog]}}]
-        (should= {:tail-length "must be positive"}
-                 (schema/validate-message-map schema {:species "cat" :tail-length -1}))
-        (should= {:tail-length "needed for dogs"}
-                 (schema/validate-message-map schema {:species "dog"}))
-        (should-be-nil (schema/validate-message-map schema {:species "dog" :tail-length 5}))))
+  (it "value-scoped and entity-scoped validations on the same field both run"
+    (let [schema {:species     {:type :string}
+                  :tail-length {:type        :int
+                                :validations [{:validate (schema/nil?-or pos?) :message "must be positive"}
+                                              :req-when-dog]}}]
+      (should= {:tail-length "must be positive"}
+               (schema/validate-message-map schema {:species "cat" :tail-length -1}))
+      (should= {:tail-length "needed for dogs"}
+               (schema/validate-message-map schema {:species "dog"}))
+      (should-be-nil (schema/validate-message-map schema {:species "dog" :tail-length 5}))))
 
-    (it "entity-scoped coerce derives a value from sibling fields"
-      (schema/register-ref! :full-name-from-parts
-                            {:coerce (fn [entity _field-key]
-                                       (str (:first-name entity) " " (:last-name entity)))
-                             :scope  :entity})
+  (it "entity-scoped coerce derives a value from sibling fields"
+    (schema/with-lexicon
+      {:coercions {:full-name-from-parts {:coerce (fn [entity _field-key]
+                                                    (str (:first-name entity) " " (:last-name entity)))
+                                          :scope  :entity}}}
       (let [schema {:first-name {:type :string}
                     :last-name  {:type :string}
                     :full-name  {:type :string :coercions [:full-name-from-parts]}}]
         (should= "Ada Lovelace"
-                 (:full-name (schema/coerce schema {:first-name "Ada" :last-name "Lovelace"})))))
+                 (:full-name (schema/coerce schema {:first-name "Ada" :last-name "Lovelace"}))))))
 
-    (it "value-scoped coerce runs before entity-scoped coerce on the same field"
-      (schema/register-ref! :double-it
-                            {:coerce (fn [entity field-key] (* 2 (get entity field-key)))
-                             :scope  :entity})
+  (it "value-scoped coerce runs before entity-scoped coerce on the same field"
+    (schema/with-lexicon
+      {:coercions {:double-it {:coerce (fn [entity field-key] (* 2 (get entity field-key)))
+                               :scope  :entity}}}
       (let [schema {:n {:type :int :coerce inc :coercions [:double-it]}}]
-        (should= 8 (:n (schema/coerce schema {:n 3})))))
+        (should= 8 (:n (schema/coerce schema {:n 3}))))))
 
-    (it "entity-scoped coerce runs before entity-scoped validate on the same field in conform"
-      (schema/register-ref! :default-tail
-                            {:coerce (fn [entity field-key]
-                                       (or (get entity field-key)
-                                           (when (= "dog" (:species entity)) 0)))
-                             :scope  :entity})
+  (it "entity-scoped coerce runs before entity-scoped validate on the same field in conform"
+    (schema/with-lexicon
+      {:coercions {:default-tail {:coerce (fn [entity field-key]
+                                            (or (get entity field-key)
+                                                (when (= "dog" (:species entity)) 0)))
+                                  :scope  :entity}}}
       (let [schema {:species     {:type :string}
                     :tail-length {:type        :int
                                   :coercions   [:default-tail]
                                   :validations [:req-when-dog]}}]
         (should= 0 (:tail-length (schema/conform schema {:species "dog"})))
-        (should-be-nil (schema/conform-message-map schema {:species "dog"}))))
+        (should-be-nil (schema/conform-message-map schema {:species "dog"})))))
 
-    (it "coerce-value! on a single field bypasses entity-scoped coerce"
-      (schema/register-ref! :sibling-coerce
-                            {:coerce (fn [_entity _field-key] "would-have-derived")
-                             :scope  :entity})
+  (it "coerce-value! on a single field bypasses entity-scoped coerce"
+    (schema/with-lexicon
+      {:coercions {:sibling-coerce {:coerce (fn [_entity _field-key] "would-have-derived")
+                                    :scope  :entity}}}
       (should= "raw"
-               (schema/coerce-value! {:type :string :coercions [:sibling-coerce]} "raw")))
-    )
+               (schema/coerce-value! {:type :string :coercions [:sibling-coerce]} "raw"))))
   )
 
 (describe "lexicon"

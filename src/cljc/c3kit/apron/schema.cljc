@@ -238,9 +238,7 @@
 
 ;; endregion ^^^^^ Common Coercions ^^^^^
 
-;; region ----- Ref Registry -----
-
-(def ^:dynamic *ref-registry* (atom {}))
+;; region ----- Lexicon -----
 
 (def default-lexicon
   {:types         {}
@@ -268,35 +266,6 @@
      `(binding [*lexicon* (merge-with merge *lexicon* ~overrides)]
         ~@body)))
 
-(defn- default-warn [msg]
-  #?(:clj  (binding [*out* *err*] (println "WARN:" msg))
-     :cljs (js/console.warn msg)))
-
-(def ^:dynamic *warn-fn* default-warn)
-
-(defn register-ref!
-  ([v]
-   (if-let [k (:key (meta v))]
-     (register-ref! k v)
-     (throw (ex-info "register-ref! 1-arg requires :key in (meta v)" {:value v}))))
-  ([k f]
-   (let [k (keyword k)]
-     (when (contains? @*ref-registry* k)
-       (*warn-fn* (str "ref " k " is being re-registered")))
-     (swap! *ref-registry* assoc k f))))
-
-(defn reset-ref-registry! []
-  (reset! *ref-registry* {}))
-
-(defn get-ref! [k]
-  (if (vector? k)
-    (let [v    (get-ref! (first k))
-          args (rest k)]
-      (if (seq args) (apply v args) v))
-    (let [kw-key (keyword k)]
-      (or (get @*ref-registry* kw-key)
-          (throw (ex-info (str "missing ref " kw-key) {:ref k}))))))
-
 (defn- -lexicon-slot [slot-key]
   (case slot-key
     :validate :validations
@@ -311,8 +280,17 @@
     (let [kw-key (keyword k)
           slot   (-lexicon-slot slot-key)]
       (or (when slot (get-in *lexicon* [slot kw-key]))
-          (get @*ref-registry* kw-key)
           (throw (ex-info (str "missing ref " kw-key) {:ref k}))))))
+
+(defn validation-ref!
+  "Resolves a validation ref by name (keyword/symbol/string) or factory
+   form [name & args] from (:validations *lexicon*). Throws if missing."
+  [k] (get-ref-for! k :validate))
+
+(defn coercion-ref!
+  "Resolves a coercion ref by name (keyword/symbol/string) or factory
+   form [name & args] from (:coercions *lexicon*). Throws if missing."
+  [k] (get-ref-for! k :coerce))
 
 (defn- -ref? [v]
   (or (keyword? v) (symbol? v) (string? v)
@@ -346,7 +324,7 @@
         (throw (ex-info (str "ref " v " has no :coerce") {:ref v})))
     v))
 
-;; endregion ^^^^^ Ref Registry ^^^^^
+;; endregion ^^^^^ Lexicon ^^^^^
 
 ;; region ----- Type Tables -----
 
