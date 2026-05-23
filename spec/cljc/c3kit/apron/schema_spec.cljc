@@ -1,4 +1,5 @@
 (ns c3kit.apron.schema-spec
+  #?(:cljs (:require-macros [c3kit.apron.schema :refer [with-lexicon]]))
   (:require
     [c3kit.apron.schema :as schema]
     [c3kit.apron.time :as time]
@@ -1771,6 +1772,98 @@
                              :scope  :entity})
       (should= "raw"
                (schema/coerce-value! {:type :string :coercions [:sibling-coerce]} "raw")))
+    )
+  )
+
+(describe "lexicons"
+
+  (context "validation lexicon"
+
+    (it "validate-value! resolves a name from *validation-lexicon*"
+      (binding [schema/*validation-lexicon* {:positive? {:validate pos? :message "must be positive"}}]
+        (should= 5 (schema/validate-value! {:type :any :validations [:positive?]} 5))
+        (should-throw stdex "must be positive"
+                      (schema/validate-value! {:type :any :validations [:positive?]} -1))))
+    )
+
+  (context "coercion lexicon"
+
+    (it "coerce-value! resolves a name from *coercion-lexicon*"
+      (binding [schema/*coercion-lexicon* {:double-it {:coerce #(* 2 %) :message "could not double"}}]
+        (should= 10 (schema/coerce-value! {:type :any :coercions [:double-it]} 5))))
+    )
+
+  (context "lexicon isolation"
+
+    (it "the same name can mean different things in validation and coercion lexicons"
+      (binding [schema/*validation-lexicon* {:foo {:validate pos? :message "must be positive"}}
+                schema/*coercion-lexicon*   {:foo {:coerce #(* 2 %) :message "could not double"}}]
+        (should= 10 (schema/coerce-value! {:type :any :coercions [:foo]} 5))
+        (should= 5  (schema/validate-value! {:type :any :validations [:foo]} 5))))
+    )
+
+  (context "update-lexicon!"
+
+    (it "extends the validation lexicon root"
+      (try
+        (schema/update-lexicon! :validation assoc :ulex-pos
+                                {:validate pos? :message "must be positive"})
+        (should= 5 (schema/validate-value! {:type :any :validations [:ulex-pos]} 5))
+        (finally
+          (schema/update-lexicon! :validation dissoc :ulex-pos))))
+
+    (it "extends the coercion lexicon root"
+      (try
+        (schema/update-lexicon! :coercion assoc :ulex-double
+                                {:coerce #(* 2 %) :message "could not double"})
+        (should= 10 (schema/coerce-value! {:type :any :coercions [:ulex-double]} 5))
+        (finally
+          (schema/update-lexicon! :coercion dissoc :ulex-double))))
+    )
+
+  (context "with-lexicon"
+
+    (it "scopes validation lexicon overrides for the duration of the body"
+      (schema/with-lexicon {:validation {:wl-even? {:validate even? :message "must be even"}}}
+        (should= 4 (schema/validate-value! {:type :any :validations [:wl-even?]} 4))
+        (should-throw stdex "must be even"
+                      (schema/validate-value! {:type :any :validations [:wl-even?]} 3))))
+
+    (it "scopes coercion lexicon overrides for the duration of the body"
+      (schema/with-lexicon {:coercion {:wl-inc {:coerce inc :message "could not inc"}}}
+        (should= 6 (schema/coerce-value! {:type :any :coercions [:wl-inc]} 5))))
+
+    (it "supports both lexicons in one form"
+      (schema/with-lexicon {:validation {:wl-pos {:validate pos? :message "positive"}}
+                            :coercion   {:wl-neg {:coerce -    :message "negate"}}}
+        (should= 5 (schema/validate-value! {:type :any :validations [:wl-pos]} 5))
+        (should= -5 (schema/coerce-value! {:type :any :coercions [:wl-neg]} 5))))
+    )
+
+  (context "*-with API"
+
+    (it "validate-with applies a lexicon for entity validation"
+      (let [lex    {:validation {:vw-pos {:validate pos? :message "must be positive"}}}
+            sch    {:n {:type :int :validations [:vw-pos]}}]
+        (should= {:n 5} (schema/validate-with lex sch {:n 5}))
+        (should-throw stdex (schema/validate-with lex sch {:n -1}))))
+
+    (it "coerce-with applies a lexicon for entity coercion"
+      (let [lex {:coercion {:cw-double {:coerce #(* 2 %) :message "could not double"}}}
+            sch {:n {:type :int :coercions [:cw-double]}}]
+        (should= {:n 10} (schema/coerce-with lex sch {:n 5}))))
+
+    (it "conform-with applies both lexicons for entity conform"
+      (let [lex {:validation {:cfw-pos    {:validate pos? :message "must be positive"}}
+                 :coercion   {:cfw-double {:coerce #(* 2 %) :message "could not double"}}}
+            sch {:n {:type :int :coercions [:cfw-double] :validations [:cfw-pos]}}]
+        (should= {:n 10} (schema/conform-with lex sch {:n 5}))
+        (should-throw stdex (schema/conform-with lex sch {:n -3}))))
+
+    (it "present-with scopes a lexicon during presentation"
+      (let [lex {:coercion {:pw-noop {:coerce identity :message "noop"}}}
+            sch {:n {:type :int :present #(str "n=" %)}}]
+        (should= {:n "n=5"} (schema/present-with lex sch {:n 5}))))
     )
   )
 

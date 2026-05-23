@@ -1,7 +1,7 @@
 (ns c3kit.apron.schema
   "Defines data structure, coerces, validates."
   (:refer-clojure :exclude [uri?])
-  #?(:cljs (:require-macros [c3kit.apron.schema :refer [coerce-ex]]))
+  #?(:cljs (:require-macros [c3kit.apron.schema :refer [coerce-ex with-lexicon]]))
   (:require
     [c3kit.apron.corec :as ccc]
     [c3kit.apron.log :as log]
@@ -242,6 +242,34 @@
 
 (def ^:dynamic *ref-registry* (atom {}))
 
+(def ^:dynamic *validation-lexicon* {})
+(def ^:dynamic *coercion-lexicon* {})
+
+(defn update-lexicon!
+  "Updates the root binding of a lexicon. kind is :validation or :coercion.
+   Intended for load-time extension by client namespaces; for scoped
+   overrides (e.g. tests, request-local), prefer with-lexicon."
+  [kind f & args]
+  #?(:clj  (apply alter-var-root
+                  (case kind
+                    :validation #'*validation-lexicon*
+                    :coercion   #'*coercion-lexicon*)
+                  f args)
+     :cljs (case kind
+             :validation (set! *validation-lexicon* (apply f *validation-lexicon* args))
+             :coercion   (set! *coercion-lexicon*   (apply f *coercion-lexicon* args)))))
+
+#?(:clj
+   (defmacro with-lexicon
+     "Scopes lexicon overrides for the duration of body. Accepts a map with
+      :validation and/or :coercion keys, each a lexicon map merged onto the
+      current dynamic binding."
+     [lexicons & body]
+     `(let [lex# ~lexicons]
+        (binding [*validation-lexicon* (merge *validation-lexicon* (:validation lex#))
+                  *coercion-lexicon*   (merge *coercion-lexicon*   (:coercion lex#))]
+          ~@body))))
+
 (defn- default-warn [msg]
   #?(:clj  (binding [*out* *err*] (println "WARN:" msg))
      :cljs (js/console.warn msg)))
@@ -268,8 +296,23 @@
           args (rest k)]
       (if (seq args) (apply v args) v))
     (let [kw-key (keyword k)]
-      (get @*ref-registry* kw-key)
       (or (get @*ref-registry* kw-key)
+          (throw (ex-info (str "missing ref " kw-key) {:ref k}))))))
+
+(defn- -lexicon-for [slot-key]
+  (case slot-key
+    :validate *validation-lexicon*
+    :coerce   *coercion-lexicon*
+    nil))
+
+(defn- get-ref-for! [k slot-key]
+  (if (vector? k)
+    (let [v    (get-ref-for! (first k) slot-key)
+          args (rest k)]
+      (if (seq args) (apply v args) v))
+    (let [kw-key (keyword k)]
+      (or (get (-lexicon-for slot-key) kw-key)
+          (get @*ref-registry* kw-key)
           (throw (ex-info (str "missing ref " kw-key) {:ref k}))))))
 
 (defn- -ref? [v]
@@ -280,7 +323,7 @@
 
 (defn- -resolve-ref [v slot key]
   (if (-ref? v)
-    (let [ref (get-ref! v)]
+    (let [ref (get-ref-for! v key)]
       (when-not (key ref)
         (throw (ex-info (str "ref " v " has no " key) {:ref v :slot slot})))
       ref)
@@ -291,7 +334,7 @@
   Combinator factories use this to accept either inline fns or registered refs."
   [v]
   (if (-ref? v)
-    (or (:validate (get-ref! v))
+    (or (:validate (get-ref-for! v :validate))
         (throw (ex-info (str "ref " v " has no :validate") {:ref v})))
     v))
 
@@ -300,7 +343,7 @@
   Combinator factories use this to accept either inline fns or registered refs."
   [v]
   (if (-ref? v)
-    (or (:coerce (get-ref! v))
+    (or (:coerce (get-ref-for! v :coerce))
         (throw (ex-info (str "ref " v " has no :coerce") {:ref v})))
     v))
 
@@ -1078,6 +1121,11 @@
     (if (error? result)
       (throw (ex-info "Unpresentable entity" result))
       result)))
+
+(defn coerce-with    [lexicons schema entity] (with-lexicon lexicons (coerce!   schema entity)))
+(defn validate-with  [lexicons schema entity] (with-lexicon lexicons (validate! schema entity)))
+(defn conform-with   [lexicons schema entity] (with-lexicon lexicons (conform!  schema entity)))
+(defn present-with   [lexicons schema entity] (with-lexicon lexicons (present!  schema entity)))
 
 (defn verify-schema-refs
   "Walks schema; throws on the first :validations or :coercions ref that
