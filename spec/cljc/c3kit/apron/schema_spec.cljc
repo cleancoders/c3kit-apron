@@ -260,7 +260,7 @@
     (it "validates false values against schema types"
       (let [jerry {:name "Jerry" :pet false}]
         (should= {:pet "can't coerce false to map"} (schema/message-map (schema/coerce owner jerry)))
-        (should= {:pet "is invalid"} (schema/message-map (schema/validate owner jerry)))
+        (should= {:pet "must be a map"} (schema/message-map (schema/validate owner jerry)))
         (should= {:pet "can't coerce false to map"} (schema/message-map (schema/conform owner jerry)))))
 
     (it "does not require collection on seq of schema types"
@@ -297,7 +297,7 @@
     (it "specifies individual errors within nested entities"
       (let [invalid-owner {:pet invalid-pet}
             valid-owner   {:pet valid-pet}]
-        (should= {:pet {:parent   {:age "is invalid"}
+        (should= {:pet {:parent   {:age "must be an integer"}
                         :name     "must be nice and unique name"
                         :species  "must be a pet species"
                         :birthday "must be a date"
@@ -309,7 +309,7 @@
 
     (it "specifies idx for invalid nested entity inside sequential structure"
       (let [invalid-household {:pets [valid-pet invalid-pet valid-pet invalid-pet]}
-            error             {:parent   {:age "is invalid"}
+            error             {:parent   {:age "must be an integer"}
                                :name     "must be nice and unique name"
                                :species  "must be a pet species"
                                :birthday "must be a date"
@@ -733,7 +733,7 @@
       (let [spec {:type :map :key-spec {:type :keyword} :value-spec {:type :map :schema {:name {:type :string}}}}]
         (should-be-nil (schema/message-map (schema/validate-value! spec {:joe {:name "Joe"}})))
         (let [bad (schema/-process-spec-on-value :validate spec {:joe {:name 42}})]
-          (should= {:joe {:name "is invalid"}} (schema/message-map bad)))))
+          (should= {:joe {:name "must be a string"}} (schema/message-map bad)))))
 
     (it "conforms chains coerce then validate"
       (let [spec   {:type :map :key-spec {:type :keyword} :value-spec {:type :map :schema {:name {:type :string}}}}
@@ -770,7 +770,7 @@
             schema    {:crew crew-spec}
             bad       {:crew {:joe {:name 42}}}
             msgs      (schema/message-seq (schema/validate schema bad))]
-        (should-contain "crew.joe.name is invalid" msgs)))
+        (should-contain "crew.joe.name must be a string" msgs)))
 
     (it "entity-level :* still runs alongside dynamic keys"
       (let [crew-spec (assoc {:type       :map
@@ -783,7 +783,7 @@
     (it "seq index path uses bracket"
       (let [schema {:points {:type :seq :spec {:type :int}}}
             msgs   (schema/message-seq (schema/validate schema {:points [1 "bad" 3]}))]
-        (should-contain "points[1] is invalid" msgs)))
+        (should-contain "points[1] must be an integer" msgs)))
 
     )
 
@@ -878,7 +878,7 @@
     (it "description"
       (should-be-nil (schema/validate-message-map schema/spec-schema
                                                   {:type :int :description "a count"}))
-      (should= {:description "is invalid"}
+      (should= {:description "must be a string"}
                (schema/validate-message-map schema/spec-schema {:type :int :description 42})))
 
     (it "example"
@@ -890,7 +890,7 @@
     (it "name"
       (should-be-nil (schema/validate-message-map schema/spec-schema
                                                   {:type :map :name :pet}))
-      (should= {:name "is invalid"}
+      (should= {:name "must be a keyword"}
                (schema/validate-message-map schema/spec-schema {:type :map :name "pet"})))
 
     (context "conform-schema"

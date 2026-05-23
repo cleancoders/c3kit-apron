@@ -381,23 +381,26 @@
         (when-not (v-fn value)
           (throw (ex-info (or message "is invalid") {:value value})))))))
 
+(defn- -coercion-step [message]
+  (fn [e]
+    (let [from-map? (map? e)
+          in        (if from-map? (:coerce e) e)
+          entry-msg (when from-map? (:message e))]
+      (try
+        (let [resolved (-resolve-lex in :coercions :coerce)]
+          (when-not (= :entity (:scope resolved))
+            [(:coerce resolved) (or entry-msg (:message resolved) message)]))
+        (catch #?(:clj Exception :cljs :default) ex
+          [(fn [_] (throw ex)) nil])))))
+
 (defn- coerce-field-spec [spec value]
   (let [{:keys [type message coercions]} spec
-        steps (concat
-                (map #(vector % message) (->vec (:coerce spec)))
-                (->> coercions
-                     (map (fn [e]
-                            (let [from-map? (map? e)
-                                  in        (if from-map? (:coerce e) e)
-                                  entry-msg (when from-map? (:message e))]
-                              (try
-                                (let [resolved (-resolve-lex in :coercions :coerce)]
-                                  (when-not (= :entity (:scope resolved))
-                                    [(:coerce resolved) (or entry-msg (:message resolved) message)]))
-                                (catch #?(:clj Exception :cljs :default) ex
-                                  [(fn [_] (throw ex)) nil])))))
-                     (remove nil?))
-                [[(type-coercer! type) message]])]
+        type-lex (lex :types type)
+        steps    (concat
+                   (map #(vector % message) (->vec (:coerce spec)))
+                   (->> coercions    (map (-coercion-step message)) (remove nil?))
+                   (->> (:coercions type-lex) (map (-coercion-step message)) (remove nil?))
+                   [[(type-coercer! type) message]])]
     (loop [v value, [step & rest-steps] steps]
       (if (nil? step)
         v
@@ -428,11 +431,19 @@
 
 (defn- validate-field-spec [spec value]
   (let [{:keys [type validate validations message]} spec
-        validations (concat [{:validate (type-validator! type) :message message}]
-                            (if validate [{:validate validate :message message}] [])
-                            (->> validations
-                                 (map #(-normalize-validation-entry % message))
-                                 (remove entity-scoped?)))]
+        type-lex     (lex :types type)
+        type-message (or message (:message type-lex))
+        type-vs      (->> (:validations type-lex)
+                          (map #(-normalize-validation-entry % message))
+                          (remove entity-scoped?))
+        user-vs      (->> validations
+                          (map #(-normalize-validation-entry % message))
+                          (remove entity-scoped?))
+        validations  (concat
+                       [{:validate (type-validator! type) :message type-message}]
+                       type-vs
+                       (if validate [{:validate validate :message message}] [])
+                       user-vs)]
     (process-validations validations value)
     value))
 

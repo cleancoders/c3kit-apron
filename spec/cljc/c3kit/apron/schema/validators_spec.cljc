@@ -267,7 +267,7 @@
         (should= "must be between 0 and 999" (schema/error-message (:teeth errors)))
         (should= "must be nice and unique name" (schema/error-message (:name errors)))
         (should= "must be a valid reference format" (schema/error-message (:owner errors)))
-        (should= "is invalid" (schema/error-message (:age (:parent errors))))))
+        (should= "must be an integer" (schema/error-message (:age (:parent errors))))))
 
     (it "of valid entity"
       (let [result (schema/validate pet valid-pet)]
