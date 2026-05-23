@@ -165,14 +165,6 @@
   [f coll]
   (transduce (map f) + coll))
 
-(defn map-some
-  "DEPRECATED: Use `keep` instead.
-   Like (filter some? (map f coll)).
-   Returns a transducer when no collection is provided."
-  ([f] (comp (map f) (filter some?)))
-  ([f coll] (sequence (map-some f) coll))
-  ([f coll & colls] (apply sequence (map-some f) coll colls)))
-
 (defn some-map
   "Like (map f (filter some? coll)).
    Returns a transducer when no collection is provided."

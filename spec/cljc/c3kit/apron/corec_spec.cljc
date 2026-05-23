@@ -264,39 +264,6 @@
       (should= -1 (ccc/sum-by :size [e1 e3]))
       (should= 4 (ccc/sum-by :size things))))
 
-  (context "map-some"
-    (it "removes nil values from mapping"
-      (should= [] (ccc/map-some identity nil))
-      (should= [] (ccc/map-some identity []))
-      (should= [1] (ccc/map-some identity [1]))
-      (should= [1 2 3] (ccc/map-some identity [1 2 3]))
-      (should= [false true false] (ccc/map-some even? [1 2 3]))
-      (should= [1 3] (ccc/map-some :a [{:a 1} {:b 2} {:a 3 :b 4}]))
-      (should= [2 4] (ccc/map-some :b [{:a 1} {:b 2} {:a 3 :b 4}]))
-      (should= [] (ccc/map-some :c [{:a 1} {:b 2} {:a 3 :b 4}])))
-
-    (it "is lazy"
-      (should-be-lazy (ccc/map-some identity [1 2 3]))
-      (should-be-lazy (ccc/map-some identity [1]))
-      (let [empty (ccc/map-some identity [])]
-        #?(:bb   (should-be empty? empty)
-           :clj  (should= (class clojure.lang.PersistentList/EMPTY) (type empty))
-           :cljs (should-be-lazy empty))))
-
-    (it "accepts multiple collections"
-      (should= [[1] [2] [3]] (ccc/map-some vector [1 2 3]))
-      (should= [[1 4] [2 5] [3 6]] (ccc/map-some vector [1 2 3] [4 5 6]))
-      (should= [[1 4 7] [2 5 8] [3 6 9]] (ccc/map-some vector [1 2 3] [4 5 6] [7 8 9]))
-      (letfn [(maybe-even [x y z] (let [sum (+ x y z)] (when (even? sum) sum)))]
-        (should= [12 18] (ccc/map-some maybe-even [1 2 3] [4 5 6] [7 8 9]))))
-
-    (it "creates a transducer"
-      (should= [1 2 3] (transduce (ccc/map-some identity) conj [1 2 3]))
-      (should= [2 4] (eduction (ccc/map-some :a) (map inc) [{:a 1} {:b 2} {:a 3 :b 4}]))
-      (should= [2 4] (sequence (comp (ccc/map-some :a) (map inc)) [{:a 1} {:b 2} {:a 3 :b 4}]))
-      (should= [] (transduce (ccc/map-some identity) conj []))
-      (should= [1 3] (transduce (ccc/map-some identity) conj [1 nil 3]))))
-
   (context "some-map"
     (it "removes nil values before mapping is applied"
       (should= [] (ccc/some-map identity nil))

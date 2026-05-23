@@ -10,7 +10,6 @@
   (:refer-clojure :exclude [uri?])
   (:require
     [c3kit.apron.corec :as ccc]
-    [c3kit.apron.log :as log]
     [clojure.string :as str]))
 
 (def ^:dynamic *validation-resolver*
@@ -33,10 +32,6 @@
 (defn present? [v]
   (not (or (nil? v)
            (and (clojure.core/string? v) (str/blank? v)))))
-
-(defn nil-or [f]
-  (log/warn "schema.validate/nil-or deprecated. Use nil?-or instead.")
-  (some-fn nil? f))
 
 (defn nil?-or [f] (some-fn nil? f))
 

@@ -5,7 +5,6 @@
                             [c3kit.apron.schema.coercers :refer [coerce-ex]]))
   (:require
     [c3kit.apron.corec :as ccc]
-    [c3kit.apron.log :as log]
     [c3kit.apron.schema.coercers :as coercers]
     [c3kit.apron.schema.coercions :as coercions]
     [c3kit.apron.schema.path :as path]
@@ -46,7 +45,6 @@
 ;; region ----- Common Validations (re-exported from c3kit.apron.schema.validate) -----
 
 (def present?      validators/present?)
-(def nil-or        validators/nil-or)
 (def nil?-or       validators/nil?-or)
 (def email-pattern validators/email-pattern)
 (def email?        validators/email?)
@@ -759,13 +757,6 @@
   ([schema key value] (coerce-value! (get schema key) value))
   ([spec value] (process-value-or-error :coerce spec value)))
 
-(defn coerce-value
-  "DEPRECATED"
-  ([schema key value] (coerce-value (get schema key) value))
-  ([spec value]
-   (log/warn "schema/coerce-value is DEPRECATED.  Use schema/coerce-value! instead.")
-   (process-value-or-error :coerce spec value)))
-
 (defn validate-value!
   "throws an exception when validation fails, value otherwise"
   ([schema key value] (validate-value! (get schema key) value))
@@ -781,24 +772,10 @@
   ([schema key value] (conform-value! (get schema key) value))
   ([spec value] (process-value-or-error :conform spec value)))
 
-(defn conform-value
-  "DEPRECATED"
-  ([schema key value] (conform-value (get schema key) value))
-  ([spec value]
-   (log/warn "schema/conform-value is DEPRECATED.  Use schema/conform-value! instead.")
-   (process-value-or-error :conform spec value)))
-
 (defn present-value!
   "returns a presentable representation of the value, or throws"
   ([schema key value] (present-value! (get schema key) value))
   ([spec value] (process-value-or-error :present spec value)))
-
-(defn present-value
-  "DEPRECATED"
-  ([schema key value] (present-value (get schema key) value))
-  ([spec value]
-   (log/warn "schema/present-value is DEPRECATED.  Use schema/present-value! instead.")
-   (process-value-or-error :present spec value)))
 
 (defn coerce
   "Returns coerced entity or SchemaError if any coercion failed. Use error? to check result.
@@ -846,12 +823,6 @@
      (when-let [errors (error-map result)]
        (walk/postwalk (fn [v] (if (field-error? v) (error-message v) v)) errors)))))
 
-(defn error-message-map
-  "DEPRECATED"
-  ([result]
-   (log/warn "schema/error-message-map is DEPRECATED.  Use schema/message-map instead.")
-   (message-map result)))
-
 (defn- path-segment [k]
   (cond (keyword? k) [:key k]
         (int? k)     [:index k]
@@ -874,21 +845,9 @@
             (let [value (str (path/unparse (reverse new-path)) " " v)]
               (recur (rest errors) stack path (conj result value)))))))))
 
-(defn messages
-  "DEPRECATED"
-  ([result]
-   (log/warn "schema/messages is DEPRECATED.  Use schema/message-seq instead.")
-   (message-seq result)))
-
 (defn coerce-message-map
   "Runs coerce on the entity and returns a map of error message, or nil if none."
   [schema entity]
-  (message-map (coerce schema entity)))
-
-(defn coerce-errors
-  "DEPRECATED"
-  [schema entity]
-  (log/warn "schema/coerce-errors is DEPRECATED.  Use schema/coerce-message-map instead.")
   (message-map (coerce schema entity)))
 
 (defn validate-message-map
@@ -896,27 +855,9 @@
   [schema entity]
   (message-map (validate schema entity)))
 
-(defn validate-errors
-  "DEPRECATED"
-  [schema entity]
-  (log/warn "schema/validate-errors is DEPRECATED.  Use schema/validate-message-map instead.")
-  (validate-message-map schema entity))
-
-(defn validation-errors
-  "DEPRECATED"
-  ([schema entity]
-   (log/warn "schema/validation-errors is DEPRECATED.  Use schema/validate-message-map instead.")
-   (validate-message-map schema entity)))
-
 (defn conform-message-map
   "Runs conform on the entity and returns a map of error message, or nil if none."
   [schema entity]
-  (message-map (conform schema entity)))
-
-(defn conform-errors
-  "DEPRECATED"
-  [schema entity]
-  (log/warn "schema/conform-errors is DEPRECATED.  Use schema/conform-message-map instead.")
   (message-map (conform schema entity)))
 
 (defn coerce!

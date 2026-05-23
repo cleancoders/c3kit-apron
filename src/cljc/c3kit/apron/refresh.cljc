@@ -74,7 +74,7 @@
                            (map ns-name)
                            (filter #(str/starts-with? (name %) @prefix))
                            (remove @excludes)
-                           (ccc/map-some ns-to-file))
+                           (keep ns-to-file))
              deleted  (seq (deleted-files tracker files))
              modified (seq (modified-files tracker files))]
          (if (or deleted modified)
