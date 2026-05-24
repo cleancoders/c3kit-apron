@@ -8,6 +8,7 @@
    with c3kit.apron.schema/coerce (the entity-level public fn)."
   #?(:cljs (:require-macros [c3kit.apron.schema.coercers :refer [coerce-ex]]))
   (:require
+    [c3kit.apron.schema.validators :as validators]
     [clojure.edn :as edn]
     [clojure.string :as str]
     #?(:cljs [com.cognitect.transit.types])))                 ;; https://github.com/cognitect/transit-cljs/issues/41
@@ -30,8 +31,6 @@
        (if (js/isNaN result)
          (throw (js/Error "parsed NaN"))
          result))))
-
-(defn bigdec? [v] #?(:clj (instance? BigDecimal v) :cljs (number? v)))
 
 (defn ->boolean [value]
   (cond (nil? value) nil
@@ -63,7 +62,7 @@
     #?@(:cljs [(js/isNaN v) nil])
     (integer? v) (double v)
     (#?(:clj float? :cljs number?) v) v
-    (bigdec? v) #?(:clj (.doubleValue v) :cljs v)
+    (validators/bigdec? v) #?(:clj (.doubleValue v) :cljs v)
     :else (throw (coerce-ex v "float"))))
 
 (defn ->int [v]
@@ -80,7 +79,7 @@
     #?@(:cljs [(js/isNaN v) nil])
     (integer? v) v
     (#?(:clj float? :cljs number?) v) (long v)
-    (bigdec? v) #?(:clj (.intValue v) :cljs v)
+    (validators/bigdec? v) #?(:clj (.intValue v) :cljs v)
     :else (throw (coerce-ex v "int"))))
 
 (defn ->bigdec [v]
@@ -96,7 +95,7 @@
     #?@(:cljs [(js/isNaN v) nil])
     (integer? v) #?(:clj (bigdec v) :cljs (double v))
     (#?(:clj float? :cljs number?) v) #?(:clj (bigdec v) :cljs v)
-    #?(:clj (bigdec? v)) #?(:clj v)
+    #?(:clj (validators/bigdec? v)) #?(:clj v)
     :else (throw (coerce-ex v "bigdec"))))
 
 (defn ->date [v]
@@ -167,18 +166,14 @@
     (string? v) #?(:clj (java.util.UUID/fromString v) :cljs (uuid v))
     :else (throw (coerce-ex v "uuid"))))
 
-(defn multiple? [thing]
-  (or (sequential? thing)
-      (set? thing)))
-
 (defn ->vec [v]
   (cond
     (nil? v) []
-    (multiple? v) (vec v)
+    (validators/multiple? v) (vec v)
     :else [v]))
 
 (defn ->seq [v]
   (cond
     (nil? v) []
-    (multiple? v) v
+    (validators/multiple? v) v
     :else (list v)))

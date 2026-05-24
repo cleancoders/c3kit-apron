@@ -39,8 +39,10 @@
 (def ifn?     {:validate clojure.core/ifn?   :message "must be a function"})
 (def float?   {:validate #?(:clj clojure.core/float? :cljs clojure.core/number?)
                :message  "must be a float"})
-(def multiple? {:validate (fn [v] (or (sequential? v) (set? v)))
-                :message  "must be a sequence"})
+(def multiple?  {:validate validators/multiple?  :message "must be a sequence"})
+(def date?      {:validate validators/date?      :message "must be a date"})
+(def instant?   {:validate validators/instant?   :message "must be an instant"})
+(def timestamp? {:validate validators/timestamp? :message "must be a timestamp"})
 
 ;; ---------- comparison factories
 
@@ -105,6 +107,9 @@
    :ifn?       ifn?
    :float?     float?
    :multiple?  multiple?
+   :date?      date?
+   :instant?   instant?
+   :timestamp? timestamp?
    :>          >
    :<          <
    :>=         >=

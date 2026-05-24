@@ -12,8 +12,7 @@
    Default types' :validations use inline {:validate fn :message msg}
    maps rather than composed [:maybe? :foo?] lex references. The
    composed form reads more elegantly but costs a few lexicon lookups
-   per validation pass. For shipped types on the hot path, the inline
-   form is the right trade.
+   per validation pass; the inline form pays nothing.
 
    Both shapes follow the same message precedence (entry's :message
    wins, spec :message is a fallback), so the choice between them is
@@ -48,15 +47,13 @@
 (def default-types
   {:any       {}
    :ignore    {}
-   :bigdec    {:validations [{:validate (validators/nil?-or coercers/bigdec?)
+   :bigdec    {:validations [{:validate (validators/nil?-or validators/bigdec?)
                               :message  "must be a bigdec"}]
                :coercions   [coercers/->bigdec]}
    :boolean   {:validations [{:validate (validators/nil?-or boolean?)
                               :message  "must be a boolean"}]
                :coercions   [coercers/->boolean]}
-   :date      {:validations [{:validate (validators/nil?-or
-                                          #?(:clj  #(instance? java.sql.Date %)
-                                             :cljs #(instance? coercers/date %)))
+   :date      {:validations [{:validate (validators/nil?-or validators/date?)
                               :message  "must be a date"}]
                :coercions   [coercers/->sql-date]}
    :double    {:validations [{:validate (validators/nil?-or
@@ -69,7 +66,7 @@
                :coercions   [coercers/->float]}
    :fn        {:validations [{:validate (validators/nil?-or ifn?)
                               :message  "must be a function"}]}
-   :instant   {:validations [{:validate (validators/nil?-or #(instance? coercers/date %))
+   :instant   {:validations [{:validate (validators/nil?-or validators/instant?)
                               :message  "must be an instant"}]
                :coercions   [coercers/->date]}
    :int       {:validations [{:validate (validators/nil?-or integer?)
@@ -90,14 +87,12 @@
    :ref       {:validations [{:validate (validators/nil?-or integer?)
                               :message  "must be an integer"}]
                :coercions   [coercers/->int]}
-   :seq       {:validations [{:validate (validators/nil?-or coercers/multiple?)
+   :seq       {:validations [{:validate (validators/nil?-or validators/multiple?)
                               :message  "must be a sequence"}]}
    :string    {:validations [{:validate (validators/nil?-or string?)
                               :message  "must be a string"}]
                :coercions   [coercers/->string]}
-   :timestamp {:validations [{:validate (validators/nil?-or
-                                          #?(:clj  #(instance? java.sql.Timestamp %)
-                                             :cljs #(instance? coercers/date %)))
+   :timestamp {:validations [{:validate (validators/nil?-or validators/timestamp?)
                               :message  "must be a timestamp"}]
                :coercions   [coercers/->timestamp]}
    :uri       {:validations [{:validate (validators/nil?-or validators/uri?)

@@ -45,6 +45,29 @@
   #?(:clj  (instance? java.net.URI value)
      :cljs (clojure.core/string? value)))
 
+(defn multiple?
+  "Sequential or set."
+  [v]
+  (or (sequential? v) (set? v)))
+
+(defn date?
+  "Platform-aware: java.sql.Date on JVM, js/Date in browser."
+  [v]
+  #?(:clj  (instance? java.sql.Date v)
+     :cljs (instance? js/Date v)))
+
+(defn instant?
+  "Platform-aware: java.util.Date on JVM, js/Date in browser."
+  [v]
+  #?(:clj  (instance? java.util.Date v)
+     :cljs (instance? js/Date v)))
+
+(defn timestamp?
+  "Platform-aware: java.sql.Timestamp on JVM, js/Date in browser."
+  [v]
+  #?(:clj  (instance? java.sql.Timestamp v)
+     :cljs (instance? js/Date v)))
+
 (defn is-enum? [enum]
   (let [enum-name (name (:enum enum))
         enum-set  (ccc/map-set #(keyword enum-name (name %)) (:values enum))]

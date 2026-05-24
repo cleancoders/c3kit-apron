@@ -70,7 +70,7 @@
 (def ->timestamp coercers/->timestamp)
 (def ->uri       coercers/->uri)
 (def ->uuid      coercers/->uuid)
-(def multiple?   coercers/multiple?)
+(def multiple?   validators/multiple?)
 (def ->vec       coercers/->vec)
 (def ->seq       coercers/->seq)
 (def ->map       coercers/->map)
