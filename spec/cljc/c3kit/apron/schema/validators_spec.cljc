@@ -63,10 +63,16 @@
                             {:type :any :validations [[:and? :integer? [:between 0 10]]]} 11)))
 
     (it "combinator messages compose from inner ref messages"
-      (should-throw stdex "must be positive"
+      (should-throw stdex "may be nil or must be positive"
                     (schema/validate-value! {:type :any :validations [[:nil-or? :pos?]]} -1))
       (should-throw stdex "must be an integer and must be positive"
                     (schema/validate-value! {:type :any :validations [[:and? :integer? :pos?]]} -1.5)))
+
+    (it ":maybe? wraps without the 'may be nil or' prefix"
+      (should= nil (schema/validate-value! {:type :any :validations [[:maybe? :pos?]]} nil))
+      (should= 5   (schema/validate-value! {:type :any :validations [[:maybe? :pos?]]} 5))
+      (should-throw stdex "must be positive"
+                    (schema/validate-value! {:type :any :validations [[:maybe? :pos?]]} -1)))
     )
   )
 

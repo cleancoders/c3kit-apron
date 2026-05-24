@@ -119,6 +119,7 @@
    :one-of     one-of
    :not-one-of not-one-of
    :nil-or?    validators/nil-or?
+   :maybe?     validators/maybe?
    :not?       validators/not?
    :and?       validators/and?
    :or?        validators/or?})

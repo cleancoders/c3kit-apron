@@ -77,6 +77,15 @@
   (let [f   (->validate-fn pred)
         msg (-inner-msg pred)]
     {:validate (some-fn nil? f)
+     :message  (if msg (str "may be nil or " msg) "is invalid")}))
+
+(defn maybe? [pred]
+  "Like nil-or? but uses the inner pred's :message directly (no
+   'may be nil or ' prefix). Suited for type-level use where the
+   nil-allowed semantics are implied by the type wrapper."
+  (let [f   (->validate-fn pred)
+        msg (-inner-msg pred)]
+    {:validate (some-fn nil? f)
      :message  (or msg "is invalid")}))
 
 (defn not? [pred]

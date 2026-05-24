@@ -10,7 +10,7 @@
    Because each entry in :validations and :coercions is itself a lex
    (with its own :message), failures report the specific failure
    instead of a generic 'is invalid'. Wrapping the type predicate in
-   [:nil-or? :foo?] preserves the historical 'nil is always allowed
+   [:maybe? :foo?] preserves the historical 'nil is always allowed
    for typed fields unless explicitly required' behavior; users who
    want strict non-nil checking add :present? to their spec's
    :validations.
@@ -34,44 +34,44 @@
 (def default-types
   {:any       {}
    :ignore    {}
-   :bigdec    {:validations [[:nil-or? :bigdec?]]
+   :bigdec    {:validations [[:maybe? :bigdec?]]
                :coercions   [coercers/->bigdec]}
-   :boolean   {:validations [[:nil-or? :boolean?]]
+   :boolean   {:validations [[:maybe? :boolean?]]
                :coercions   [coercers/->boolean]}
-   :date      {:validations [[:nil-or? {:validate #?(:clj  #(instance? java.sql.Date %)
+   :date      {:validations [[:maybe? {:validate #?(:clj  #(instance? java.sql.Date %)
                                                      :cljs #(instance? coercers/date %))
                                         :message  "must be a date"}]]
                :coercions   [coercers/->sql-date]}
-   :double    {:validations [[:nil-or? :float?]]
+   :double    {:validations [[:maybe? :float?]]
                :coercions   [coercers/->float]}
-   :float     {:validations [[:nil-or? :float?]]
+   :float     {:validations [[:maybe? :float?]]
                :coercions   [coercers/->float]}
-   :fn        {:validations [[:nil-or? :ifn?]]}
-   :instant   {:validations [[:nil-or? {:validate #(instance? coercers/date %)
+   :fn        {:validations [[:maybe? :ifn?]]}
+   :instant   {:validations [[:maybe? {:validate #(instance? coercers/date %)
                                         :message  "must be an instant"}]]
                :coercions   [coercers/->date]}
-   :int       {:validations [[:nil-or? :integer?]]
+   :int       {:validations [[:maybe? :integer?]]
                :coercions   [coercers/->int]}
-   :keyword   {:validations [[:nil-or? :keyword?]]
+   :keyword   {:validations [[:maybe? :keyword?]]
                :coercions   [coercers/->keyword]}
-   :kw-ref    {:validations [[:nil-or? :keyword?]]
+   :kw-ref    {:validations [[:maybe? :keyword?]]
                :coercions   [coercers/->keyword]}
-   :long      {:validations [[:nil-or? :integer?]]
+   :long      {:validations [[:maybe? :integer?]]
                :coercions   [coercers/->int]}
-   :map       {:validations [[:nil-or? :map?]]
+   :map       {:validations [[:maybe? :map?]]
                :coercions   [coercers/->map]}
-   :ref       {:validations [[:nil-or? :integer?]]
+   :ref       {:validations [[:maybe? :integer?]]
                :coercions   [coercers/->int]}
-   :seq       {:validations [[:nil-or? :multiple?]]}
-   :string    {:validations [[:nil-or? :string?]]
+   :seq       {:validations [[:maybe? :multiple?]]}
+   :string    {:validations [[:maybe? :string?]]
                :coercions   [coercers/->string]}
-   :timestamp {:validations [[:nil-or? {:validate #?(:clj  #(instance? java.sql.Timestamp %)
+   :timestamp {:validations [[:maybe? {:validate #?(:clj  #(instance? java.sql.Timestamp %)
                                                      :cljs #(instance? coercers/date %))
                                         :message  "must be a timestamp"}]]
                :coercions   [coercers/->timestamp]}
-   :uri       {:validations [[:nil-or? :uri?]]
+   :uri       {:validations [[:maybe? :uri?]]
                :coercions   [coercers/->uri]}
-   :uuid      {:validations [[:nil-or? :uuid?]]
+   :uuid      {:validations [[:maybe? :uuid?]]
                :coercions   [coercers/->uuid]}
    ;; structural — dispatched by c3kit.apron.schema/-process-spec-on-value
    :one-of    {}})
