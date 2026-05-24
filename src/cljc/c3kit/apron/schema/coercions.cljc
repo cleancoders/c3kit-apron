@@ -27,6 +27,7 @@
 (def ->timestamp {:coerce coercers/->timestamp :message "could not coerce to timestamp"})
 (def ->uri       {:coerce coercers/->uri       :message "could not coerce to URI"})
 (def ->uuid      {:coerce coercers/->uuid      :message "could not coerce to UUID"})
+(def ->map       {:coerce coercers/->map       :message "could not coerce to map"})
 
 ;; ---------- coercion factories
 
@@ -50,4 +51,5 @@
    :->timestamp ->timestamp
    :->uri       ->uri
    :->uuid      ->uuid
+   :->map       ->map
    :default     default})

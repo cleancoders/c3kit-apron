@@ -5,6 +5,7 @@
    This namespace is pure data — it does not require c3kit.apron.schema."
   (:refer-clojure :exclude [string? integer? keyword? number? boolean? map?
                             pos? neg? zero? pos-int? neg-int? nat-int? uri?
+                            uuid? ifn? float?
                             > < >= <= = not=])
   (:require
     [c3kit.apron.schema.validators :as validators]))
@@ -34,6 +35,12 @@
 (def email?   {:validate validators/email?   :message "must be a valid email"})
 (def bigdec?  {:validate validators/bigdec?  :message "must be a bigdec"})
 (def uri?     {:validate validators/uri?     :message "must be a URI"})
+(def uuid?    {:validate clojure.core/uuid?  :message "must be a UUID"})
+(def ifn?     {:validate clojure.core/ifn?   :message "must be a function"})
+(def float?   {:validate #?(:clj clojure.core/float? :cljs clojure.core/number?)
+               :message  "must be a float"})
+(def multiple? {:validate (fn [v] (or (sequential? v) (set? v)))
+                :message  "must be a sequence"})
 
 ;; ---------- comparison factories
 
@@ -94,6 +101,10 @@
    :email?     email?
    :bigdec?    bigdec?
    :uri?       uri?
+   :uuid?      uuid?
+   :ifn?       ifn?
+   :float?     float?
+   :multiple?  multiple?
    :>          >
    :<          <
    :>=         >=

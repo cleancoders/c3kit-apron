@@ -43,10 +43,11 @@
       (should-contain :ignore t/default-types)
       (should-contain :fn     t/default-types))
 
-    (it "each entry has both :validate and :coerce"
-      (doseq [[name lex] t/default-types]
-        (should (some? (:validate lex)))
-        (should (some? (:coerce lex)))))
+    (it "non-trivial types declare :validations and/or :coercions"
+      (let [non-structural (dissoc t/default-types :any :ignore :one-of :fn :seq)]
+        (doseq [[name lex] non-structural]
+          (should (seq (:validations lex)))
+          (should (seq (:coercions lex))))))
     )
 
   (context "lexicon integration"
@@ -57,22 +58,23 @@
         (should-contain :int vt)
         (should-contain :one-of vt)))
 
-    (it "type-validator! reads from the :types slot"
-      (should     ((schema/type-validator! :string) "hi"))
-      (should     ((schema/type-validator! :string) nil))   ; nil allowed by default
-      (should= false (boolean ((schema/type-validator! :string) 42))))
+    (it "validate-value! uses the type's :validations"
+      (should= "hi" (schema/validate-value! {:type :string} "hi"))
+      (should-throw stdex "must be a string"
+                    (schema/validate-value! {:type :string} 42))
+      (should= nil  (schema/validate-value! {:type :string} nil)))   ; nil allowed by default
 
-    (it "type-coercer! reads from the :types slot"
-      (should= 42  ((schema/type-coercer! :int) "42"))
-      (should= "x" ((schema/type-coercer! :string) "x")))
+    (it "coerce-value! uses the type's :coercions"
+      (should= 42  (schema/coerce-value! {:type :int} "42"))
+      (should= "x" (schema/coerce-value! {:type :string} "x")))
 
-    (it "type-validator! throws on unknown type"
+    (it "validate-value! throws on unknown type"
       (should-throw stdex "unhandled validation type: :nope"
-                    (schema/type-validator! :nope)))
+                    (schema/validate-value! {:type :nope} "anything")))
 
-    (it "type-coercer! throws on unknown type"
+    (it "coerce-value! throws on unknown type"
       (should-throw stdex "unhandled coercion type: :nope"
-                    (schema/type-coercer! :nope)))
+                    (schema/coerce-value! {:type :nope} "anything")))
     )
 
   (context "extending with custom types"

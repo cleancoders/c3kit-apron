@@ -276,14 +276,6 @@
   []
   (set (keys (:types *lexicon*))))
 
-(defn type-coercer! [type]
-  (or (:coerce (lex :types type))
-      (throw (ex-info (str "unhandled coercion type: " (pr-str type)) {:coerce? true}))))
-
-(defn type-validator! [type]
-  (or (:validate (lex :types type))
-      (throw (ex-info (str "unhandled validation type: " (pr-str type)) {}))))
-
 (defprotocol FieldError)
 
 (defrecord CoerceError [message]
@@ -396,11 +388,14 @@
 (defn- coerce-field-spec [spec value]
   (let [{:keys [type message coercions]} spec
         type-lex (lex :types type)
+        _        (when-not type-lex
+                   (throw (ex-info (str "unhandled coercion type: " (pr-str type))
+                                   {:coerce? true})))
         steps    (concat
                    (map #(vector % message) (->vec (:coerce spec)))
-                   (->> coercions    (map (-coercion-step message)) (remove nil?))
+                   (->> coercions             (map (-coercion-step message)) (remove nil?))
                    (->> (:coercions type-lex) (map (-coercion-step message)) (remove nil?))
-                   [[(type-coercer! type) message]])]
+                   (when-let [tc (:coerce type-lex)] [[tc message]]))]
     (loop [v value, [step & rest-steps] steps]
       (if (nil? step)
         v
@@ -431,19 +426,21 @@
 
 (defn- validate-field-spec [spec value]
   (let [{:keys [type validate validations message]} spec
-        type-lex     (lex :types type)
-        type-message (or message (:message type-lex))
-        type-vs      (->> (:validations type-lex)
-                          (map #(-normalize-validation-entry % message))
-                          (remove entity-scoped?))
-        user-vs      (->> validations
-                          (map #(-normalize-validation-entry % message))
-                          (remove entity-scoped?))
-        validations  (concat
-                       [{:validate (type-validator! type) :message type-message}]
-                       type-vs
-                       (if validate [{:validate validate :message message}] [])
-                       user-vs)]
+        type-lex (lex :types type)
+        _        (when-not type-lex
+                   (throw (ex-info (str "unhandled validation type: " (pr-str type)) {})))
+        type-vs  (->> (:validations type-lex)
+                      (map #(-normalize-validation-entry % message))
+                      (remove entity-scoped?))
+        user-vs  (->> validations
+                      (map #(-normalize-validation-entry % message))
+                      (remove entity-scoped?))
+        validations (concat
+                      (when-let [tv (:validate type-lex)]
+                        [{:validate tv :message (or message (:message type-lex))}])
+                      type-vs
+                      (if validate [{:validate validate :message message}] [])
+                      user-vs)]
     (process-validations validations value)
     value))
 

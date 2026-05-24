@@ -1,86 +1,77 @@
 (ns c3kit.apron.schema.types
   "Standard type lexes. A type lex has shape
 
-      {:validate    fn        ; required — the type predicate
-       :coerce      fn        ; required — the type coercer
-       :message     \"...\"     ; optional — fallback message when :validate fails
-       :validations [...]     ; optional — type-bundled validations (run after :validate)
-       :coercions   [...]}    ; optional — type-bundled coercions (run before :coerce)
+      {:validations [...]   ; lex names / factory vectors / inline maps — run as type-level validation
+       :coercions   [...]}  ; lex names / factory vectors / inline maps / bare fns — run as type-level coercion
 
    default-types bundles them as a {name → lex} map that
    c3kit.apron.schema merges into the default lexicon at its load.
+
+   Because each entry in :validations and :coercions is itself a lex
+   (with its own :message), failures report the specific failure
+   instead of a generic 'is invalid'. Wrapping the type predicate in
+   [:nil-or? :foo?] preserves the historical 'nil is always allowed
+   for typed fields unless explicitly required' behavior; users who
+   want strict non-nil checking add :present? to their spec's
+   :validations.
+
+   Note: default-types uses bare coercer fns (e.g. coercers/->int)
+   rather than the named coercion lexes (e.g. :->int). Both work, but
+   bare fns let coerce-ex's specific 'can't coerce VALUE to TYPE'
+   message reach the user; a named lex would substitute the lex's
+   generic 'could not coerce to int' message instead.
 
    This namespace is pure data; it does not require c3kit.apron.schema.
 
    :one-of, :seq, and :map are structural types — c3kit.apron.schema's
    process-spec-on-value dispatches on them before the type lex's
-   :validate / :coerce would run. They're included here so the lex
-   names resolve and conform-schema! recognizes them as valid types."
+   validations / coercions would run. They're included here so the
+   lex names resolve and conform-schema! recognizes them as valid
+   types."
   (:require
-    [c3kit.apron.schema.coercers :as coercers]
-    [c3kit.apron.schema.validators :as validators]))
+    [c3kit.apron.schema.coercers :as coercers]))
 
 (def default-types
-  {:any       {:validate (constantly true)
-               :coerce   identity}
-   :bigdec    {:validate (validators/nil?-or coercers/bigdec?)
-               :coerce   coercers/->bigdec
-               :message  "must be a bigdec"}
-   :boolean   {:validate (validators/nil?-or boolean?)
-               :coerce   coercers/->boolean
-               :message  "must be a boolean"}
-   :date      {:validate (validators/nil?-or #?(:clj  #(instance? java.sql.Date %)
-                                                :cljs #(instance? coercers/date %)))
-               :coerce   coercers/->sql-date
-               :message  "must be a date"}
-   :double    {:validate (validators/nil?-or #?(:clj float? :cljs number?))
-               :coerce   coercers/->float
-               :message  "must be a double"}
-   :float     {:validate (validators/nil?-or #?(:clj float? :cljs number?))
-               :coerce   coercers/->float
-               :message  "must be a float"}
-   :fn        {:validate (validators/nil?-or ifn?)
-               :coerce   identity
-               :message  "must be a function"}
-   :ignore    {:validate (constantly true)
-               :coerce   identity}
-   :instant   {:validate (validators/nil?-or #(instance? coercers/date %))
-               :coerce   coercers/->date
-               :message  "must be an instant"}
-   :int       {:validate (validators/nil?-or integer?)
-               :coerce   coercers/->int
-               :message  "must be an integer"}
-   :keyword   {:validate (validators/nil?-or keyword?)
-               :coerce   coercers/->keyword
-               :message  "must be a keyword"}
-   :kw-ref    {:validate (validators/nil?-or keyword?)
-               :coerce   coercers/->keyword
-               :message  "must be a keyword"}
-   :long      {:validate (validators/nil?-or integer?)
-               :coerce   coercers/->int
-               :message  "must be an integer"}
-   :map       {:validate (validators/nil?-or map?)
-               :coerce   coercers/->map
-               :message  "must be a map"}
-   :ref       {:validate (validators/nil?-or integer?)
-               :coerce   coercers/->int
-               :message  "must be an integer"}
-   :seq       {:validate (validators/nil?-or coercers/multiple?)
-               :coerce   identity
-               :message  "must be a sequence"}
-   :string    {:validate (validators/nil?-or string?)
-               :coerce   coercers/->string
-               :message  "must be a string"}
-   :timestamp {:validate (validators/nil?-or #?(:clj  #(instance? java.sql.Timestamp %)
-                                                :cljs #(instance? coercers/date %)))
-               :coerce   coercers/->timestamp
-               :message  "must be a timestamp"}
-   :uri       {:validate (validators/nil?-or validators/uri?)
-               :coerce   coercers/->uri
-               :message  "must be a URI"}
-   :uuid      {:validate (validators/nil?-or uuid?)
-               :coerce   coercers/->uuid
-               :message  "must be a UUID"}
+  {:any       {}
+   :ignore    {}
+   :bigdec    {:validations [[:nil-or? :bigdec?]]
+               :coercions   [coercers/->bigdec]}
+   :boolean   {:validations [[:nil-or? :boolean?]]
+               :coercions   [coercers/->boolean]}
+   :date      {:validations [[:nil-or? {:validate #?(:clj  #(instance? java.sql.Date %)
+                                                     :cljs #(instance? coercers/date %))
+                                        :message  "must be a date"}]]
+               :coercions   [coercers/->sql-date]}
+   :double    {:validations [[:nil-or? :float?]]
+               :coercions   [coercers/->float]}
+   :float     {:validations [[:nil-or? :float?]]
+               :coercions   [coercers/->float]}
+   :fn        {:validations [[:nil-or? :ifn?]]}
+   :instant   {:validations [[:nil-or? {:validate #(instance? coercers/date %)
+                                        :message  "must be an instant"}]]
+               :coercions   [coercers/->date]}
+   :int       {:validations [[:nil-or? :integer?]]
+               :coercions   [coercers/->int]}
+   :keyword   {:validations [[:nil-or? :keyword?]]
+               :coercions   [coercers/->keyword]}
+   :kw-ref    {:validations [[:nil-or? :keyword?]]
+               :coercions   [coercers/->keyword]}
+   :long      {:validations [[:nil-or? :integer?]]
+               :coercions   [coercers/->int]}
+   :map       {:validations [[:nil-or? :map?]]
+               :coercions   [coercers/->map]}
+   :ref       {:validations [[:nil-or? :integer?]]
+               :coercions   [coercers/->int]}
+   :seq       {:validations [[:nil-or? :multiple?]]}
+   :string    {:validations [[:nil-or? :string?]]
+               :coercions   [coercers/->string]}
+   :timestamp {:validations [[:nil-or? {:validate #?(:clj  #(instance? java.sql.Timestamp %)
+                                                     :cljs #(instance? coercers/date %))
+                                        :message  "must be a timestamp"}]]
+               :coercions   [coercers/->timestamp]}
+   :uri       {:validations [[:nil-or? :uri?]]
+               :coercions   [coercers/->uri]}
+   :uuid      {:validations [[:nil-or? :uuid?]]
+               :coercions   [coercers/->uuid]}
    ;; structural — dispatched by c3kit.apron.schema/-process-spec-on-value
-   :one-of    {:validate (constantly true)
-               :coerce   identity}})
+   :one-of    {}})

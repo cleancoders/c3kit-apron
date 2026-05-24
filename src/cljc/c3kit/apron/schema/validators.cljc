@@ -55,17 +55,21 @@
 ;; ---------- combinator helpers
 
 (defn ->validate-fn
-  "Resolves v to a validate fn. v may be an inline fn (returned as-is) or
-   a lex name (resolved via *validation-resolver*)."
+  "Resolves v to a validate fn. v may be an inline fn (returned as-is),
+   an inline lex map (:validate extracted), or a lex name (resolved via
+   *validation-resolver*)."
   [v]
-  (if (fn? v)
-    v
-    (:validate (*validation-resolver* v))))
+  (cond
+    (fn? v)  v
+    (map? v) (:validate v)
+    :else    (:validate (*validation-resolver* v))))
 
 (defn- -inner-msg [pred]
-  (when-not (fn? pred)
-    (try (:message (*validation-resolver* pred))
-         (catch #?(:clj Exception :cljs :default) _ nil))))
+  (cond
+    (fn? pred)  nil
+    (map? pred) (:message pred)
+    :else       (try (:message (*validation-resolver* pred))
+                     (catch #?(:clj Exception :cljs :default) _ nil))))
 
 ;; ---------- combinator factories
 
@@ -73,7 +77,7 @@
   (let [f   (->validate-fn pred)
         msg (-inner-msg pred)]
     {:validate (some-fn nil? f)
-     :message  (if msg (str "may be nil or " msg) "is invalid")}))
+     :message  (or msg "is invalid")}))
 
 (defn not? [pred]
   (let [f   (->validate-fn pred)

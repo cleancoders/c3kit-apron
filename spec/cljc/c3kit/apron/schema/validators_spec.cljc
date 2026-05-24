@@ -63,7 +63,7 @@
                             {:type :any :validations [[:and? :integer? [:between 0 10]]]} 11)))
 
     (it "combinator messages compose from inner ref messages"
-      (should-throw stdex "may be nil or must be positive"
+      (should-throw stdex "must be positive"
                     (schema/validate-value! {:type :any :validations [[:nil-or? :pos?]]} -1))
       (should-throw stdex "must be an integer and must be positive"
                     (schema/validate-value! {:type :any :validations [[:and? :integer? :pos?]]} -1.5)))
