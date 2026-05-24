@@ -39,7 +39,7 @@
                       :routes [{:path "/my-resource"}]})))
 
       (it "route with non-map request-schema"
-        (should-throw exception "routes[0].request-schema must be map"
+        (should-throw exception "routes[0].request-schema must be a map"
           (sut/->doc {:title "Silmarillion"
                       :version "1.0.0"
                       :routes [{:path "/my-resource"
@@ -47,7 +47,7 @@
                                 :request-schema []}]})))
 
       (it "route with non-map request-schema params"
-        (should-throw exception "routes[0].request-schema.params must be map"
+        (should-throw exception "routes[0].request-schema.params must be a map"
           (sut/->doc {:title "Silmarillion"
                       :version "1.0.0"
                       :routes [{:path "/my-resource"
@@ -55,7 +55,7 @@
                                 :request-schema {:params []}}]})))
 
       (it "route with non-map request-schema body"
-        (should-throw exception "routes[0].request-schema.body must be map"
+        (should-throw exception "routes[0].request-schema.body must be a map"
           (sut/->doc {:title "Silmarillion"
                       :version "1.0.0"
                       :routes [{:path "/my-resource"

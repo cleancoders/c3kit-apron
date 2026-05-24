@@ -102,8 +102,8 @@
       (should-throw stdex "must be an integer"
                     (schema/validate-value! {:type :int} "foo")))
 
-    (it "spec :message still wins over type :message"
-      (should-throw stdex "tell me a number!"
+    (it "type :message wins over spec :message (unified precedence)"
+      (should-throw stdex "must be an integer"
                     (schema/validate-value! {:type :int :message "tell me a number!"} "foo")))
     )
 

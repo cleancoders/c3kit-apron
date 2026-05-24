@@ -411,13 +411,17 @@
             (recur (:value r) rest-steps)))))))
 
 (defn- -normalize-validation-entry [e default-message]
+  ;; Message precedence is unified across all entry shapes (inline map,
+  ;; bare lex ref, factory vector): entry's own :message wins, then the
+  ;; resolved lex/factory :message, then the spec's default. Spec :message
+  ;; is the fallback used when the entry itself didn't specify one.
   (let [from-map? (map? e)
         in        (if from-map? (:validate e) e)
         resolved  (-resolve-lex in :validations :validate)
-        default-m (if from-map? (:message e) default-message)
+        entry-m   (when from-map? (:message e))
         base      (-> (if from-map? e {})
                       (assoc :validate (:validate resolved)
-                             :message  (or default-m (:message resolved))))]
+                             :message  (or entry-m (:message resolved) default-message)))]
     (if-let [scope (:scope resolved)]
       (assoc base :scope scope)
       base)))

@@ -277,7 +277,7 @@
 
     (it "for multiple, top-level errors"
       (let [invalid-pet (assoc valid-pet :name 123 :species :cat)]
-        (should= {:name "must be nice and unique name", :species "must be a pet species"}
+        (should= {:name "must be a string", :species "must be a string"}
                  (schema/message-map (schema/validate pet invalid-pet)))))
 
     (it "specifies idx when inside sequential structure"
@@ -299,10 +299,10 @@
             valid-owner   {:pet valid-pet}]
         (should= {:pet {:parent   {:age "must be an integer"}
                         :name     "must be nice and unique name"
-                        :species  "must be a pet species"
-                        :birthday "must be a date"
+                        :species  "must be a string"
+                        :birthday "must be an instant"
                         :teeth    "must be between 0 and 999"
-                        :length   "must be unit in feet"
+                        :length   "must be a float"
                         :owner    "must be a valid reference format"}}
                  (schema/message-map (schema/validate owner invalid-owner)))
         (should-be-nil (schema/message-map (schema/validate owner valid-owner)))))
@@ -311,10 +311,10 @@
       (let [invalid-household {:pets [valid-pet invalid-pet valid-pet invalid-pet]}
             error             {:parent   {:age "must be an integer"}
                                :name     "must be nice and unique name"
-                               :species  "must be a pet species"
-                               :birthday "must be a date"
+                               :species  "must be a string"
+                               :birthday "must be an instant"
                                :teeth    "must be between 0 and 999"
-                               :length   "must be unit in feet"
+                               :length   "must be a float"
                                :owner    "must be a valid reference format"}]
 
         (should= {:pets {1 error 3 error}} (schema/message-map (schema/validate household invalid-household)))))
@@ -818,7 +818,7 @@
       (should= {:validations "[:map] expected"}
                (schema/validate-message-map schema/spec-schema {:type :string :validations "blah"}))
       (should-be-nil (schema/validate-message-map schema/spec-schema {:type :string :validations []}))
-      (should= {:validations {0 "must be schema/validation-schema"}}
+      (should= {:validations {0 "must be a map"}}
                (schema/validate-message-map schema/spec-schema {:type :string :validations [:blah]}))
       (should= {:validations {0 {:validate "must be an ifn or seq of ifn"}}}
                (schema/validate-message-map schema/spec-schema {:type :string :validations [{:validate "blah"}]})))
@@ -827,7 +827,7 @@
       (should= {:coercions "[:map] expected"}
                (schema/validate-message-map schema/spec-schema {:type :string :coercions "blah"}))
       (should-be-nil (schema/validate-message-map schema/spec-schema {:type :string :coercions []}))
-      (should= {:coercions {0 "must be schema/coercion-schema"}}
+      (should= {:coercions {0 "must be a map"}}
                (schema/validate-message-map schema/spec-schema {:type :string :coercions [:blah]}))
       (should= {:coercions {0 {:coerce "must be an ifn or seq of ifn"}}}
                (schema/validate-message-map schema/spec-schema {:type :string :coercions [{:coerce "blah"}]})))
@@ -836,7 +836,7 @@
       (should= {:presentations "[:map] expected"}
                (schema/validate-message-map schema/spec-schema {:type :string :presentations "blah"}))
       (should-be-nil (schema/validate-message-map schema/spec-schema {:type :string :presentations []}))
-      (should= {:presentations {0 "must be schema/presentation-schema"}}
+      (should= {:presentations {0 "must be a map"}}
                (schema/validate-message-map schema/spec-schema {:type :string :presentations [:blah]}))
       (should= {:presentations {0 {:present "must be an ifn or seq of ifn"}}}
                (schema/validate-message-map schema/spec-schema {:type :string :presentations [{:present "blah"}]})))
@@ -844,7 +844,7 @@
     (it "spec"
       (should= {:spec "only used with type :seq"}
                (schema/validate-message-map schema/spec-schema {:type :string :spec {:type :string}}))
-      (should= {:spec "must be schema/spec-schema"}
+      (should= {:spec "must be a map"}
                (schema/validate-message-map schema/spec-schema {:type :seq :spec "blah"})))
 
     (it "specs"
@@ -862,7 +862,7 @@
     (it "key-spec"
       (should= {:key-spec "only used with type :map"}
                (schema/validate-message-map schema/spec-schema {:type :string :key-spec {:type :keyword}}))
-      (should= {:key-spec "must be schema/spec-schema"}
+      (should= {:key-spec "must be a map"}
                (schema/validate-message-map schema/spec-schema {:type :map :key-spec "blah"}))
       (should-be-nil (schema/validate-message-map schema/spec-schema
                                                   {:type :map :key-spec {:type :keyword}})))
@@ -870,7 +870,7 @@
     (it "value-spec"
       (should= {:value-spec "only used with type :map"}
                (schema/validate-message-map schema/spec-schema {:type :string :value-spec {:type :int}}))
-      (should= {:value-spec "must be schema/spec-schema"}
+      (should= {:value-spec "must be a map"}
                (schema/validate-message-map schema/spec-schema {:type :map :value-spec "blah"}))
       (should-be-nil (schema/validate-message-map schema/spec-schema
                                                   {:type :map :value-spec {:type :int}})))
@@ -985,10 +985,10 @@
       (let [spec {:type :string :validations [:lex/present]}]
         (should-throw stdex "is required" (schema/validate-value! spec nil)))))
 
-  (it "spec :message overrides the lexicon default"
+  (it "lex :message wins over spec :message (unified precedence)"
     (schema/with-lexicon {:validations {:lex/present2 {:validate schema/present? :message "is required"}}}
       (let [spec {:type :string :validations [:lex/present2] :message "Name is mandatory"}]
-        (should-throw stdex "Name is mandatory" (schema/validate-value! spec nil)))))
+        (should-throw stdex "is required" (schema/validate-value! spec nil)))))
 
   (it "throws when a :validations lex has no :validate key"
     (schema/with-lexicon {:validations {:lex/coerce-only {:coerce str/trim}}}

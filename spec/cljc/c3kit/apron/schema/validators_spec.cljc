@@ -267,9 +267,9 @@
       (let [result (schema/validate pet invalid-pet)
             errors (schema/error-map result)]
         (should= true (schema/error? result))
-        (should= "must be a pet species" (schema/error-message (:species errors)))
-        (should= "must be a date" (schema/error-message (:birthday errors)))
-        (should= "must be unit in feet" (schema/error-message (:length errors)))
+        (should= "must be a string" (schema/error-message (:species errors)))
+        (should= "must be an instant" (schema/error-message (:birthday errors)))
+        (should= "must be a float" (schema/error-message (:length errors)))
         (should= "must be between 0 and 999" (schema/error-message (:teeth errors)))
         (should= "must be nice and unique name" (schema/error-message (:name errors)))
         (should= "must be a valid reference format" (schema/error-message (:owner errors)))
