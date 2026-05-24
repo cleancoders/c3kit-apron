@@ -149,17 +149,19 @@
     {key v}))
 
 (def ->validate-fn
-  "Resolves a value, lex name, or factory invocation to a validate fn.
-  Combinator factories use this to accept either inline fns or registered lexes."
+  "Resolves a value, lex name, factory invocation, or inline lex map to a validate fn.
+  Combinator factories use this to accept inline fns, registered lexes, or resolved
+  lex maps."
   validators/->validate-fn)
 
 (defn ->coerce-fn
-  "Resolves a value, lex name, or factory invocation to a coerce fn."
+  "Resolves a value, lex name, factory invocation, or inline lex map to a coerce fn."
   [v]
-  (if (-lex-name? v)
-    (or (:coerce (lex! :coercions v))
-        (throw (ex-info (str "lex " v " has no :coerce") {:lex v})))
-    v))
+  (cond
+    (-lex-name? v) (or (:coerce (lex! :coercions v))
+                       (throw (ex-info (str "lex " v " has no :coerce") {:lex v})))
+    (and (map? v) (contains? v :coerce)) (:coerce v)
+    :else v))
 
 ;; Wire validate's combinator resolver to our lexicon lookup. Must happen
 ;; after lex! is defined.
@@ -368,7 +370,7 @@
 
 (defn- process-validations [validations value]
   (doseq [{:keys [validate message]} validations]
-    (let [validate-fns (if (multiple? validate) validate [validate])]
+    (let [validate-fns (if (sequential? validate) validate [validate])]
       (doseq [v-fn validate-fns]
         (when-not (v-fn value)
           (throw (ex-info (or message "is invalid") {:value value})))))))
@@ -643,7 +645,7 @@
 
 (defn- run-entity-scoped-validation [process entity field-key {:keys [validate message]}]
   (let [value        (get entity field-key)
-        validate-fns (if (multiple? validate) validate [validate])]
+        validate-fns (if (sequential? validate) validate [validate])]
     (some (fn [v-fn]
             (try
               (when-not (v-fn entity field-key)

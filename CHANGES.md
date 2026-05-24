@@ -114,6 +114,42 @@ spec file:
    c3kit.apron.schema.presentations  ↔ presentations_spec
    c3kit.apron.schema.types          ↔ types_spec
 
+**Subsumes the 2.9.x line.** The fixes shipped in 2.9.0–2.9.2
+(message precedence, set-valued `:validate` iteration, `:maybe?`
+combinator, `->validate-fn` accepting resolved ref maps) are all
+present in 3.0.0, integrated into the new lexicon structure. The
+2.9.x notes are kept below for historical reference.
+
+### 2.9.2
+ * Fix: resolved ref `:message` on a `:validations` entry now wins over
+   the spec's field-level `:message`. Vector form `[:one-of ...]` and
+   map form `(refs/one-of ...)` now produce the same error message; the
+   validation-side precedence is now `entry :message → ref :message →
+   spec :message`, matching the coercion side. **Behavior change:** if
+   you relied on a field-level `:message` shadowing a registered ref's
+   `:message`, give the entry its own `:message` (or remove the ref's).
+
+### 2.9.1
+ * Fix: `[:one-of ...]` (and any ref whose `:validate` is a set) now
+   works through `validate-value!` / `conform!`. The validation iterator
+   was treating sets as "multiple validate fns" and trying to call each
+   member as a function, which surfaced as a misleading "must be present"
+   (or other field-level fallback) error.
+
+### 2.9.0
+ * `schema/->validate-fn` and `schema/->coerce-fn` now also accept a
+   resolved ref map (anything with `:validate` / `:coerce`). Lets
+   combinators take ref vars directly — e.g. `(refs/nil-or? refs/pos?)`
+   alongside the existing `(refs/nil-or? :pos?)` form.
+ * New `refs/installed?` and `refs/ensure-installed!`. Idempotent install
+   into the currently-bound `*ref-registry*` — safe to call from library
+   init, test `around` hooks, or the REPL without repeat-registration
+   warnings.
+ * New `:maybe?` combinator ref — the silent sibling of `:nil-or?`. Same
+   nil-or-inner-passes semantics, but the error message is the inner
+   predicate's message verbatim (e.g. `"must be positive"`) instead of
+   prefixing with `"may be nil or "`.
+
 ### 2.8.0
  * Entity-scoped refs. A registered ref can set `:scope :entity`; its
    `:validate`/`:coerce` fn then receives `(entity field-key)` instead of
