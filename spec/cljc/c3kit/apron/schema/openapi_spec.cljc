@@ -63,7 +63,7 @@
                                 :request-schema {:body []}}]})))
 
       (it "route with non-map response-schema"
-        (should-throw exception "routes[0].response-schema must be map"
+        (should-throw exception "routes[0].response-schema must be a map"
           (sut/->doc {:title "Silmarillion"
                       :version "1.0.0"
                       :routes [{:path "/my-resource"
@@ -80,7 +80,7 @@
                                                          :description "Hello!"}}}]})))
 
       (it "route with non-map response-schema :schema value"
-        (should-throw exception "routes[0].response-schema :schema must be map"
+        (should-throw exception "routes[0].response-schema :schema must be a map"
           (sut/->doc {:title "Silmarillion"
                       :version "1.0.0"
                       :routes [{:path "/my-resource"

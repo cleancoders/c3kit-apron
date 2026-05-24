@@ -22,13 +22,12 @@
 (def route-schema
   {:path            {:type :string :validate schema/present? :message "is a required string"}
    :method          {:type :keyword :validate schema/present? :message "is a required keyword"}
-   :request-schema  {:type    {:params {:type :map :message "must be map"}
-                               :body   {:type :map :message "must be map"}}
-                     :message "must be map"}
-   :response-schema {:type        :any                      ; should be :map, but break breaks validations. maybe apron bug?
-                     :validations [{:validate nil?-or-map? :message "must be map"}
+   :request-schema  {:type {:params {:type :map}
+                            :body   {:type :map}}}
+   :response-schema {:type        :any                      ; :map would short-circuit our custom :validations
+                     :validations [{:validate nil?-or-map?  :message "must be a map"}
                                    {:validate integer-keys? :message "keys must be response codes (integers)"}
-                                   {:validate schema-map? :message ":schema must be map"}]}})
+                                   {:validate schema-map?   :message ":schema must be a map"}]}})
 
 (def doc-schema
   {:title   {:type :string :validate schema/present? :message "is required"}
