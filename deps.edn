@@ -1,7 +1,5 @@
-{
- :paths   ["src/clj" "src/cljc" "resources"]
- :deps    {
-           com.andrewmcveigh/cljs-time {:mvn/version "0.5.2"}
+{:paths   ["src/clj" "src/cljc" "resources"]
+ :deps    {com.andrewmcveigh/cljs-time {:mvn/version "0.5.2"}
            com.cognitect/transit-clj   {:mvn/version "1.0.333"}
            com.cognitect/transit-cljs  {:mvn/version "0.8.280"}
            com.taoensso/timbre         {:mvn/version "6.8.0"}
@@ -11,20 +9,20 @@
            org.clojure/tools.namespace {:mvn/version "1.5.0"}
            org.slf4j/slf4j-nop         {:mvn/version "2.0.17"} ;; eliminated annoying log output
            }
- :aliases {
-           :test     {:extra-deps  {
-                                    clj-commons/pomegranate             {:mvn/version "1.2.25"}
+ :aliases {:test     {:extra-deps  {clj-commons/pomegranate             {:mvn/version "1.2.25"}
                                     com.microsoft.playwright/playwright {:mvn/version "1.55.0"}
                                     io.github.clojure/tools.build       {:mvn/version "0.10.10"}
                                     org.clojure/clojurescript           {:mvn/version "1.12.42"}
-                                    speclj/speclj                       {:mvn/version "3.13.0"}
-                                    }
+                                    speclj/speclj                       {:mvn/version "3.13.0"}}
                       :extra-paths ["dev" "spec/clj" "spec/cljc"]}
            :spec     {:main-opts ["-m" "speclj.main" "-c" "-t" "~cst" "-t" "~mst"]}
            :spec-cst {:jvm-opts  ["-Duser.timezone=America/Chicago"]
                       :main-opts ["-m" "speclj.main" "-c" "-t" "cst"]}
            :spec-mst {:jvm-opts  ["-Duser.timezone=America/Phoenix"]
                       :main-opts ["-m" "speclj.main" "-c" "-t" "mst"]}
+           :clj-watson {:replace-deps {io.github.clj-holmes/clj-watson {:git/tag "v6.1.0"
+                                                                        :git/sha "be98e4db74fb8927db4825cc73bbe2606e44e5e3"}}
+                        :main-opts    ["-m" "clj-watson.cli"]}
            :cljs     {:main-opts ["-m" "cljs"]}
            :cljs-cst {:main-opts ["-m" "cljs"] :jvm-opts ["-Dc3.env=cst"]}
            :cljs-mst {:main-opts ["-m" "cljs"] :jvm-opts ["-Dc3.env=mst"]}
@@ -54,6 +52,4 @@
                       :extra-deps  {nrepl/nrepl {:mvn/version "1.4.0"}}
                       ;; this allows nrepl to interrupt runaway repl evals
                       :jvm-opts    ["-Djdk.attach.allowAttachSelf"]
-                      :main-opts   ["-m" "nrepl.cmdline" "--port" "7888"]}
-           }
- }
+                      :main-opts   ["-m" "nrepl.cmdline" "--port" "7888"]}}}
