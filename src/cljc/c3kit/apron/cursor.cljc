@@ -71,8 +71,7 @@
      (getValidator [_] (.getValidator base))
      (getWatches [_] (.getWatches base))
      (addWatch [this key f] (.addWatch base [path key] (fn [k r o n] (f key this (get-in o path) (get-in n path)))))
-     (removeWatch [_ key] (.removeWatch base [path key]))
-     )
+     (removeWatch [_ key] (.removeWatch base [path key])))
 
    :cljs
    (deftype Cursor [base path]
@@ -93,8 +92,12 @@
      IPrintWithWriter
      (-pr-writer [_ writer opts]
        (-write writer "#<Cursor: ")
+       ;; cljs.core/pr-writer is private; delegating to it is the standard
+       ;; idiom for a recursive custom IPrintWithWriter. Intentional.
+       #_{:clj-kondo/ignore [:private-call]}
        (pr-writer (get-in @base path) writer opts)
        (-write writer " @")
+       #_{:clj-kondo/ignore [:private-call]}
        (pr-writer path writer opts)
        (-write writer ">"))
 
@@ -104,8 +107,7 @@
      IWatchable
      (-notify-watches [_ oldval newval] (-notify-watches base oldval newval))
      (-add-watch [this key f] (-add-watch base [path key] (fn [k r o n] (f key this (get-in o path) (get-in n path)))))
-     (-remove-watch [_ key] (-remove-watch base [path key]))
-     ))
+     (-remove-watch [_ key] (-remove-watch base [path key]))))
 
 #?(:clj (defmethod clojure.core/print-method Cursor [cursor writer]
           (.write writer "#<Cursor: ")

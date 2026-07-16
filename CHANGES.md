@@ -1,3 +1,15 @@
+### 3.0.1
+
+Security and CI maintenance release; no API changes.
+
+ * **jackson-core pinned to 2.18.6.** Overrides the vulnerable transitive
+   version pulled in via `com.cognitect/transit-clj`, clearing
+   CVE-2025-52999 (HIGH) and GHSA-72hv-8253-57qq (MEDIUM).
+ * **CI hardening.** Combined the test and security workflows into a
+   single `Apron Build` workflow with parallel `test` and `security`
+   jobs; pinned all GitHub Action refs to commit SHAs; dropped
+   `secrets: inherit` from the reusable security-scan call.
+
 ### 3.0.0
 
 Major restructure of the ref/registry system into a single extensible
