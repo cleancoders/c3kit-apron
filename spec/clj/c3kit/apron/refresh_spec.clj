@@ -134,7 +134,7 @@
                                          (when (= ns 'c3kit-refresh-test.bad-sample)
                                            temp-file))]
             (let [tracker {::track/load ['c3kit-refresh-test.bad-sample
-                                          'c3kit-refresh-test.unreached]}
+                                         'c3kit-refresh-test.unreached]}
                   result  (#'sut/bb-track-reload tracker)]
               ;; reduce unwraps Reduced, so the result is a plain map
               (should (map? result))
@@ -143,6 +143,4 @@
               ;; the second ns was never reached (short-circuit), so ::track/load still has it
               (should-contain 'c3kit-refresh-test.unreached (::track/load result))))
           (finally
-            (.delete temp-file))))))
-
-  )
+            (.delete temp-file)))))))

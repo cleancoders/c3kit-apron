@@ -1,8 +1,7 @@
 (ns c3kit.apron.app-spec
   (:require
     [c3kit.apron.app :as app]
-    [speclj.core :refer :all]
-    ))
+    [speclj.core :refer :all]))
 
 (defonce bar (app/resolution :bar))
 (defonce bar! (app/resolution! :bar))
@@ -34,6 +33,4 @@
 
   (it "env"
     (app/set-env! "env-test")
-    (should= "env-test" @app/env))
-
-)
+    (should= "env-test" @app/env)))

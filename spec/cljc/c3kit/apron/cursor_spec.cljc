@@ -115,6 +115,4 @@
            (swap! b inc)
            (should= 2 (count @change))
            (should-contain [:test1 b 0 1] @change)
-           (should-contain [:test2 b 0 1] @change)))
-       ))
-  )
+           (should-contain [:test2 b 0 1] @change))))))

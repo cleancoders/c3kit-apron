@@ -43,8 +43,7 @@
       (should     ((:validate v/map?) {:a 1}))
       (should     ((:validate v/map?) {}))
       (should-not ((:validate v/map?) []))
-      (should= "must be a map" (:message v/map?)))
-    )
+      (should= "must be a map" (:message v/map?))))
 
   (context "numeric predicates"
 
@@ -83,8 +82,7 @@
       (should     ((:validate v/nat-int?) 1))
       (should-not ((:validate v/nat-int?) -1))
       (should-not ((:validate v/nat-int?) 1.5))
-      (should= "must be a non-negative integer" (:message v/nat-int?)))
-    )
+      (should= "must be a non-negative integer" (:message v/nat-int?))))
 
   (context "apron predicates"
 
@@ -110,8 +108,7 @@
     (it ":uri?"
       (should     ((:validate v/uri?) #?(:clj (java.net.URI. "http://a") :cljs "http://a")))
       (should-not ((:validate v/uri?) #?(:clj 42 :cljs nil)))
-      (should= "must be a URI" (:message v/uri?)))
-    )
+      (should= "must be a URI" (:message v/uri?))))
 
   (context "comparison factories"
 
@@ -160,8 +157,7 @@
         (should     ((:validate r) 5))
         (should-not ((:validate r) 0))
         (should-not ((:validate r) 11))
-        (should= "must be between 1 and 10" (:message r))))
-    )
+        (should= "must be between 1 and 10" (:message r)))))
 
   (context "shape factories"
 
@@ -204,8 +200,7 @@
       (let [r (v/not-one-of "a" "b")]
         (should     ((:validate r) "z"))
         (should-not ((:validate r) "a"))
-        (should= "must not be one of [\"a\" \"b\"]" (:message r))))
-    )
+        (should= "must not be one of [\"a\" \"b\"]" (:message r)))))
 
   (context "default-validations bundle"
 
@@ -223,6 +218,4 @@
       (should-not (nil? (:nil-or? v/default-validations)))
       (should-not (nil? (:and? v/default-validations)))
       (should-not (nil? (:or? v/default-validations)))
-      (should-not (nil? (:not? v/default-validations))))
-    )
-  )
+      (should-not (nil? (:not? v/default-validations))))))

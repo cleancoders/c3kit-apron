@@ -54,6 +54,4 @@
   (it "catches extensions of common swears"
     (doseq [word variation-words]
       (when-not (sut/contains-profanity? word) (println (str "Failure: " word)))
-      (should (sut/contains-profanity? word))))
-
-  )
+      (should (sut/contains-profanity? word)))))

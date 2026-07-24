@@ -20,9 +20,7 @@
       (should= [[:key :crew] [:str "bill"]] (sut/parse "crew[\"bill\"]")))
 
     (it "parses [:kw] as a keyword literal"
-      (should= [[:key :crew] [:key :joe]] (sut/parse "crew[:joe]")))
-
-    )
+      (should= [[:key :crew] [:key :joe]] (sut/parse "crew[:joe]"))))
 
   (context "unparse"
 
@@ -43,9 +41,7 @@
 
     (it "round-trips through parse for common segments"
       (let [path "a.b[0].c[\"x\"].d.value"]
-        (should= path (sut/unparse (sut/parse path)))))
-
-    )
+        (should= path (sut/unparse (sut/parse path))))))
 
   (context "schema-at"
 
@@ -101,9 +97,7 @@
                      :schema {:user {:type :map :schema {:name {:type :string}}}}}]
         (should= {:type :string} (sut/schema-at wrapped "user.name"))
         (should= {:type :map :schema {:name {:type :string}}}
-                 (sut/schema-at wrapped "user"))))
-
-    )
+                 (sut/schema-at wrapped "user")))))
 
   (context "data-at"
 
@@ -138,8 +132,4 @@
         (should= "zero" (sut/data-at {0 "zero"} "[:0]" {:lenient? true})))
 
       (it "lenient is not bidirectional: string bracket does NOT find keyword key"
-        (should= nil (sut/data-at {:crew {:joe "Joe"}} "crew[\"joe\"]" {:lenient? true})))
-
-      )
-
-    ))
+        (should= nil (sut/data-at {:crew {:joe "Joe"}} "crew[\"joe\"]" {:lenient? true}))))))

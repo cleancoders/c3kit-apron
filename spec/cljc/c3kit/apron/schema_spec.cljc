@@ -166,9 +166,9 @@
 
     (it "of entity level operations on nil values"
       (let [spec   (assoc pet
-                     :* {:length {:validate #(or (nil? (:length %))
-                                                 (pos? (:length %)))
-                                  :message  "must be a positive number"}})
+                          :* {:length {:validate #(or (nil? (:length %))
+                                                      (pos? (:length %)))
+                                       :message  "must be a positive number"}})
             result (schema/conform spec (dissoc valid-pet :length))]
         (should= false (schema/error? result))
         (should-not-contain :length result)))
@@ -230,11 +230,7 @@
 
     (it "required map field"
       (let [schema {:thing {:type :map :schema {:field {:type :any}} :validations [schema/required]}}]
-        (should= "is required" (:thing (schema/conform-message-map schema {})))))
-
-    )
-
-
+        (should= "is required" (:thing (schema/conform-message-map schema {}))))))
 
   (context "error messages"
 
@@ -334,9 +330,7 @@
         (should-contain "pets[1].parent.age can't coerce :foo to int" result)
         (should-contain "pets[1].name must be nice and unique name" result)
         (should-contain "pets[3].parent.age can't coerce :foo to int" result)
-        (should-contain "pets[3].name must be nice and unique name" result)
-        ))
-    )
+        (should-contain "pets[3].name must be nice and unique name" result))))
 
   (context "presentation"
 
@@ -407,8 +401,7 @@
         (let [schema (assoc-in pet [:owner :present] schema/omit)
               result (schema/present schema (assoc valid-pet :owner "George"))]
           (should-not-contain :id result)
-          (should-not-contain :owner result))
-        )
+          (should-not-contain :owner result)))
 
       (it "with entity level presentation"
         (let [result (schema/present (assoc pet :* {:stage-name {:present #(str (:name %) " the " (:species %))}}) valid-pet)]
@@ -422,9 +415,7 @@
       (it "with error on entity level presentation!"
         (should-throw stdex
                       (schema/present!
-                        (assoc pet :* {:stage-name {:present #(throw (ex-info "blah" {:x %}))}}) valid-pet)))
-      )
-    )
+                        (assoc pet :* {:stage-name {:present #(throw (ex-info "blah" {:x %}))}}) valid-pet)))))
 
   (context "kind"
 
@@ -441,9 +432,7 @@
     (it "will be added if missing by conform"
       (let [result (schema/conform pet (dissoc valid-pet :kind))]
         (should= false (schema/error? result))
-        (should= :pet (:kind result))))
-
-    )
+        (should= :pet (:kind result)))))
 
   (context "entity level"
 
@@ -458,10 +447,7 @@
                     :bar {:type :string}
                     :*   {:foo {:validate seq}
                           :bar {:validate seq}}}]
-        (should= {:foo "is invalid" :bar "is invalid"} (schema/validate-message-map schema {})))
-      )
-
-    )
+        (should= {:foo "is invalid" :bar "is invalid"} (schema/validate-message-map schema {})))))
 
   (context "merge schemas"
 
@@ -526,9 +512,7 @@
         (should= {:species {:message     "invalid entity species2"
                             :validations [{:validate :valid-entity-species :message "invalid entity species"}
                                           {:validate :valid-entity-species2 :message "invalid entity species2"}]}}
-                 (:* result))))
-
-    )
+                 (:* result)))))
 
   (context "one-of"
 
@@ -620,8 +604,7 @@
         (let [result (schema/normalize-spec {:type [{:foo "bar"}] :validate :foo})]
           (should= {:type :seq :spec {:type :map :schema {:foo "bar"} :validate :foo}} result))
         (let [result (schema/normalize-spec {:type [{:foo "bar"}] :foo "bar"})]
-          (should= {:type :seq :spec {:type :map :schema {:foo "bar"}} :foo "bar"} result)))
-      )
+          (should= {:type :seq :spec {:type :map :schema {:foo "bar"}} :foo "bar"} result))))
 
     (it "map"
       (let [result (schema/normalize-spec {:type {:foo {:type :string}}})]
@@ -653,9 +636,7 @@
           (should= {:c3kit.apron.schema/normalized? true} (meta result))
           (with-redefs [update-vals (stub :update-vals)]
             (should= result (schema/normalize-schema result))
-            (should-not-have-invoked :update-vals))))
-      )
-    )
+            (should-not-have-invoked :update-vals))))))
 
   (context "walk-schema"
 
@@ -708,9 +689,7 @@
       (let [seen-types (atom #{})
             emit       (fn [spec _children] (swap! seen-types conj (:type spec)) :ok)]
         (schema/walk-schema emit {:type #{:string {:foo {:type :int}}}})
-        (should= #{:one-of :string :map :int} @seen-types)))
-
-    )
+        (should= #{:one-of :string :map :int} @seen-types))))
 
   (context "ignore/any"
 
@@ -718,9 +697,7 @@
       (should= :blah (schema/coerce-value! {:type :ignore} :blah)))
 
     (it "any"
-      (should= :blah (schema/coerce-value! {:type :any} :blah)))
-
-    )
+      (should= :blah (schema/coerce-value! {:type :any} :blah))))
 
   (context "dynamic keys"
 
@@ -776,16 +753,14 @@
       (let [crew-spec (assoc {:type       :map
                               :key-spec   {:type :keyword}
                               :value-spec {:type :map :schema {:name {:type :string}}}}
-                        :* {:size {:validate #(pos? (count %)) :message "no crew"}})
+                             :* {:size {:validate #(pos? (count %)) :message "no crew"}})
             schema    {:crew crew-spec}]
         (should-be-nil (schema/message-map (schema/validate schema {:crew {:joe {:name "Joe"}}})))))
 
     (it "seq index path uses bracket"
       (let [schema {:points {:type :seq :spec {:type :int}}}
             msgs   (schema/message-seq (schema/validate schema {:points [1 "bad" 3]}))]
-        (should-contain "points[1] must be an integer" msgs)))
-
-    )
+        (should-contain "points[1] must be an integer" msgs))))
 
   (context "spec-schema"
 
@@ -907,11 +882,7 @@
 
       (it "extra spec attributes are not removed"
         (let [schema (schema/conform-schema! pet)]
-          (should= :pet (-> schema :kind :value))))
-
-      )
-    )
-  )
+          (should= :pet (-> schema :kind :value)))))))
 
 (describe "lex lookup"
 
@@ -942,8 +913,7 @@
 
     (it "resolves a zero-arg vector form like the bare key"
       (schema/with-lexicon {:validations {:pos-pred {:validate pos?}}}
-        (should= {:validate pos?} (schema/lex! :validations [:pos-pred]))))
-    )
+        (should= {:validate pos?} (schema/lex! :validations [:pos-pred])))))
 
   (context "lex! on :coercions"
 
@@ -952,8 +922,7 @@
 
     (it "looks up a coercion lex"
       (schema/with-lexicon {:coercions {:trimify {:coerce str/trim}}}
-        (should= str/trim (:coerce (schema/lex! :coercions :trimify)))))
-    )
+        (should= str/trim (:coerce (schema/lex! :coercions :trimify))))))
 
   (context "lex (nil on miss)"
 
@@ -962,9 +931,7 @@
 
     (it "returns the entry when present"
       (schema/with-lexicon {:validations {:my-pos {:validate pos?}}}
-        (should= {:validate pos?} (schema/lex :validations :my-pos))))
-    )
-  )
+        (should= {:validate pos?} (schema/lex :validations :my-pos))))))
 
 (describe "lexes in :validations and :coercions"
 
@@ -1045,8 +1012,7 @@
       (should= "missing lex :plant? in :validations"      (:species result))
       (should= "missing lex :fruit! in :coercions"        (:name    result))
       (should= "missing lex :sharper-than? in :validations" (:teeth  result))
-      (should= "missing lex :grow! in :coercions"         (:length  result))))
-  )
+      (should= "missing lex :grow! in :coercions"         (:length  result)))))
 
 (describe "entity-scoped lexes"
 
@@ -1157,8 +1123,7 @@
       {:coercions {:sibling-coerce {:coerce (fn [_entity _field-key] "would-have-derived")
                                     :scope  :entity}}}
       (should= "raw"
-               (schema/coerce-value! {:type :string :coercions [:sibling-coerce]} "raw"))))
-  )
+               (schema/coerce-value! {:type :string :coercions [:sibling-coerce]} "raw")))))
 
 (describe "lexicon"
 
@@ -1168,15 +1133,13 @@
       (schema/with-lexicon {:validations {:positive? {:validate pos? :message "must be positive"}}}
         (should= 5 (schema/validate-value! {:type :any :validations [:positive?]} 5))
         (should-throw stdex "must be positive"
-                      (schema/validate-value! {:type :any :validations [:positive?]} -1))))
-    )
+                      (schema/validate-value! {:type :any :validations [:positive?]} -1)))))
 
   (context "coercions slot"
 
     (it "coerce-value! resolves a name from *lexicon* :coercions"
       (schema/with-lexicon {:coercions {:double-it {:coerce #(* 2 %) :message "could not double"}}}
-        (should= 10 (schema/coerce-value! {:type :any :coercions [:double-it]} 5))))
-    )
+        (should= 10 (schema/coerce-value! {:type :any :coercions [:double-it]} 5)))))
 
   (context "presentations slot"
 
@@ -1224,8 +1187,7 @@
     (it "throws when a :presentations lex has no :present key"
       (schema/with-lexicon {:presentations {:bad {:message "no :present here"}}}
         (should-throw stdex "lex :bad has no :present"
-                      (schema/present-value! {:type :string :presentations [:bad]} "hi"))))
-    )
+                      (schema/present-value! {:type :string :presentations [:bad]} "hi")))))
 
   (context "slot isolation"
 
@@ -1233,15 +1195,13 @@
       (schema/with-lexicon {:validations {:foo {:validate pos? :message "must be positive"}}
                             :coercions   {:foo {:coerce #(* 2 %) :message "could not double"}}}
         (should= 10 (schema/coerce-value! {:type :any :coercions [:foo]} 5))
-        (should= 5  (schema/validate-value! {:type :any :validations [:foo]} 5))))
-    )
+        (should= 5  (schema/validate-value! {:type :any :validations [:foo]} 5)))))
 
   (context "default-lexicon shape"
 
     (it "has all four slots present as empty maps"
       (should= #{:types :validations :coercions :presentations}
-               (set (keys schema/default-lexicon))))
-    )
+               (set (keys schema/default-lexicon)))))
 
   (context "update-lexicon!"
 
@@ -1259,8 +1219,7 @@
                                 {:coerce #(* 2 %) :message "could not double"})
         (should= 10 (schema/coerce-value! {:type :any :coercions [:ulex-double]} 5))
         (finally
-          (schema/update-lexicon! :coercions dissoc :ulex-double))))
-    )
+          (schema/update-lexicon! :coercions dissoc :ulex-double)))))
 
   (context "with-lexicon"
 
@@ -1278,8 +1237,7 @@
       (schema/with-lexicon {:validations {:wl-pos {:validate pos? :message "positive"}}
                             :coercions   {:wl-neg {:coerce -    :message "negate"}}}
         (should= 5 (schema/validate-value! {:type :any :validations [:wl-pos]} 5))
-        (should= -5 (schema/coerce-value! {:type :any :coercions [:wl-neg]} 5))))
-    )
+        (should= -5 (schema/coerce-value! {:type :any :coercions [:wl-neg]} 5)))))
 
   (context "*-with API"
 
@@ -1304,7 +1262,5 @@
     (it "present-with scopes a lexicon during presentation"
       (let [lex {:coercions {:pw-noop {:coerce identity :message "noop"}}}
             sch {:n {:type :int :present #(str "n=" %)}}]
-        (should= {:n "n=5"} (schema/present-with lex sch {:n 5}))))
-    )
-  )
+        (should= {:n "n=5"} (schema/present-with lex sch {:n 5}))))))
 

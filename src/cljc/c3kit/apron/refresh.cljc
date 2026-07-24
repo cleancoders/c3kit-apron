@@ -136,6 +136,4 @@
        (fn [request]
          (refresh!)
          (let [root-handler (util/resolve-var root-sym)]
-           (root-handler request))))
-
-     ))
+           (root-handler request))))))

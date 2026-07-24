@@ -6,6 +6,4 @@
 
   (it "exposes a current version string"
     (should (string? sut/current))
-    (should (re-matches #"\d+\.\d+\.\d+" sut/current)))
-
-  )
+    (should (re-matches #"\d+\.\d+\.\d+" sut/current))))

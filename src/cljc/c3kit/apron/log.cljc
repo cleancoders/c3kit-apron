@@ -109,8 +109,7 @@
                  (let [pad (/ (- width (.length title)) 2)]
                    (str (str/join "" (take pad (repeat " "))) title "\n")))
      :header   (str (apply (partial ccc/formats format-str) (map first cols)) "\n"
-                    (str/join "" (take width (repeat "-"))) "\n")
-     }))
+                    (str/join "" (take width (repeat "-"))) "\n")}))
 
 (defn color-pr
   "For ANSI color codes: https://en.wikipedia.org/wiki/ANSI_escape_code"

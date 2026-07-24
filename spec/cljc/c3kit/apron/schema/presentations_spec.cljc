@@ -18,24 +18,21 @@
       (should= "foo" ((:present p/lower-case) "FOO")))
 
     (it ":capitalize"
-      (should= "Foo" ((:present p/capitalize) "foo")))
-    )
+      (should= "Foo" ((:present p/capitalize) "foo"))))
 
   (context "type display"
 
     (it ":->string"
       (should= "42" ((:present p/->string) 42))
       (should= ":foo" ((:present p/->string) :foo))
-      (should-be-nil ((:present p/->string) nil)))
-    )
+      (should-be-nil ((:present p/->string) nil))))
 
   (context ":omit"
 
     (it "returns nil for any input"
       (should-be-nil ((:present p/omit) "anything"))
       (should-be-nil ((:present p/omit) 123))
-      (should-be-nil ((:present p/omit) nil)))
-    )
+      (should-be-nil ((:present p/omit) nil))))
 
   (context ":default factory"
 
@@ -43,8 +40,7 @@
       (let [r (p/default "—")]
         (should= "—" ((:present r) nil))
         (should= "abc" ((:present r) "abc"))
-        (should= 0 ((:present r) 0))))
-    )
+        (should= 0 ((:present r) 0)))))
 
   (context "default-presentations bundle"
 
@@ -59,8 +55,7 @@
 
     (it "exposes :omit and :default"
       (should= p/omit (:omit p/default-presentations))
-      (should= p/default (:default p/default-presentations)))
-    )
+      (should= p/default (:default p/default-presentations))))
 
   (context "lexicon integration"
 
@@ -75,6 +70,4 @@
       (should= "x" (schema/present-value! {:type :any :presentations [[:default "—"]]} "x")))
 
     (it "presentations compose in order"
-      (should= "HI" (schema/present-value! {:type :string :presentations [:trim :upper-case]} "  hi  ")))
-    )
-  )
+      (should= "HI" (schema/present-value! {:type :string :presentations [:trim :upper-case]} "  hi  ")))))

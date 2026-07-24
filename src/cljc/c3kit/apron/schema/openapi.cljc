@@ -116,18 +116,18 @@
 
 (defn ->openapi [{:keys [schema description]}]
   (cond-> {:description description}
-          schema
-          (assoc :content
-                 {"application/json"
-                  {:schema
-                   (apron->openapi-schema schema)}})))
+    schema
+    (assoc :content
+           {"application/json"
+            {:schema
+             (apron->openapi-schema schema)}})))
 
 (defn ->responses [spec] (update-vals spec ->openapi))
 
 (defn- ->request-keys [{:keys [params body] :as request-schema}]
   (cond-> {}
-          params (assoc :parameters (->parameters request-schema))
-          body (assoc :requestBody (->request-body request-schema))))
+    params (assoc :parameters (->parameters request-schema))
+    body (assoc :requestBody (->request-body request-schema))))
 
 (defn- ->response-keys [response-schema]
   (when response-schema

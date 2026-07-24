@@ -6,15 +6,13 @@
 
 (describe "Util common"
 
-
   (context "edn"
 
     (it "->edn"
       (should= "[1 2 3]" (sut/->edn [1 2 3])))
 
     (it "<-edn"
-      (should= [1 2 3] (sut/<-edn "[1 2 3]")))
-    )
+      (should= [1 2 3] (sut/<-edn "[1 2 3]"))))
 
   (it "->hex"
     (should= "7b" (sut/->hex 123)))
@@ -34,8 +32,7 @@
     (it "index-by-id"
       (let [a {:id 123 :name "a"}
             b {:id 456 :name "b"}]
-        (should= {123 a 456 b} (sut/index-by-id [b a]))))
-    )
+        (should= {123 a 456 b} (sut/index-by-id [b a])))))
 
   (context "transit"
 
@@ -113,8 +110,7 @@
                 :c [1 2 3]
                 :d {:e "f"}
                 :g 321}
-               (sut/<-json-kw "{\"a\":123,\"b\":\"hello\",\"c\":[1,2,3],\"d\":{\"e\":\"f\"},\"g\":321}")))
-    )
+               (sut/<-json-kw "{\"a\":123,\"b\":\"hello\",\"c\":[1,2,3],\"d\":{\"e\":\"f\"},\"g\":321}"))))
 
   (context "csv"
 
@@ -139,8 +135,7 @@
       (should= (str "A,B\r\n"
                     "\"\"\"a\"\"\",\"\"\"b\"")
                (sut/->csv [["A" "B"]
-                           ["\"a\"" "\"b"]])))
-    )
+                           ["\"a\"" "\"b"]]))))
 
   (it "->filename"
     (should= "foo" (sut/->filename "foo"))
@@ -149,6 +144,4 @@
     (should= "Mr_foo" (sut/->filename "Mr. foo"))
     (should= "foo_bar" (sut/->filename "foo-bar"))
     (should= "foo" (sut/->filename "foo/\\<>:\"|?*[]"))
-    (should= "foo.bar" (sut/->filename "foo" "bar")))
-
-  )
+    (should= "foo.bar" (sut/->filename "foo" "bar"))))

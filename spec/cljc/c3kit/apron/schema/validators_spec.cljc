@@ -18,8 +18,7 @@
 
     (it "factory message surfaces through validate-value!"
       (should-throw stdex "must be > 5"
-                    (schema/validate-value! {:type :any :validations [[:> 5]]} 3)))
-    )
+                    (schema/validate-value! {:type :any :validations [[:> 5]]} 3))))
 
   (context "combinator factories"
 
@@ -72,9 +71,7 @@
       (should= nil (schema/validate-value! {:type :any :validations [[:maybe? :pos?]]} nil))
       (should= 5   (schema/validate-value! {:type :any :validations [[:maybe? :pos?]]} 5))
       (should-throw stdex "must be positive"
-                    (schema/validate-value! {:type :any :validations [[:maybe? :pos?]]} -1)))
-    )
-  )
+                    (schema/validate-value! {:type :any :validations [[:maybe? :pos?]]} -1)))))
 
 (describe "Schema validation"
 
@@ -347,9 +344,7 @@
       (let [crufty (assoc valid-pet :garbage "yuk!")
             result (schema/validate pet crufty)]
         (should-be-nil (:garbage result))
-        (should-not-contain :garbage result)))
-
-    )
+        (should-not-contain :garbage result))))
 
   (it "error info"
     (let [result (schema/validate pet {:species "frog"})
@@ -359,6 +354,4 @@
       (should= "must be a pet species" (-> error schema/error-exception ex-message))
       (should= "frog" (schema/error-value error))
       (should-be-nil (schema/error-type error))
-      (should= #{:exception :value} (set (keys (schema/error-data error))))))
-
-  )
+      (should= #{:exception :value} (set (keys (schema/error-data error)))))))

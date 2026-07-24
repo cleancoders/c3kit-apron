@@ -5,7 +5,6 @@
     [speclj.core #?(:clj :refer :cljs :refer-macros) [context describe it xit should= should-contain
                                                       should-not-contain should-throw should-not-be-nil with]]))
 
-
 (def foo
   {:kind  (schema/kind :foo)
    :id    schema/id
@@ -46,6 +45,4 @@
   (it "conforms an entity contained"
     (let [bob {:kind :foo :name "Bob"}
           conformation (sut/conform! bob)]
-      (should= (schema/conform! foo bob) conformation)))
-
-  )
+      (should= (schema/conform! foo bob) conformation))))

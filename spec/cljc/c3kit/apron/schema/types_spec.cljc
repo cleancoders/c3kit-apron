@@ -47,8 +47,7 @@
       (let [non-structural (dissoc t/default-types :any :ignore :one-of :fn :seq)]
         (doseq [[name lex] non-structural]
           (should (seq (:validations lex)))
-          (should (seq (:coercions lex))))))
-    )
+          (should (seq (:coercions lex)))))))
 
   (context "lexicon integration"
 
@@ -74,8 +73,7 @@
 
     (it "coerce-value! throws on unknown type"
       (should-throw stdex "unhandled coercion type: :nope"
-                    (schema/coerce-value! {:type :nope} "anything")))
-    )
+                    (schema/coerce-value! {:type :nope} "anything"))))
 
   (context "extending with custom types"
 
@@ -89,8 +87,7 @@
     (it "outside the binding the custom type is gone"
       (schema/with-lexicon {:types {:my-temp {:validate (constantly true) :coerce identity}}}
         (should-contain :my-temp (schema/valid-types)))
-      (should-not-contain :my-temp (schema/valid-types)))
-    )
+      (should-not-contain :my-temp (schema/valid-types))))
 
   (context "type :message fallback"
 
@@ -104,8 +101,7 @@
 
     (it "type :message wins over spec :message (unified precedence)"
       (should-throw stdex "must be an integer"
-                    (schema/validate-value! {:type :int :message "tell me a number!"} "foo")))
-    )
+                    (schema/validate-value! {:type :int :message "tell me a number!"} "foo"))))
 
   (context "type-bundled :validations"
 
@@ -125,8 +121,7 @@
                                              :validations [[:>= 0]]
                                              :coerce identity}}}
         (should= 5 (schema/validate-value! {:type :my-int :validations [[:<= 10]]} 5))
-        (should-throw stdex (schema/validate-value! {:type :my-int :validations [[:<= 10]]} 11))))
-    )
+        (should-throw stdex (schema/validate-value! {:type :my-int :validations [[:<= 10]]} 11)))))
 
   (context "type-bundled :coercions"
 
@@ -142,6 +137,4 @@
                                                     :coerce identity}}}
         (should= "[X]"
                  (schema/coerce-value! {:type       :padded-string
-                                        :coercions  [{:coerce #(str "[" % "]")}]} "x"))))
-    )
-  )
+                                        :coercions  [{:coerce #(str "[" % "]")}]} "x"))))))

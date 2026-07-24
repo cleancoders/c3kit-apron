@@ -56,9 +56,9 @@
   global `app` map (typically by `assoc`-ing whatever resource it manages)."
   [services]
   (log/with-level :info
-                  (log/info ">>>>> Starting App >>>>>")
-                  (doseq [service services] (start-service! service))
-                  (log/info "<<<<< App Started <<<<<")))
+    (log/info ">>>>> Starting App >>>>>")
+    (doseq [service services] (start-service! service))
+    (log/info "<<<<< App Started <<<<<")))
 
 (defn stop!
   "Stop services in *reverse* declaration order. Each service map's `:stop`
@@ -66,9 +66,9 @@
   and removes it from the global `app` map."
   [services]
   (log/with-level :info
-                  (log/info ">>>>> Stopping App >>>>>")
-                  (doseq [service (reverse services)] (stop-service! service))
-                  (log/info "<<<<< App Stopped <<<<<")))
+    (log/info ">>>>> Stopping App >>>>>")
+    (doseq [service (reverse services)] (stop-service! service))
+    (log/info "<<<<< App Stopped <<<<<")))
 
 (def env-keys ["c3.env" "C3_ENV"])
 

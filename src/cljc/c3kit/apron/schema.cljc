@@ -34,8 +34,7 @@
   {:type [:int] :validate even?} {:type :seq :spec {:type :int :validate even?}}
   {:type [{:type :int}] :validate seq} {:type :seq :spec {:type :int} :validate seq}
   {:type {:foo {}}} {:type :map :schema {:foo {}}}
-  {:type #{:string :int}} {:type :one-of :specs [{:type :string} {:type :int}]}
-  )
+  {:type #{:string :int}} {:type :one-of :specs [{:type :string} {:type :int}]})
 
 ;; Design note: shorthand sequential fields like `[{:type :long}]` are normalized
 ;; into `:seq` schemas where processes (coerce/validate/etc.) act on the seq value
@@ -168,7 +167,6 @@
 (validators/set-validation-resolver! (fn [n] (lex! :validations n)))
 
 ;; endregion ^^^^^ Lexicon ^^^^^
-
 
 ;; region ----- shorthands -----
 
@@ -963,11 +961,11 @@
                    :description "Required. The kind of value this spec describes (see schema/valid-types)."
                    :example     :string}
    :validate      (assoc process-spec-schema
-                    :description "Predicate (or seq) run against the value. Returns truthy when valid.")
+                         :description "Predicate (or seq) run against the value. Returns truthy when valid.")
    :coerce        (assoc process-spec-schema
-                    :description "Function (or seq) that transforms input into the target type.")
+                         :description "Function (or seq) that transforms input into the target type.")
    :present       (assoc process-spec-schema
-                    :description "Function (or seq) that transforms the value for presentation.")
+                         :description "Function (or seq) that transforms the value for presentation.")
    :message       {:type :string :description "Error message used when validate/coerce fails."}
    :description   {:type :string :description "Human-readable documentation string for this field."}
    :example       {:type :any :description "An example value that conforms to this spec."}
@@ -989,7 +987,7 @@
 (def spec-schema
   (merge -spec-schema
          {:spec       (assoc nested-spec-schema
-                        :description "Spec for each entry of a :seq.")
+                             :description "Spec for each entry of a :seq.")
           :specs      {:type        :seq
                        :spec        nested-spec-schema
                        :description "Alternative specs for a :one-of; the value matches if it conforms to any of them."}
@@ -997,9 +995,9 @@
                        :message     "must be a map"
                        :description "Map of field name to spec, describing the known keys of a :map."}
           :key-spec   (assoc nested-spec-schema
-                        :description "Spec applied to every dynamic key of a :map (keys not listed in :schema).")
+                             :description "Spec applied to every dynamic key of a :map (keys not listed in :schema).")
           :value-spec (assoc nested-spec-schema
-                        :description "Spec applied to every dynamic value of a :map.")
+                             :description "Spec applied to every dynamic value of a :map.")
           :*          {:spec       {:validate #(if (:spec %) (= :seq (:type %)) true) :message "only used with type :seq"}
                        :specs      {:validate #(if (:specs %) (= :one-of (:type %)) true) :message "only used with type :one-of"}
                        :schema     {:validate #(if (:schema %) (= :map (:type %)) true) :message "only used with type :map"}
@@ -1008,8 +1006,8 @@
 
 (def entity-spec-schema
   (assoc spec-schema
-    :type {:type    :keyword :validate (nil?-or #(contains? (valid-types) %))
-           :message "must be one of schema/valid-types"}))
+         :type {:type    :keyword :validate (nil?-or #(contains? (valid-types) %))
+                :message "must be one of schema/valid-types"}))
 
 (defn- conform-preserving-extras! [schema spec]
   (let [extra     (apply dissoc spec (keys schema))

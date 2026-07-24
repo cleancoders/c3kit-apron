@@ -45,9 +45,7 @@
 
     (it "success"
       (should= "Foo" (sut/var-value 'c3kit.apron.util-spec/foo))
-      (should= "" (log/captured-logs-str)))
-
-    )
+      (should= "" (log/captured-logs-str))))
 
   (context "config value"
 
@@ -58,9 +56,7 @@
       (should= :foo (sut/config-value :foo)))
 
     (it "sym"
-      (should= "Foo" (sut/config-value 'c3kit.apron.util-spec/foo)))
-
-    )
+      (should= "Foo" (sut/config-value 'c3kit.apron.util-spec/foo))))
 
   (it "md5"
     (should= "8622b9718771d75e07734684d6efa1dd" (sut/md5 "I'm a little teapot")))
@@ -68,7 +64,6 @@
   (it "stream->md5"
     (should= "8622b9718771d75e07734684d6efa1dd"
              (sut/stream->md5 (ByteArrayInputStream. (.getBytes "I'm a little teapot" "UTF-8")))))
-
 
   (context "resources-in"
 
@@ -90,7 +85,4 @@
           (should-contain "shell.clj" result))))
 
     (it "missing"
-      (should-be-nil (sut/resources-in "some.missing.package")))
-
-    )
-  )
+      (should-be-nil (sut/resources-in "some.missing.package")))))

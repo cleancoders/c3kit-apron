@@ -25,7 +25,6 @@
   ;    (should= "jREgpG5GpaB" (ccc/id->hash 999999999999999))
   ;    (should= 999999999999999 (ccc/hash->id "jREgpG5GpaB")))
 
-
   (context "nand"
     (it "no arguments" (should= false (ccc/nand)))
     (it "one falsy argument" (should= true (ccc/nand nil)))
@@ -82,10 +81,7 @@
   (context "->options"
 
     (it "nil -> {}"
-      (should= {} (ccc/->options [nil]))
-      )
-
-    )
+      (should= {} (ccc/->options [nil]))))
 
   (it "new-uuid"
     (should= 10 (->> (repeatedly ccc/new-uuid)
@@ -248,9 +244,7 @@
       (should= [@e4] (ccc/find-by @items :pets "cat"))
       (should= [@e3 @e4] (ccc/find-by @items :pets "dog"))
       (should= [@e3 @e4] (ccc/find-by @items :pets ['like "%o%"]))
-      (should= [@e4] (ccc/find-by @items :pets ['like "%a%"])))
-
-    )
+      (should= [@e4] (ccc/find-by @items :pets ['like "%a%"]))))
 
   (it "sum-by"
     (let [e1     {:size 2}
@@ -359,8 +353,7 @@
       (let [coll       [{:a [5 1]} {:a [4 2]} {:a [3 3]} {:a [2 4]} {:a [1 5]}]
             compare-fn (fn [x y] (compare (second x) (second y)))]
         (should= (reverse (sort-by :a compare-fn coll))
-                 (ccc/rsort-by :a compare-fn coll))))
-    )
+                 (ccc/rsort-by :a compare-fn coll)))))
 
   (it "drop-until"
     (should= [] (sequence (ccc/drop-until pos?) []))
@@ -596,9 +589,9 @@
          (it "vectors"
            (let [obj (js-obj "vector" [])]
              (should-throw js/TypeError "Cannot create property '0' on vector '[]'"
-               (ccc/oset-in obj ["vector" 0] "I am lost"))
+                           (ccc/oset-in obj ["vector" 0] "I am lost"))
              (should-throw js/TypeError "Cannot create property 'a1' on vector '[]'"
-               (ccc/oset-in obj ["vector" "a1"] "Me too"))
+                           (ccc/oset-in obj ["vector" "a1"] "Me too"))
              (should= {"vector" []} (js->clj obj))))
 
          (it "js Arrays"
@@ -610,43 +603,38 @@
          (it "sets"
            (let [obj (js-obj "set" #{})]
              (should-throw js/TypeError "Cannot create property '0' on set '#{}'"
-               (ccc/oset-in obj ["set" 0] "SETting zero"))
+                           (ccc/oset-in obj ["set" 0] "SETting zero"))
              (should-throw js/TypeError "Cannot create property 'a1' on set '#{}'"
-               (ccc/oset-in obj ["set" "a1"] "SETting a1"))
+                           (ccc/oset-in obj ["set" "a1"] "SETting a1"))
              (should= {"set" #{}} (js->clj obj))))
 
          (it "lists"
            (let [obj (js-obj "list" (list))]
              (should-throw js/TypeError "Cannot create property '0' on list '()'"
-               (ccc/oset-in obj ["list" 0] "I am lost"))
+                           (ccc/oset-in obj ["list" 0] "I am lost"))
              (should-throw js/TypeError "Cannot create property 'a1' on list '()'"
-               (ccc/oset-in obj ["list" "a1"] "Me too"))
+                           (ccc/oset-in obj ["list" "a1"] "Me too"))
              (should= {"list" (list)} (js->clj obj))))
 
          (it "keywords"
            (let [obj (js-obj "keyword" :k)]
              (should-throw js/TypeError "Cannot create property 'k1' on keyword ':k'"
-               (ccc/oset-in obj ["keyword" "k1"] "where did I go?"))
+                           (ccc/oset-in obj ["keyword" "k1"] "where did I go?"))
              (should= {"keyword" :k} (js->clj obj))))
 
          (it "numbers"
            (let [obj (js-obj "number" 1)]
              (should-throw js/TypeError "Cannot create property 'one' on number '1'"
-               (ccc/oset-in obj ["number" "one"] "oh no"))
+                           (ccc/oset-in obj ["number" "one"] "oh no"))
              (should= {"number" 1} (js->clj obj))))
 
          (it "strings"
            (let [obj (js-obj "string" "s")]
              (should-throw js/TypeError "Cannot create property 's1' on string 's'"
-               (ccc/oset-in obj ["string" "s1"] "oh no"))
+                           (ccc/oset-in obj ["string" "s1"] "oh no"))
              (should= {"string" "s"} (js->clj obj))))
 
          (it "js Objects"
            (let [obj (js-obj "obj" (js-obj))]
              (should-not-throw (ccc/oset-in obj ["obj" "o1"] "hello"))
-             (should= {"obj" {"o1" "hello"}} (js->clj obj))))
-         )
-       )
-     )
-
-  )
+             (should= {"obj" {"o1" "hello"}} (js->clj obj))))))))

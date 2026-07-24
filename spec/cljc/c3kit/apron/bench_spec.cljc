@@ -26,9 +26,9 @@
 
     (it "many items in body"
       (should (sut/bench 1
-                (body-fn)
-                (+ 1 2)
-                (body-fn)))
+                         (body-fn)
+                         (+ 1 2)
+                         (body-fn)))
       (should-have-invoked :body {:times 2}))
 
     (it "executes body 10 times"
@@ -53,6 +53,4 @@
             (should= 0 min)
             (should= 4 max)
             (should= 2 avg)
-            (should= 10 total)))))
-    )
-  )
+            (should= 10 total)))))))

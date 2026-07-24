@@ -362,8 +362,8 @@
   "Filters coll by items matching kvs."
   [coll & {:as kvs}]
   (cond->> coll
-           (seq kvs)
-           (filter (fabric/spec->tester kvs))))
+    (seq kvs)
+    (filter (fabric/spec->tester kvs))))
 
 (defn ffind-by
   "Finds the first item in coll matching kvs."

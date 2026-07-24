@@ -32,8 +32,8 @@
 
 (defn config-with-defaults [config]
   (cond-> speclj-defaults
-          (map? config)
-          (merge config)))
+    (map? config)
+    (merge config)))
 
 (defn build-spec-config []
   (->> (config-with-defaults (:specs @build-config))
@@ -248,8 +248,8 @@
       (util/establish-path (:output-to @build-config))
       (io/delete-file ".specljs-timestamp" true))
     (cond (= "once" command) (do (api/build (Sources. @build-config) @build-config)
-                                  (when-let [status (when (:specs @build-config) (run-specs))]
-                                    (System/exit status)))
+                                 (when-let [status (when (:specs @build-config) (run-specs))]
+                                   (System/exit status)))
           (= "spec" command) (System/exit (run-specs))
           :else (let [timestamp (timestamp-file)]
                   (println "watching namespaces with prefix:" @ns-prefix)

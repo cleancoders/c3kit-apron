@@ -272,8 +272,7 @@
      :cljs (timef/formatter format)))
 
 (def date-formats
-  {
-   :http       (formatter "EEE, dd MMM yyyy HH:mm:ss ZZZ")
+  {:http       (formatter "EEE, dd MMM yyyy HH:mm:ss ZZZ")
    :rfc1123    (formatter "EEE, dd MMM yyyy HH:mm:ss ZZZ")
    :rfc822     (formatter "EEE, dd MMM yyyy HH:mm:ss Z")
    :ref3339    (formatter #?(:clj  "yyyy-MM-dd'T'HH:mm:ssXXX"
@@ -285,8 +284,7 @@
    :webform    (formatter "yyyy-MM-dd")
    :web-local  (formatter "yyyy-MM-dd'T'HH:mm")
    :friendly   (formatter "EEE - MMM d, yyyy")
-   :short      (formatter "MMM d, yyyy")
-   })
+   :short      (formatter "MMM d, yyyy")})
 
 (defn- ->formatter [format]
   (cond

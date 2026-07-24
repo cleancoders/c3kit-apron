@@ -24,8 +24,7 @@
 
     (it ":capitalize"
       (should= "Foo" ((:coerce c/capitalize) "foo"))
-      (should= "must be a string" (:message c/capitalize)))
-    )
+      (should= "must be a string" (:message c/capitalize))))
 
   (context "type coercers"
 
@@ -49,8 +48,7 @@
     (it ":->boolean"
       (should= true  ((:coerce c/->boolean) "true"))
       (should= false ((:coerce c/->boolean) "false"))
-      (should= "could not coerce to boolean" (:message c/->boolean)))
-    )
+      (should= "could not coerce to boolean" (:message c/->boolean))))
 
   (context "coercion factories"
 
@@ -58,8 +56,7 @@
       (let [r (c/default 99)]
         (should= 99 ((:coerce r) nil))
         (should= 5  ((:coerce r) 5))
-        (should= 0  ((:coerce r) 0))))
-    )
+        (should= 0  ((:coerce r) 0)))))
 
   (context "default-coercions bundle"
 
@@ -73,6 +70,4 @@
       (should= c/->uuid (:->uuid c/default-coercions)))
 
     (it "exposes the :default factory"
-      (should= c/default (:default c/default-coercions)))
-    )
-  )
+      (should= c/default (:default c/default-coercions)))))

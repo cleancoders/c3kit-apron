@@ -9,83 +9,83 @@
 
   (it "requires title and version"
     (should-throw exception "title is required; version is required"
-      (sut/->doc {})))
+                  (sut/->doc {})))
 
   (it "minimal doc with title and version"
     (should= {:openapi "3.0.0"
               :info    {:title   "Silmarillion"
                         :version "1.0.0"}
               :paths   {}}
-      (sut/->doc {:title "Silmarillion" :version "1.0.0"})))
+             (sut/->doc {:title "Silmarillion" :version "1.0.0"})))
 
   (context "doc routes"
     (context "throws"
       (it "non-seq routes"
         (should-throw exception
-          (sut/->doc {:title "Silmarillion"
-                      :version "1.0.0"
-                      :routes {}})))
+                      (sut/->doc {:title "Silmarillion"
+                                  :version "1.0.0"
+                                  :routes {}})))
 
       (it "route with no path"
         (should-throw exception "routes[0].path is a required string"
-          (sut/->doc {:title "Silmarillion"
-                      :version "1.0.0"
-                      :routes [{:method :get}]})))
+                      (sut/->doc {:title "Silmarillion"
+                                  :version "1.0.0"
+                                  :routes [{:method :get}]})))
 
       (it "route with no method"
         (should-throw exception "routes[0].method is a required keyword"
-          (sut/->doc {:title "Silmarillion"
-                      :version "1.0.0"
-                      :routes [{:path "/my-resource"}]})))
+                      (sut/->doc {:title "Silmarillion"
+                                  :version "1.0.0"
+                                  :routes [{:path "/my-resource"}]})))
 
       (it "route with non-map request-schema"
         (should-throw exception "routes[0].request-schema must be a map"
-          (sut/->doc {:title "Silmarillion"
-                      :version "1.0.0"
-                      :routes [{:path "/my-resource"
-                                :method :get
-                                :request-schema []}]})))
+                      (sut/->doc {:title "Silmarillion"
+                                  :version "1.0.0"
+                                  :routes [{:path "/my-resource"
+                                            :method :get
+                                            :request-schema []}]})))
 
       (it "route with non-map request-schema params"
         (should-throw exception "routes[0].request-schema.params must be a map"
-          (sut/->doc {:title "Silmarillion"
-                      :version "1.0.0"
-                      :routes [{:path "/my-resource"
-                                :method :get
-                                :request-schema {:params []}}]})))
+                      (sut/->doc {:title "Silmarillion"
+                                  :version "1.0.0"
+                                  :routes [{:path "/my-resource"
+                                            :method :get
+                                            :request-schema {:params []}}]})))
 
       (it "route with non-map request-schema body"
         (should-throw exception "routes[0].request-schema.body must be a map"
-          (sut/->doc {:title "Silmarillion"
-                      :version "1.0.0"
-                      :routes [{:path "/my-resource"
-                                :method :get
-                                :request-schema {:body []}}]})))
+                      (sut/->doc {:title "Silmarillion"
+                                  :version "1.0.0"
+                                  :routes [{:path "/my-resource"
+                                            :method :get
+                                            :request-schema {:body []}}]})))
 
       (it "route with non-map response-schema"
         (should-throw exception "routes[0].response-schema must be a map"
-          (sut/->doc {:title "Silmarillion"
-                      :version "1.0.0"
-                      :routes [{:path "/my-resource"
-                                :method :get
-                                :response-schema []}]})))
+                      (sut/->doc {:title "Silmarillion"
+                                  :version "1.0.0"
+                                  :routes [{:path "/my-resource"
+                                            :method :get
+                                            :response-schema []}]})))
 
       (it "route with non-integer response-schema key"
         (should-throw exception "routes[0].response-schema keys must be response codes (integers)"
-          (sut/->doc {:title "Silmarillion"
-                      :version "1.0.0"
-                      :routes [{:path "/my-resource"
-                                :method :get
-                                :response-schema {"200" {:schema {:type :int}
-                                                         :description "Hello!"}}}]})))
+                      (sut/->doc {:title "Silmarillion"
+                                  :version "1.0.0"
+                                  :routes [{:path "/my-resource"
+                                            :method :get
+                                            :response-schema {"200" {:schema {:type :int}
+                                                                     :description "Hello!"}}}]})))
 
       (it "route with non-map response-schema :schema value"
         (should-throw exception "routes[0].response-schema :schema must be a map"
-          (sut/->doc {:title "Silmarillion"
-                      :version "1.0.0"
-                      :routes [{:path "/my-resource"
-                                :method :get
-                                :response-schema {200 {:schema []}}}]}))))
+                      (sut/->doc {:title "Silmarillion"
+                                  :version "1.0.0"
+                                  :routes [{:path "/my-resource"
+                                            :method :get
+                                            :response-schema {200 {:schema []}}}]}))))
 
     (it "minimal valid route"
       (let [routes [{:path "/my-resource" :summary "Fetch my resource" :method :get}]]
@@ -93,7 +93,7 @@
                   :info    {:title   "I Love Schemas"
                             :version "1.2.3"}
                   :paths   (sut/routes->paths routes)}
-          (sut/->doc {:title "I Love Schemas" :version "1.2.3" :routes routes}))))
+                 (sut/->doc {:title "I Love Schemas" :version "1.2.3" :routes routes}))))
 
     (it "route with request-schema"
       (let [routes [{:path           "/my-resource"
@@ -104,7 +104,7 @@
                   :info    {:title   "Silmarillion"
                             :version "1.0.0"}
                   :paths   (sut/routes->paths routes)}
-          (sut/->doc {:title "Silmarillion" :version "1.0.0" :routes routes}))))
+                 (sut/->doc {:title "Silmarillion" :version "1.0.0" :routes routes}))))
 
     (it "route with response-schema"
       (let [routes [{:path            "/my-resource"
@@ -115,7 +115,7 @@
                   :info    {:title   "Silmarillion"
                             :version "1.0.0"}
                   :paths   (sut/routes->paths routes)}
-          (sut/->doc {:title "Silmarillion" :version "1.0.0" :routes routes})))))
+                 (sut/->doc {:title "Silmarillion" :version "1.0.0" :routes routes})))))
 
   (context "path components"
 
@@ -123,65 +123,65 @@
 
       (it "converts a route to a path"
         (should= {"/my-resource" {:get {:summary "Fetch my resource"}}}
-          (sut/routes->paths [{:path    "/my-resource"
-                               :summary "Fetch my resource"
-                               :method  :get}]))
+                 (sut/routes->paths [{:path    "/my-resource"
+                                      :summary "Fetch my resource"
+                                      :method  :get}]))
         (should= {"/another-resource" {:post {:summary "Post another resource"}}}
-          (sut/routes->paths [{:path    "/another-resource"
-                               :summary "Post another resource"
-                               :method  :post}])))
+                 (sut/routes->paths [{:path    "/another-resource"
+                                      :summary "Post another resource"
+                                      :method  :post}])))
 
       (context "convert multiple routes"
 
         (it "no shared paths"
           (should= {"/my-resource" {:get {:summary "Fetch my resource"}}
                     "/another-resource" {:post {:summary "Post another resource"}}}
-            (sut/routes->paths [{:path    "/my-resource"
-                                 :summary "Fetch my resource"
-                                 :method  :get}
-                                {:path    "/another-resource"
-                                 :summary "Post another resource"
-                                 :method  :post}])))
+                   (sut/routes->paths [{:path    "/my-resource"
+                                        :summary "Fetch my resource"
+                                        :method  :get}
+                                       {:path    "/another-resource"
+                                        :summary "Post another resource"
+                                        :method  :post}])))
 
         (it "some shared paths"
           (should= {"/my-resource" {:get {:summary "Fetch my resource"}
                                     :post {:summary "Post my resource"}}}
-            (sut/routes->paths [{:path    "/my-resource"
-                                 :summary "Fetch my resource"
-                                 :method  :get}
-                                {:path    "/my-resource"
-                                 :summary "Post my resource"
-                                 :method  :post}]))))
+                   (sut/routes->paths [{:path    "/my-resource"
+                                        :summary "Fetch my resource"
+                                        :method  :get}
+                                       {:path    "/my-resource"
+                                        :summary "Post my resource"
+                                        :method  :post}]))))
 
       (it "includes request-schema parameters"
         (let [request-schema {:params {:type {:req-1 {:type :int}}}}]
           (should= {"/my-resource" {:get {:summary "Fetch my resource"
                                           :parameters (sut/->parameters request-schema)}}}
-            (sut/routes->paths
-              [{:path           "/my-resource"
-                :summary        "Fetch my resource"
-                :method         :get
-                :request-schema request-schema}]))))
+                   (sut/routes->paths
+                     [{:path           "/my-resource"
+                       :summary        "Fetch my resource"
+                       :method         :get
+                       :request-schema request-schema}]))))
 
       (it "includes request-schema body"
         (let [request-schema {:body {:type {:req-1 {:type :int}}}}]
           (should= {"/my-resource" {:get {:summary "Fetch my resource"
                                           :requestBody (sut/->request-body request-schema)}}}
-            (sut/routes->paths
-              [{:path           "/my-resource"
-                :summary        "Fetch my resource"
-                :method         :get
-                :request-schema request-schema}]))))
+                   (sut/routes->paths
+                     [{:path           "/my-resource"
+                       :summary        "Fetch my resource"
+                       :method         :get
+                       :request-schema request-schema}]))))
 
       (it "includes response-schema body"
         (let [response-schema {200 {:schema {:type {:req-1 {:type :int}}} :description "Hello!"}} #_{200 {:req-1 {:type :int}}}]
           (should= {"/my-resource" {:get {:summary "Fetch my resource"
                                           :responses (sut/->responses response-schema)}}}
-            (sut/routes->paths
-              [{:path            "/my-resource"
-                :summary         "Fetch my resource"
-                :method          :get
-                :response-schema response-schema}])))))
+                   (sut/routes->paths
+                     [{:path            "/my-resource"
+                       :summary         "Fetch my resource"
+                       :method          :get
+                       :response-schema response-schema}])))))
 
     (context "query parameters"
 
@@ -207,8 +207,7 @@
                             :string-field    {:type :string}
                             :timestamp-field {:type :timestamp}
                             :uri-field       {:type :uri}
-                            :uuid-field      {:type :uuid}
-                            }}}
+                            :uuid-field      {:type :uuid}}}}
               parameters (sut/->parameters spec)]
           (letfn [(should-map-param-type
                     ([field-name type]
@@ -248,8 +247,7 @@
                       :req-2 {:type :string :validations [{:validate schema/present?}]}}}}
               [req-1 req-2] (sut/->parameters spec)]
           (should (:required req-1))
-          (should (:required req-2))))
-      )
+          (should (:required req-2)))))
 
     (context "schemas"
 
@@ -257,49 +255,49 @@
 
         (it "kw-ref maps to string"
           (should= {:type "string"}
-            (sut/apron->openapi-schema {:type :kw-ref})))
+                   (sut/apron->openapi-schema {:type :kw-ref})))
 
         (it "timestamp maps to string with date-time format"
           (should= {:type "string" :format "date-time"}
-            (sut/apron->openapi-schema {:type :timestamp})))
+                   (sut/apron->openapi-schema {:type :timestamp})))
 
         (it "instant has date-time format"
           (should= {:type "string" :format "date-time"}
-            (sut/apron->openapi-schema {:type :instant})))
+                   (sut/apron->openapi-schema {:type :instant})))
 
         (it "map type without schema"
           (should= {:type "object"}
-            (sut/apron->openapi-schema {:type :map}))))
+                   (sut/apron->openapi-schema {:type :map}))))
 
       (context "annotations"
 
         (it "includes :description"
           (should= {:type "integer" :description "a count"}
-            (sut/apron->openapi-schema {:type :int :description "a count"})))
+                   (sut/apron->openapi-schema {:type :int :description "a count"})))
 
         (it "includes :example"
           (should= {:type "integer" :example 42}
-            (sut/apron->openapi-schema {:type :int :example 42})))
+                   (sut/apron->openapi-schema {:type :int :example 42})))
 
         (it "includes both :description and :example"
           (should= {:type "string" :description "user name" :example "alice"}
-            (sut/apron->openapi-schema {:type :string :description "user name" :example "alice"})))
+                   (sut/apron->openapi-schema {:type :string :description "user name" :example "alice"})))
 
         (it "annotations on an object type"
           (should= {:type "object"
                     :description "a user"
                     :properties {:name {:type "string"}}}
-            (sut/apron->openapi-schema {:type   :map
-                                         :schema {:name {:type :string}}
-                                         :description "a user"})))
+                   (sut/apron->openapi-schema {:type   :map
+                                               :schema {:name {:type :string}}
+                                               :description "a user"})))
 
         (it "annotations on a nested field"
           (should= {:type "object"
                     :properties {:name {:type "string" :description "user name" :example "alice"}}}
-            (sut/apron->openapi-schema {:type   :map
-                                         :schema {:name {:type :string
-                                                          :description "user name"
-                                                          :example "alice"}}}))))
+                   (sut/apron->openapi-schema {:type   :map
+                                               :schema {:name {:type :string
+                                                               :description "user name"
+                                                               :example "alice"}}}))))
 
       (context "named specs and $ref"
 
@@ -307,41 +305,41 @@
           ;; Used standalone (not through ->doc), there's no components pool,
           ;; so named specs just get inlined.
           (should= {:type "object" :properties {:name {:type "string"}}}
-            (sut/apron->openapi-schema {:type :map :name :pet :schema {:name {:type :string}}})))
+                   (sut/apron->openapi-schema {:type :map :name :pet :schema {:name {:type :string}}})))
 
         (it "->doc collects named schemas into components.schemas"
           (let [result (sut/->doc {:title   "Pet API"
-                                    :version "1.0.0"
-                                    :routes  [{:path "/pets"
-                                               :method :post
-                                               :request-schema {:body {:type :map :name :pet
-                                                                        :schema {:name {:type :string}}}}}]})]
+                                   :version "1.0.0"
+                                   :routes  [{:path "/pets"
+                                              :method :post
+                                              :request-schema {:body {:type :map :name :pet
+                                                                      :schema {:name {:type :string}}}}}]})]
             (should= {:type "object" :properties {:name {:type "string"}}}
                      (get-in result [:components :schemas "pet"]))))
 
         (it "->doc emits $ref at use sites"
           (let [result (sut/->doc {:title   "Pet API"
-                                    :version "1.0.0"
-                                    :routes  [{:path "/pets"
-                                               :method :post
-                                               :request-schema {:body {:type :map :name :pet
-                                                                        :schema {:name {:type :string}}}}}]})]
+                                   :version "1.0.0"
+                                   :routes  [{:path "/pets"
+                                              :method :post
+                                              :request-schema {:body {:type :map :name :pet
+                                                                      :schema {:name {:type :string}}}}}]})]
             (should= {"$ref" "#/components/schemas/pet"}
                      (get-in result [:paths "/pets" :post :requestBody :content "application/json" :schema]))))
 
         (it "->doc dedups shared named schemas across routes"
           (let [pet {:type :map :name :pet :schema {:name {:type :string}}}
                 result (sut/->doc {:title   "Pet API"
-                                    :version "1.0.0"
-                                    :routes  [{:path "/pets" :method :post :request-schema {:body pet}}
-                                              {:path "/pets/:id" :method :put :request-schema {:body pet}}]})]
+                                   :version "1.0.0"
+                                   :routes  [{:path "/pets" :method :post :request-schema {:body pet}}
+                                             {:path "/pets/:id" :method :put :request-schema {:body pet}}]})]
             (should= 1 (count (get-in result [:components :schemas])))
             (should-contain "pet" (get-in result [:components :schemas]))))
 
         (it "->doc omits :components when no schemas are named"
           (let [result (sut/->doc {:title   "API"
-                                    :version "1.0.0"
-                                    :routes  [{:path "/a" :method :get :summary "a"}]})]
+                                   :version "1.0.0"
+                                   :routes  [{:path "/a" :method :get :summary "a"}]})]
             (should-not-contain :components result)))
 
         (it "apron->openapi-schema+refs returns {:schema :refs}"
@@ -350,9 +348,7 @@
             (should= {"$ref" "#/components/schemas/pet"} (:schema result))
             (should-contain "pet" (:refs result))
             (should= {:type "object" :properties {:name {:type "string"}}}
-                     (get-in result [:refs "pet"]))))
-
-        )
+                     (get-in result [:refs "pet"])))))
 
       (context "complex types"
 
@@ -361,24 +357,24 @@
           (it "of single primitive"
             (let [apron {:type :one-of :specs [{:type :int}]}]
               (should= {:oneOf [{:type "integer"}]}
-                (sut/apron->openapi-schema apron))))
+                       (sut/apron->openapi-schema apron))))
 
           (it "of multiple primitives"
             (let [apron {:type :one-of :specs [{:type :int} {:type :string} {:type :boolean}]}]
               (should= {:oneOf [{:type "integer"} {:type "string"} {:type "boolean"}]}
-                (sut/apron->openapi-schema apron))))
+                       (sut/apron->openapi-schema apron))))
 
           (it "of single object"
             (let [apron {:type :one-of :specs [{:type {:req-1 {:type :int}}}]}]
               (should= {:oneOf [{:type       "object"
                                  :properties {:req-1 {:type "integer"}}}]}
-                (sut/apron->openapi-schema apron)))))
+                       (sut/apron->openapi-schema apron)))))
 
         (context "seq"
           (it "of primitives"
             (let [apron {:type :seq :spec {:type :int}}]
               (should= {:type "array" :items {:type "integer"}}
-                (sut/apron->openapi-schema apron))))
+                       (sut/apron->openapi-schema apron))))
 
           (it "of objects"
             (let [apron {:type :seq :spec {:type {:child-1 {:type :int}
@@ -386,7 +382,7 @@
               (should= {:type "array" :items {:type       "object"
                                               :properties {:child-1 {:type "integer"}
                                                            :child-2 {:type "string"}}}}
-                (sut/apron->openapi-schema apron)))))
+                       (sut/apron->openapi-schema apron)))))
 
         (context "map with schema key"
 
@@ -395,7 +391,7 @@
               (should= {:type       "object"
                         :properties {:name {:type "string"}
                                      :age  {:type "integer"}}}
-                (sut/apron->openapi-schema apron))))
+                       (sut/apron->openapi-schema apron))))
 
           (it "explicit :map type with required fields"
             (let [apron {:type   :map
@@ -405,7 +401,7 @@
                         :required   [:name]
                         :properties {:name {:type "string"}
                                      :age  {:type "integer"}}}
-                (sut/apron->openapi-schema apron)))))
+                       (sut/apron->openapi-schema apron)))))
 
         (context "set shorthand for one-of"
 
@@ -428,27 +424,27 @@
         (it "primitive type"
           (should= {:required false
                     :content  {"application/json" {:schema {:type "integer"}}}}
-            (sut/->request-body {:body {:type :int}})))
+                   (sut/->request-body {:body {:type :int}})))
 
         (it "required primitive"
           (should= {:required true
                     :content  {"application/json" {:schema {:type "integer"}}}}
-            (sut/->request-body {:body {:type :int :validate schema/present?}})))
+                   (sut/->request-body {:body {:type :int :validate schema/present?}})))
 
         (it "object"
           (should= {:required true
                     :content  {"application/json" {:schema {:type       "object"
                                                             :required   [:req-1]
                                                             :properties {:req-1 {:type "string"}}}}}}
-            (sut/->request-body
-              {:body {:type {:req-1 {:type :string :validate schema/present?}}}})))
+                   (sut/->request-body
+                     {:body {:type {:req-1 {:type :string :validate schema/present?}}}})))
 
         (it "array of primitives"
           (should= {:required false
                     :content  {"application/json" {:schema {:type  "array"
                                                             :items {:type "string"}}}}}
-            (sut/->request-body
-              {:body {:type [:string]}})))
+                   (sut/->request-body
+                     {:body {:type [:string]}})))
 
         (it "array of objects"
           (should= {:required false
@@ -456,27 +452,27 @@
                                                             :items {:type       "object"
                                                                     :properties {:child-1 {:type "integer"}
                                                                                  :child-2 {:type "string"}}}}}}}
-            (sut/->request-body
-              {:body {:type [{:child-1 {:type :int}
-                              :child-2 {:type :string}}]}}))))
+                   (sut/->request-body
+                     {:body {:type [{:child-1 {:type :int}
+                                     :child-2 {:type :string}}]}}))))
 
       (context "responses"
 
         (it "none"
           (should= {201 {:description "Created!"}}
-            (sut/->responses {201 {:description "Created!"}})))
+                   (sut/->responses {201 {:description "Created!"}})))
 
         (it "primitive type"
           (should= {200 {:description "Hello!"
                          :content     {"application/json" {:schema {:type "integer"}}}}}
-            (sut/->responses {200 {:schema {:type :int} :description "Hello!"}})))
+                   (sut/->responses {200 {:schema {:type :int} :description "Hello!"}})))
 
         (it "object"
           (should= {201 {:description "Goodbye."
                          :content     {"application/json" {:schema {:type       "object"
                                                                     :properties {:req-1 {:type "string"}}}}}}}
-            (sut/->responses
-              {201 {:schema {:type {:req-1 {:type :string}}} :description "Goodbye."}})))
+                   (sut/->responses
+                     {201 {:schema {:type {:req-1 {:type :string}}} :description "Goodbye."}})))
 
         (it "multiple response codes"
           (should= {200 {:description "Hello!"
@@ -484,8 +480,6 @@
                     201 {:description "Goodbye."
                          :content     {"application/json" {:schema {:type       "object"
                                                                     :properties {:req-1 {:type "string"}}}}}}}
-            (sut/->responses
-              {200 {:schema {:type :int} :description "Hello!"}
-               201 {:schema {:type {:req-1 {:type :string}}} :description "Goodbye."}}))))))
-
-  )
+                   (sut/->responses
+                     {200 {:schema {:type :int} :description "Hello!"}
+                      201 {:schema {:type {:req-1 {:type :string}}} :description "Goodbye."}})))))))

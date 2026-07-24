@@ -24,8 +24,7 @@
       (let [content "foo=bar\nFIZZ=BANG"]
         (with-redefs [io/reader (stub :io/reader {:return (io/reader (ByteArrayInputStream. (.getBytes content)))})]
           (let [result (sut/-read-properties ".env")]
-            (should= {"foo" "bar" "FIZZ" "BANG"} result)))))
-    )
+            (should= {"foo" "bar" "FIZZ" "BANG"} result))))))
 
   (context "env"
 
@@ -55,9 +54,7 @@
     (it "multiple keys"
       (sut/override! "FOO" "bar")
       (should= "bar" (sut/env "FOO" "FIZZ"))
-      (should= "bar" (sut/env "FIZZ" "FOO")))
-
-    )
+      (should= "bar" (sut/env "FIZZ" "FOO"))))
 
   (context "env!"
 
@@ -76,10 +73,4 @@
 
     (it "blank"
       (sut/override! "FOO" "")
-      (should-throw (sut/env! "FOO")))
-
-    )
-
-
-
-  )
+      (should-throw (sut/env! "FOO")))))

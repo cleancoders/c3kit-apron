@@ -316,8 +316,7 @@
         (should= 3 (month date))
         (should= 10 (day date))
         (should= 3 (hour date))
-        (should= 0 (minute date))))
-    )
+        (should= 0 (minute date)))))
 
   (context "MST"
 
@@ -325,6 +324,4 @@
 
     (it "utc offset AZ"
       (should= (* -1 (-> 7 hours)) (utc-offset))
-      (should= (* -1 (-> 7 hours)) (utc-offset (now))))
-    )
-  )
+      (should= (* -1 (-> 7 hours)) (utc-offset (now))))))

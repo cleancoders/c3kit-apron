@@ -145,5 +145,4 @@
   ;                   :_object {:_t :ref :_v id}} pickled)
   ;       (should= Wallace (type unpickled))
   ;       (should= (sut/pickleable->map wallace) (sut/pickleable->map unpickled)))))
-
   )

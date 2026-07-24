@@ -48,6 +48,4 @@
         (should= "foo\n" output)))
     ;(prn "(log/captured-logs-str): " (log/captured-logs-str))
     (should-start-with "Elapsed time:" (sut/captured-logs-str))
-    (should-end-with " msecs" (sut/captured-logs-str)))
-
-  )
+    (should-end-with " msecs" (sut/captured-logs-str))))

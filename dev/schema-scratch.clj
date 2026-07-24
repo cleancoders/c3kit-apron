@@ -41,7 +41,6 @@
 (require '[c3kit.apron.schema :as schema])
 (schema/coerce point data)
 
-
 ;; 2
 (def data {:kind :point
            :x    ["1"]

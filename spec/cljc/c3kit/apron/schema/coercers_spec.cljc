@@ -15,9 +15,7 @@
 
     (it "coercer message surfaces through coerce-value!"
       (should-throw stdex "must be a string"
-                    (schema/coerce-value! {:type :any :coercions [:trim]} 42)))
-    )
-  )
+                    (schema/coerce-value! {:type :any :coercions [:trim]} 42)))))
 
 (describe "Schema coercion"
 
@@ -316,9 +314,7 @@
                                                :coercions [{:coerce #(str (:name %) " the " (:species %))}
                                                            {:coerce #(str/upper-case (:stage-name %))}]}})
             result (schema/coerce schema valid-pet)]
-        (should= "FLUFFYY THE DOG" (:stage-name result))))
-
-    )
+        (should= "FLUFFYY THE DOG" (:stage-name result)))))
 
   (context "multi field"
 
@@ -330,8 +326,7 @@
 
     (it "entity - with an empty seq value"
       (let [result (schema/coerce pet {:colors []})]
-        (should= [] (:colors result))))
-    )
+        (should= [] (:colors result)))))
 
   (it "nested entity as a seq is coerced into a map"
     (let [result (schema/coerce pet {:parent [[:name "Fido"] [:age "12"]]})]
@@ -356,5 +351,4 @@
       (should= "can't coerce \"foo\" to float" (-> error schema/error-exception ex-message))
       (should= "foo" (schema/error-value error))
       (should= "float" (schema/error-type error))
-      (should= #{:exception :type :value} (set (keys (schema/error-data error))))))
-  )
+      (should= #{:exception :type :value} (set (keys (schema/error-data error)))))))

@@ -12,8 +12,8 @@
                          (System/setProperty "user.timezone" timezone))
                        (apply speclj/-main "-c" (concat spec-source-args tags spec-paths *command-line-args*))))
          spec      {:doc         "Runs Babashka specs"
-                     :extra-paths ["spec/clj" "spec/cljc"]
-                     :task        (run-specs {:tags ["-t" "~cst" "-t" "~mst"]})}
+                    :extra-paths ["spec/clj" "spec/cljc"]
+                    :task        (run-specs {:tags ["-t" "~cst" "-t" "~mst"]})}
          spec-all  {:doc         "Runs bb, clj, and cljs specs"
                     :extra-paths ["spec/clj" "spec/cljc"]
                     :task        (do
@@ -21,14 +21,12 @@
                                    (clojure "-M:test:spec")
                                    (clojure "-M:test:cljs" "once"))}
          spec-cst  {:doc         "Runs CST Babashka specs"
-                     :extra-paths ["spec/clj" "spec/cljc"]
-                     :task        (run-specs {:timezone "America/Chicago"
+                    :extra-paths ["spec/clj" "spec/cljc"]
+                    :task        (run-specs {:timezone "America/Chicago"
                                              :tags     ["-t" "cst"]})}
          spec-mst  {:doc         "Runs MST Babashka specs"
                     :extra-paths ["spec/clj" "spec/cljc"]
                     :task        (run-specs {:timezone "America/Phoenix"
                                              :tags     ["-t" "mst"]})}
          clean     {:task (do (log/info "Removing target folder")
-                              (fs/delete-tree "target"))}
-         }
- }
+                              (fs/delete-tree "target"))}}}

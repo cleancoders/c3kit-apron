@@ -12,7 +12,6 @@
       (catch FileNotFoundException _))
     props))
 
-
 (def -overrides (atom {}))
 (def -locals (delay (-read-properties ".env")))
 (defn -sys-env [key] (System/getenv key))
@@ -31,9 +30,9 @@
     4) '.env' file (Java Properties format)"
   ([key]
    (or (get @-overrides key)
-      (-sys-property key)
-      (-sys-env key)
-      (get @-locals key)))
+       (-sys-property key)
+       (-sys-env key)
+       (get @-locals key)))
   ([key & keys]
    (->> (cons key keys)
         (map env)
