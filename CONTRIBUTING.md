@@ -38,6 +38,10 @@ clj -M:test:cljs once   # CLJS specs (one-shot, runs in headless browser via Pla
 3. Open a PR against `master`.
 4. Describe what changed and why.
 
+## Deployment
+
+Releases run in CI — see the README's "Deployment" section. Publishing from a local checkout is refused; `clj -T:build deploy` aborts outside GitHub Actions.
+
 ## Reporting Bugs / Requesting Features
 
 Open an issue. Include:

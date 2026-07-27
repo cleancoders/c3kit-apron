@@ -94,20 +94,41 @@ expectations, and pull-request requirements. This project follows the
 [Contributor Covenant Code of Conduct](CODE_OF_CONDUCT.md). Security issues
 should be reported privately — see [SECURITY.md](SECURITY.md).
 
-## Releasing (maintainers)
+## Deployment
 
-You must be a member of the Clojars group `com.cleancoders.c3kit`.
+Releases run in CI. `clj -T:build deploy` refuses to run outside GitHub Actions,
+so the sanctioned path always carries the CI check and leaves an audit trail.
 
-1. Generate a deploy token at https://clojars.org/tokens with the appropriate scope.
-2. Export credentials:
+1. Open a PR bumping `resources/c3kit/apron/VERSION` and `CHANGES.md`.
+2. Merge to `master` and wait for **Apron Build** to go green. The version bump is
+   part of the merged commit, so the commit CI validated is the commit that gets
+   released.
+3. Actions → **Release** → **Run workflow**.
+4. Approve the `clojars` deployment when prompted.
+
+The workflow verifies **Apron Build** succeeded for that exact commit, builds the
+jar, publishes to Clojars, and only then pushes the version tag. A failed publish
+therefore leaves no tag.
+
+`clj -T:build jar` builds without publishing. `clj -T:build install` installs to
+`~/.m2` for local testing.
+
+### Break glass
+
+Only when the release workflow itself cannot run. This **skips the CI check**, so
+note its use in `CHANGES.md` for that release.
 
 ```
-CLOJARS_USERNAME=<your username>
-CLOJARS_PASSWORD=<your deploy key>
+CLOJARS_USERNAME=<username> \
+CLOJARS_PASSWORD=<deploy token> \
+EMERGENCY_RELEASE=<the exact version in resources/c3kit/apron/VERSION> \
+  clj -T:build emergency-publish
 ```
 
-3. Update `resources/c3kit/apron/VERSION`.
-4. `clj -T:build deploy`
+`CLOJARS_PASSWORD` is a Clojars deploy token generated at https://clojars.org/tokens, not your account password.
+`EMERGENCY_RELEASE` must equal the version being released exactly; a
+mismatched or unset value aborts. It still refuses a dirty working tree and an
+already-tagged version.
 
 ## License
 
