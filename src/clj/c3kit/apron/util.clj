@@ -116,8 +116,9 @@
       sym-or-val)))
 
 (defn md5
-  "MD5 hash the string"
+  "MD5 hash the string. For checksums/fingerprints only — not for cryptographic use."
   [^String s]
+  ;; nosemgrep: cc-weak-crypto -- non-security checksum/fingerprint helper; never used for credentials
   (let [alg   (MessageDigest/getInstance "md5")
         bytes (.getBytes s "UTF-8")]
     (format "%032x" (BigInteger. 1 (.digest alg bytes)))))
@@ -125,7 +126,8 @@
 (def null-output-stream (proxy [OutputStream] [] (write ([_]) ([_ _ _]))))
 
 (defn stream->md5 [^InputStream s]
-  "MD5 hash the input stream"
+  "MD5 hash the input stream. For checksums/fingerprints only — not for cryptographic use."
+  ;; nosemgrep: cc-weak-crypto -- non-security checksum/fingerprint helper; never used for credentials
   (let [alg (MessageDigest/getInstance "md5")
         dis (DigestInputStream. s alg)]
     (io/copy dis null-output-stream)

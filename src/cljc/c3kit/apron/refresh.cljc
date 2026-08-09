@@ -93,6 +93,7 @@
          (fn [tr ns-sym]
            (if-let [file (ns-to-file ns-sym)]
              (try
+               ;; nosemgrep: cc-load-string -- dev-time hot-reload; loading project source files is this tool's purpose
                (load-file (.getAbsolutePath file))
                (update tr :clojure.tools.namespace.track/load
                        (fn [load-list] (vec (remove #(= ns-sym %) load-list))))

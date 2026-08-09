@@ -7,6 +7,12 @@
    (and their transitive stack: encore, truss, pretty, slf4j-api).
  * **Capture buffer:** raw `@log/captured-logs` is no longer Timbre `-log!`
    vectors. Use `parse-captured-logs` / `captured-logs-str` in tests.
+ * **jackson-core pinned to 2.18.8** (was 2.18.6). Closes GHSA-r7wm-3cxj-wff9
+   (High) incomplete async number-length fix; still covers CVE-2025-52999 /
+   GHSA-72hv-8253-57qq.
+ * Suppressed semgrep findings with justifications: `util/md5` and
+   `util/stream->md5` are non-cryptographic checksum helpers (docstrings now
+   say so); `refresh` loads project source files by design.
 
 ### 3.0.1
 
