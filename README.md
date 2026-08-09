@@ -6,7 +6,7 @@ A library component of [c3kit - Clean Coders Clojure Kit](https://github.com/cle
 
 _"Where is thy leather apron and thy rule?"_ - Shakespeare
 
-[![Apron Build](https://github.com/cleancoders/c3kit-apron/actions/workflows/test.yml/badge.svg)](https://github.com/cleancoders/c3kit-apron/actions/workflows/test.yml)
+[![Apron Build](https://github.com/cleancoders/c3kit-apron/actions/workflows/ci.yml/badge.svg)](https://github.com/cleancoders/c3kit-apron/actions/workflows/ci.yml)
 [![Clojars Project](https://img.shields.io/clojars/v/com.cleancoders.c3kit/apron.svg)](https://clojars.org/com.cleancoders.c3kit/apron)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
@@ -17,7 +17,7 @@ Apron consists of necessities that almost any clojure app would find useful.
 * __corec.cljc__ : useful fns, platform independent
 * __cursor.cljc__ : atom cursor based on reagent's
 * __legend.cljc__ : index application entities
-* __log.cljc__ : platform independent logging
+* __log.cljc__ : platform independent logging (no Timbre/SLF4J)
 * __schema.cljc__ : validation, coercion, specification for entity structure
 * __time.cljc__ : simple platform independent time manipulation
 * __utilc.cljc__ : platform independent edn, transit, csv, etc..
@@ -27,13 +27,13 @@ Apron consists of necessities that almost any clojure app would find useful.
 Add to your `deps.edn`:
 
 ```clojure
-com.cleancoders.c3kit/apron {:mvn/version "2.7.0"}
+com.cleancoders.c3kit/apron {:mvn/version "3.1.0"}
 ```
 
 Or to your `project.clj`:
 
 ```clojure
-[com.cleancoders.c3kit/apron "2.7.0"]
+[com.cleancoders.c3kit/apron "3.1.0"]
 ```
 
 Released artifacts: [Clojars](https://clojars.org/com.cleancoders.c3kit/apron). Changelog: [CHANGES.md](CHANGES.md).
