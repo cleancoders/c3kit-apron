@@ -1,3 +1,13 @@
+### 3.1.0
+
+ * **Hand-rolled `c3kit.apron.log`.** Same macros and level controls; no Timbre.
+ * **Lazy args:** when a log call is filtered out by min-level, its arguments are
+   not evaluated (macros only expand a cheap `may-log?` check).
+ * **Removed dependencies:** `com.taoensso/timbre`, `org.slf4j/slf4j-nop`
+   (and their transitive stack: encore, truss, pretty, slf4j-api).
+ * **Capture buffer:** raw `@log/captured-logs` is no longer Timbre `-log!`
+   vectors. Use `parse-captured-logs` / `captured-logs-str` in tests.
+
 ### 3.0.1
 
 Security and CI maintenance release; no API changes.
