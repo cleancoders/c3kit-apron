@@ -1,4 +1,9 @@
-### 3.2.0
+### 3.2.1
+
+ * First published release of the 3.2 line. 3.2.0 was never published:
+   its release failed on a build-library upload bug (fixed in
+   cleancoders/github-actions c910fe3), and Clojars won't accept a retry of
+   that version. Everything below shipped in 3.2.1.
 
  * **`:default` spec key.** Fills a map field's `:default` when `coerce` (or
    `conform`, via its coerce step) finds the field's key *absent* — before
