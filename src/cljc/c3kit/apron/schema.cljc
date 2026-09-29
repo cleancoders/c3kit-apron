@@ -27,6 +27,9 @@
     :message     "message describing the field"             ;; coerce failure message (or :validate failure message)
     :validations [{:validate fn :message "msg"}]            ;; multiple validation/message pairs
     :present     [#(str %)]                                 ;; single/list of presentation fns
+    :description "human readable doc string"                ;; annotation used by doc/openapi renderers
+    :default     "default-value"                            ;; fills the key when coerce/conform find it absent (not nil); validate ignores it
+    :required    true                                       ;; same as :validations [:required]; satisfied by :default only in conform
     }})
 
 (comment
@@ -429,7 +432,14 @@
 (defn- entity-scoped? [entry] (= :entity (:scope entry)))
 
 (defn- validate-field-spec [spec value]
-  (let [{:keys [type validate validations message]} spec
+  ;; validate is strict and never modifies data: no default substitution
+  ;; here. :required true is still equivalent to prepending the :required
+  ;; lex to :validations (present?, "is required") -- a missing or nil
+  ;; value fails it regardless of any :default the spec carries. Only
+  ;; coerce/conform (via their :coerce step) apply defaults; see
+  ;; process-entity-key-spec.
+  (let [{:keys [type validate validations message required]} spec
+        validations (cond->> validations required (cons :required))
         type-lex (lex :types type)
         _        (when-not type-lex
                    (throw (ex-info (str "unhandled validation type: " (pr-str type)) {})))
@@ -598,8 +608,27 @@
       :one-of (process-one-of-on-value process spec value)
       (field-result-or-error process spec value))))
 
+(defn- -coercing? [process] (or (= :coerce process) (= :conform process)))
+
+(defn- -key-value
+  "The value to process for `key`: the entity's own value when `key` is
+   present, or the spec's :default when `key` is absent from the map and
+   we're coercing (coerce, or conform via its coerce step). A key that is
+   present with value nil is NOT defaulted -- missing is not the same as
+   nil -- but nil still processes and drops from the output exactly like
+   today (see process-entity-key-spec); :default only rescues an absent
+   key, it doesn't change what happens to an explicit nil. validate/
+   present never see a default: they read exactly what's there."
+  [process entity key spec]
+  (if (-coercing? process)
+    (let [norm-spec (normalize-spec spec)]
+      (if (and (not (contains? entity key)) (contains? norm-spec :default))
+        (:default norm-spec)
+        (get entity key)))
+    (get entity key)))
+
 (defn- process-entity-key-spec [process entity [key spec]]
-  (let [value     (get entity key)
+  (let [value     (-key-value process entity key spec)
         new-value (-process-spec-on-value process spec value)]
     (if (some? new-value)
       (assoc entity key new-value)
@@ -969,6 +998,8 @@
    :message       {:type :string :description "Error message used when validate/coerce fails."}
    :description   {:type :string :description "Human-readable documentation string for this field."}
    :example       {:type :any :description "An example value that conforms to this spec."}
+   :default       {:type :any :description "Fills this field when coerce/conform find its map key absent; an explicit nil is left nil. Ignored by plain validate."}
+   :required      {:type :boolean :description "When true, equivalent to :validations [:required]. Satisfied by a :default only in conform, since plain validate never sees it."}
    :name          {:type        :keyword
                    :description "Marks this spec as a named, reusable definition. Doc renderers collect named specs once and reference them elsewhere."}
    :validations   {:type        :seq

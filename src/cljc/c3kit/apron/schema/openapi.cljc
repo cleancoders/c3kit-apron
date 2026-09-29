@@ -55,7 +55,8 @@
 (defn- with-annotations [out spec]
   (cond-> out
     (:description spec) (assoc :description (:description spec))
-    (contains? spec :example) (assoc :example (:example spec))))
+    (contains? spec :example) (assoc :example (:example spec))
+    (contains? spec :default) (assoc :default (:default spec))))
 
 (defn- inline-emit [spec children]
   (-> (case (:type spec)
@@ -83,7 +84,7 @@
 (defn- ref-path [nm]
   (str "#/components/schemas/" (name nm)))
 
-(def ^:private annotation-keys [:description :example])
+(def ^:private annotation-keys [:description :example :default])
 
 (defn- openapi-emit [spec children]
   (let [out (inline-emit spec children)]

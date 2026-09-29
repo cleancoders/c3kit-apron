@@ -7,7 +7,9 @@
 - [Overview](#overview)
 - [Example](#example)
 - [Coercion](#coercion)
+  - [`:default`](#default)
 - [Validation](#validation)
+  - [`:required`](#required)
 - [Reusable Refs](#reusable-refs)
   - [The standard catalog — `c3kit.apron.schema.refs`](#the-standard-catalog--c3kitapronschemarefs)
   - [Factory refs](#factory-refs)
@@ -35,6 +37,7 @@
   - [Annotations](#annotations)
   - [OpenAPI — `c3kit.apron.schema.openapi`](#openapi--c3kitapronschemaopenapi)
   - [Shared infrastructure — `c3kit.apron.schema.doc`](#shared-infrastructure--c3kitapronschemadoc)
+  - [Describing a Schema](#describing-a-schema)
 - [Good to Know](#good-to-know)
   - [Bare vs Wrapped Schemas](#bare-vs-wrapped-schemas)
   - [Unspecified Fields are Lost](#unspecified-fields-are-lost)
@@ -127,6 +130,34 @@ With some enhancements to our `point` schema, we can handle this type of `point`
 ```
 
 For `:x` we add `:coerce` to the `spec` mapping to a **coerce function**, and we are very explicit about how to handle the data.  But for `:y` we take a shortcut.  The value for `:coerce` must be a **coerce function** or a list of **coerce function**s.  Each **coerce function** must take the value as a parameter, and return the coerced value.  So by using the function `first` for `:y` we end up with the string `"2"`... yet our result has the integer `2`. The final step of the `coerce` operation is **type-coercion**, using the `:type` of the spec.  `schema` knows how to convert a string to an int, so it takes care of that for you.
+
+### `:default`
+
+Sometimes a missing field should be filled in rather than left out.  The `:default` spec key supplies a value to use whenever the field's map key is **absent**, *before* any of the spec's own coercions run — so the default gets normalized right alongside real input.
+
+```clojure
+(def point {:kind {:type :keyword}
+            :x    {:type :int :default 0}
+            :y    {:type :int :default "0"}})
+
+(schema/coerce point {:kind :point})
+=> {:kind :point, :x 0, :y 0}
+```
+
+Notice `:y`'s default is the string `"0"` — it still goes through **type-coercion** afterward and comes out as the integer `0`.
+
+**Missing is not the same as `nil`.**  `:default` only fills a key that is *absent* from the map.  A key that is explicitly present with value `nil` is **not** defaulted — it's processed as `nil` and, like any field that comes out `nil`, dropped from the result, same as it always has been:
+
+```clojure
+(schema/coerce point {:kind :point :x nil})
+=> {:kind :point, :y 0}
+```
+
+`:x` was given as `nil`, so it isn't defaulted — it just drops, the way any `nil`-valued field does; `:y` was never mentioned, so it got its default.  A value that is present and non-`nil`, even `false`, is of course never replaced either.
+
+**Only coercion applies defaults** — `coerce`, and `conform` through its coerce step.  Plain `validate` never does (see [`:required`](#required) below); it reads exactly the map it was given.  There is also no "missing" for a bare value (`coerce-value!`) or for an entry inside a `:seq` — both are always some concrete value, present or `nil`, never absent — so `:default` on a `:seq`'s entry `:spec` is never applied during processing, only on the seq *field* itself when that field's key is absent.
+
+`:default` works on a top-level field, a nested `:map` field (recursively — a present nested map defaults its own absent keys the same way), and shorthands.  In `{:type [:int] :default []}` the default describes the *seq field* (an empty list of ints if the field is absent), not its entries — see [Shorthands](#shorthands).  The `[:default v]` coercion factory (a `:coercions` entry, see [Factory refs](#factory-refs)) is unrelated and still works exactly as before; `:default` is the spec-level annotation, `[:default v]` is one coercion step among others.
 
 ## Validation
 
@@ -235,6 +266,45 @@ Also, let's make sure we get a descriptive error messages for each validation?
 The `:validations` entry in the spec allows us to have any number of validations, each with their own message.  Each validation is a map that must have `:validate` that maps to a **validate function**, and an optional `:message`.  If `:message` is not provided in the validation map, `schema` will use the `:message` value in the `spec` if it exists, or `"is invalid"`.
 
 `{:kind :point :x "101" :y "102"}` is invalid in all the ways we check.  But the message we get is `"must be an int"` which is our root `:message`.  This demonstrates that the **type-validation** has to pass first before any other validations take place.
+
+### `:required`
+
+`:required true` is shorthand for the common case of requiring a value to be present.  It behaves exactly like `:validations [:required]` — the value must satisfy `present?` (non-`nil`, non-blank-string), with the message `"is required"`.
+
+```clojure
+(def point {:kind {:type :keyword}
+            :x    {:type :int :required true}
+            :y    {:type :int}})
+
+(schema/validate-message-map point {:kind :point :y 2})
+=> {:x "is required"}
+```
+
+`:required` works with nested `:map` fields, `:seq` entries, and shorthands the same way `:description` and `:default` do — it describes whichever spec it's attached to.
+
+For doc/OpenAPI purposes (`doc/required?`, `doc/required-fields`, and `describe` below), a field also counts as required when it says so the "manual" way — `:validate schema/present?`, `:validations [{:validate schema/present?}]` — or via the keyword refs `:validations [:present?]` / `:validations [:required]`, which is how a data-only (EDN) schema with no functions in it expresses the same rule. `doc/required?` resolves those refs through the schema lexicon rather than only recognizing the raw `present?` fn.
+
+**A `:default` satisfies `:required` — in `conform` only.**  `conform` coerces before it validates, and coercion is what fills an absent key with its `:default` (see [`:default`](#default) above); by the time `:required` is checked, the key is no longer absent:
+
+```clojure
+(def point {:kind {:type :keyword}
+            :x    {:type :int :required true :default 0}})
+
+(schema/conform-message-map point {:kind :point})
+=> nil
+```
+
+**Plain `validate` is strict.**  It doesn't coerce, so it never fills an absent key and never substitutes a `:default` for anything — it just checks exactly the value it was given.  (Like `coerce` and `conform`, a field that comes out `nil` — because it was absent, or explicitly `nil`, or failed some other way — still drops from the result; that's unrelated to `:default` and unchanged from before this annotation existed.)  A required field that's absent, or explicitly `nil`, is an error either way, `:default` or no `:default`:
+
+```clojure
+(schema/validate-message-map point {:kind :point})
+=> {:x "is required"}
+
+(schema/validate-message-map point {:kind :point :x nil})
+=> {:x "is required"}
+```
+
+If you want `validate` to see a filled-in value, `conform` (or `coerce` first, then `validate` the result) — plain `validate` won't do it for you.
 
 ## Reusable Refs
 
@@ -801,12 +871,14 @@ When the path names a keyword that is a known field in `:schema`, `schema-at` de
 
 ### Annotations
 
-Three optional spec fields drive human-facing output:
+Optional spec fields drive human-facing output:
 
 | Field | Type | Used by |
 |---|---|---|
 | `:description` | string | OpenAPI `description` |
 | `:example` | any | OpenAPI `example` |
+| `:default` | any | OpenAPI `default`; also fills an absent map key during `coerce`/`conform` (see [`:default`](#default) and [`:required`](#required)) |
+| `:required` | boolean | OpenAPI `required` (via `doc/required?`); also drives field-level validation (see [`:required`](#required)) |
 | `:name` | keyword | Marks a spec as reusable; the OpenAPI renderer emits it once and references it elsewhere via `$ref` |
 
 Example spec with annotations:
@@ -841,7 +913,24 @@ Output aligns with JSON Schema Draft 2020-12 (which OpenAPI 3.1 uses) for the sc
 
 ### Shared infrastructure — `c3kit.apron.schema.doc`
 
-Small namespace holding the route/doc input schemas (`route-schema`, `doc-schema`) and format-agnostic helpers (`required?`, `required-fields`, `integer-keys?`, `schema-map?`, `maybe-invalid-doc`). Used internally by the OpenAPI renderer; the only reason to require it directly is if you're writing a new renderer.
+Small namespace holding the route/doc input schemas (`route-schema`, `doc-schema`) and format-agnostic helpers (`required?`, `required-fields`, `integer-keys?`, `schema-map?`, `maybe-invalid-doc`, `describe`). Used internally by the OpenAPI renderer; the only reason to require it directly is if you're writing a new renderer, or calling `describe` (below) yourself.
+
+### Describing a Schema
+
+`c3kit.apron.schema.doc/describe` walks a schema (or a single spec) and returns a flat seq of maps, one per field, for humans or tooling that want a plain-data summary instead of an OpenAPI document:
+
+```clojure
+(require '[c3kit.apron.schema.doc :as doc])
+
+(doc/describe {:name {:type :string :required true :description "Pet's name."}
+              :age  {:type :int :default 0}})
+=> [{:path "name" :type :string :required true :description "Pet's name."}
+    {:path "age"  :type :int :required false :default 0}]
+```
+
+Each entry has `:path` (in the [path grammar](#path-grammar)), `:type`, `:required`, and `:default`/`:description` when present. `:map` fields and `:seq` entries are walked recursively — a `:seq`'s entry spec is reported at a trailing `.value` segment, matching how [`schema-at`](#schema-traversal-semantics) addresses it (there's no concrete index to report against a schema, only against data); a `:map`'s dynamic `:key-spec`/`:value-spec` are reported at `.key`/`.value`.
+
+`:one-of` is reported as a single entry at its own path — the path grammar has no segment for "which alternative", so its `:specs` aren't expanded individually. `describe` accepts a bare schema or a wrapped `{:type :map :schema {...}}` spec interchangeably, reads only spec-level data (no function in the schema is ever called), and so works on schemas loaded straight from EDN.
 
 ## Good to Know
 

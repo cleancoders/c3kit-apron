@@ -244,10 +244,16 @@
         (let [spec {:params
                     {:type
                      {:req-1 {:type :string :validate schema/present?}
-                      :req-2 {:type :string :validations [{:validate schema/present?}]}}}}
-              [req-1 req-2] (sut/->parameters spec)]
+                      :req-2 {:type :string :validations [{:validate schema/present?}]}
+                      :req-3 {:type :string :required true}
+                      :req-4 {:type :string :validations [:present?]}
+                      :req-5 {:type :string :validations [:required]}}}}
+              [req-1 req-2 req-3 req-4 req-5] (sut/->parameters spec)]
           (should (:required req-1))
-          (should (:required req-2)))))
+          (should (:required req-2))
+          (should (:required req-3))
+          (should (:required req-4))
+          (should (:required req-5)))))
 
     (context "schemas"
 
@@ -297,7 +303,35 @@
                    (sut/apron->openapi-schema {:type   :map
                                                :schema {:name {:type :string
                                                                :description "user name"
-                                                               :example "alice"}}}))))
+                                                               :example "alice"}}})))
+
+        (it "includes :default"
+          (should= {:type "integer" :default 0}
+                   (sut/apron->openapi-schema {:type :int :default 0})))
+
+        (it "includes a falsy :default"
+          (should= {:type "boolean" :default false}
+                   (sut/apron->openapi-schema {:type :boolean :default false})))
+
+        (it "required list includes :required true fields alongside present?-based ones"
+          (should= {:type       "object"
+                    :properties {:name {:type "string"}
+                                 :age  {:type "integer" :default 0}}
+                    :required   [:name]}
+                   (sut/apron->openapi-schema {:type   :map
+                                               :schema {:name {:type :string :required true}
+                                                        :age  {:type :int :default 0}}})))
+
+        (it "required list includes fields required via keyword refs (EDN schemas)"
+          (should= {:type       "object"
+                    :properties {:a {:type "integer"}
+                                 :b {:type "integer"}
+                                 :c {:type "integer"}}
+                    :required   [:a :b]}
+                   (sut/apron->openapi-schema {:type   :map
+                                               :schema {:a {:type :int :validations [:present?]}
+                                                        :b {:type :int :validations [:required]}
+                                                        :c {:type :int}}}))))
 
       (context "named specs and $ref"
 

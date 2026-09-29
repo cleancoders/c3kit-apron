@@ -232,6 +232,135 @@
       (let [schema {:thing {:type :map :schema {:field {:type :any}} :validations [schema/required]}}]
         (should= "is required" (:thing (schema/conform-message-map schema {}))))))
 
+  (context "nil results are dropped -- regression coverage for a schema with no :default"
+
+    ;; :default must not change behavior for a schema that never uses it.
+    ;; A field that processes to nil, whether it was absent or explicitly
+    ;; nil in the input, is dropped from coerce/validate/conform output --
+    ;; exactly as before :default existed. Only an ABSENT key with a
+    ;; :default is ever filled; nothing here has one.
+
+    (let [schema {:x {:type :int} :y {:type :string} :m {:type :map :schema {:z {:type :int}}}}]
+
+      (it "coerce drops an explicit nil leaf, keeping other fields' own defaults"
+        (should= {:m {}} (schema/coerce schema {:x nil})))
+
+      (it "conform drops an explicit nil leaf"
+        (should= {} (schema/conform schema {:x nil})))
+
+      (it "conform drops a nil field inside a present nested map"
+        (should= {:m {}} (schema/conform schema {:m {:z nil}})))
+
+      (it "validate drops an explicitly nil map field"
+        (should= {} (schema/validate schema {:m nil})))))
+
+  (context ":default"
+
+    ;; Only coercion (coerce, and conform via its coerce step) fills
+    ;; defaults, and only for a map key that is ABSENT from the map. A key
+    ;; that is explicitly present with value nil is NOT defaulted -- missing
+    ;; is not the same as nil -- but that nil is still processed and dropped
+    ;; from the output exactly like it always has been (see the "nil results
+    ;; are dropped" regression spec below); :default only rescues a truly
+    ;; absent key. There is no "missing" for a bare value or a seq entry,
+    ;; only explicit values, so :default never applies to those.
+
+    (it "fills an absent map key"
+      (should= {:ttl 60} (schema/coerce {:ttl {:type :int :default 60}} {})))
+
+    (it "does not apply to an explicit nil -- it is dropped, same as without a :default"
+      (should= {} (schema/coerce {:ttl {:type :int :default 60}} {:ttl nil})))
+
+    (it "normalizes the default like any other value"
+      (should= {:ttl 60} (schema/coerce {:ttl {:type :int :default "60"}} {})))
+
+    (it "never replaces a present value, even false"
+      (should= {:flag false} (schema/coerce {:flag {:type :boolean :default true}} {:flag false})))
+
+    (it "does not apply to a bare value -- coerce-value! has no map key to be absent"
+      (should-be-nil (schema/coerce-value! {:type :int :default 5} nil)))
+
+    (it "on an absent nested map field"
+      (should= {:inner {:name "bob"}}
+               (schema/coerce {:inner {:type :map :schema {:name {:type :string}} :default {:name "bob"}}}
+                              {})))
+
+    (it "a present nested map defaults its own absent keys, recursively"
+      (should= {:inner {:count 0}}
+               (schema/coerce {:inner {:type :map :schema {:count {:type :int :default 0}}}}
+                              {:inner {}})))
+
+    (it "an explicit nil inside a nested map is not defaulted, and drops as usual"
+      (should= {:inner {}}
+               (schema/coerce {:inner {:type :map :schema {:count {:type :int :default 0}}}}
+                              {:inner {:count nil}})))
+
+    (it "does not apply to seq entries -- no entry is ever 'missing', only explicit values"
+      (should= [1 nil 3]
+               (schema/coerce-value! {:type [{:type :int :default 0}]} [1 nil 3])))
+
+    (it "applies to a seq field itself when the field is absent, same as any map field"
+      (should= {:items []} (schema/coerce {:items {:type [:int] :default []}} {})))
+
+    (it "shorthand: :default on [:type] still describes the seq, not its entries (structural only -- an entry-level :default is never applied)"
+      (let [spec (schema/normalize-spec {:type [:int] :default []})]
+        (should= {:type :seq :spec {:type :int} :default []} spec))
+      (let [spec (schema/normalize-spec {:type [{:type :int :default 0}]})]
+        (should= {:type :seq :spec {:type :int :default 0}} spec))))
+
+  (context ":required"
+
+    (it "behaves like :validations [:required]"
+      (should= {:name "is required"} (schema/validate-message-map {:name {:type :string :required true}} {})))
+
+    (it "passes when present"
+      (should-be-nil (schema/validate-message-map {:name {:type :string :required true}} {:name "Bob"})))
+
+    (it "on a nested map's field"
+      (should= {:inner {:name "is required"}}
+               (schema/validate-message-map {:inner {:type :map :schema {:name {:type :string :required true}}}}
+                                            {:inner {}})))
+
+    (it "on a seq entry"
+      (should= {:names {0 "is required"}}
+               (schema/validate-message-map {:names {:type [{:type :string :required true}]}}
+                                            {:names [nil]})))
+
+    (it "survives shorthand normalization on the seq itself"
+      (let [spec (schema/normalize-spec {:type [:int] :required true})]
+        (should= {:type :seq :spec {:type :int} :required true} spec))))
+
+  (context "default and required"
+
+    ;; Default satisfies required ONLY in conform, because conform coerces
+    ;; (filling absent keys) before it validates. Plain validate is strict:
+    ;; it never modifies data, so it never sees a :default, and a missing
+    ;; or explicitly-nil required field is always an error.
+
+    (it "conform: the default is applied (coerce) before :required is checked (validate)"
+      (should-be-nil (schema/conform-message-map {:name {:type :string :required true :default "Bob"}} {})))
+
+    (it "conform: an explicit nil is left nil, so :required still flags it -- the default never applied"
+      (should= {:name "is required"}
+               (schema/conform-message-map {:name {:type :string :required true :default "Bob"}} {:name nil})))
+
+    (it "plain validate is strict: a missing required field errors even though the spec has a :default"
+      (should= {:name "is required"}
+               (schema/validate-message-map {:name {:type :string :required true :default "Bob"}} {})))
+
+    (it "plain validate is strict: an explicit nil errors the same way"
+      (should= {:name "is required"}
+               (schema/validate-message-map {:name {:type :string :required true :default "Bob"}} {:name nil})))
+
+    (it "plain validate never substitutes the default for :validations [:required] either"
+      (should= {:name "is required"}
+               (schema/validate-message-map {:name {:type :string :validations [:required] :default "Bob"}} {})))
+
+    (it "plain validate never fills a :default -- a nil result drops from the output as always"
+      (should= {:name "Bob"} (schema/validate {:name {:type :string}} {:name "Bob"}))
+      (should= {} (schema/validate {:name {:type :string :default "Bob"}} {}))
+      (should= {} (schema/validate {:name {:type :string}} {:name nil}))))
+
   (context "error messages"
 
     (it "are nil when there are none"
@@ -592,6 +721,10 @@
         (let [result (schema/normalize-spec {:type [:int] :validate even? :foo "bar"})]
           (should= {:type :seq :spec {:type :int :validate even?} :foo "bar"} result)))
 
+      (it ":description, :default, and :required describe the seq, not its entries"
+        (let [result (schema/normalize-spec {:type [:int] :description "some ints" :default [] :required true})]
+          (should= {:type :seq :spec {:type :int} :description "some ints" :default [] :required true} result)))
+
       (it "with spec"
         (let [result (schema/normalize-spec {:type [{:type :int}] :message "foo"})]
           (should= {:type :seq :spec {:type :int} :message "foo"} result))
@@ -611,6 +744,10 @@
         (should= {:type :map :schema {:foo {:type :string}}} result))
       (let [result (schema/normalize-spec {:type {:foo {:type :string}} :validate map?})]
         (should= {:type :map :schema {:foo {:type :string}} :validate map?} result)))
+
+    (it "map: :description describes the map, not its entries"
+      (let [result (schema/normalize-spec {:type {:foo {:type :string :description "a foo"}} :description "a map"})]
+        (should= {:type :map :schema {:foo {:type :string :description "a foo"}} :description "a map"} result)))
 
     (it "set"
       (let [result (schema/normalize-spec {:type #{:int :string}})]

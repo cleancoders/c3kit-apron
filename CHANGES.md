@@ -1,3 +1,48 @@
+### 3.2.0
+
+ * **`:default` spec key.** Fills a map field's `:default` when `coerce` (or
+   `conform`, via its coerce step) finds the field's key *absent* — before
+   any of the spec's own coercions run, so the default is normalized just
+   like real input. Missing is not the same as `nil`: a key that is
+   explicitly present with value `nil` is **not** defaulted — it's processed
+   as `nil` and dropped from the result, exactly as any `nil`-valued field
+   always has been. Only coercion applies defaults; plain `validate` never
+   does, and there is no "missing" for a bare value (`coerce-value!`) or a
+   `:seq` entry — both are always some concrete value — so `:default` never
+   fires for those, only for a declared map field whose key is absent.
+   Works on top-level and nested map fields (recursively) and shorthands.
+   The OpenAPI renderer emits `default`; the existing `[:default v]`
+   coercion factory is unchanged.
+ * **`:required true` spec key.** Equivalent to `:validations [:required]` —
+   `present?`, message `"is required"`. `doc/required?` / `doc/required-fields`
+   recognize it, so OpenAPI's `required` list includes such fields. Works with
+   shorthands and nested maps.
+ * **`doc/required?` resolves keyword refs, not just fn identity.** A
+   data-only (EDN) schema spells required-ness as `:validations [:present?]`
+   or `:validations [:required]`, not a literal `present?` fn reference.
+   `doc/required?` (and therefore `describe` and OpenAPI's `required` list)
+   now resolves any keyword/symbol/string/factory-vector ref through the
+   schema lexicon to see whether it means `present?`, rather than only
+   matching the raw fn — fn-form validations keep working exactly as before.
+ * **A `:default` satisfies `:required` — in `conform` only.** `conform`
+   coerces (filling absent keys) before it validates, so a field that got
+   its default is no longer absent by the time `:required` runs. Plain
+   `validate` is strict: it doesn't coerce, so it never fills an absent key
+   or substitutes a `:default`. (A `nil` result still drops from `validate`'s
+   output, same as it always has, whether or not the field has a
+   `:default` — that dropping is unrelated to this feature.) A required
+   field that's missing or explicitly `nil` is always an error under plain
+   `validate`, `:default` or no `:default`.
+ * **`:description` confirmed to survive shorthand normalization**, describing
+   the right spec (e.g. `{:type [:int] :description "d"}` describes the seq,
+   not its entries) — same placement rule as the new `:default`/`:required`.
+ * **`c3kit.apron.schema.doc/describe`** — walks a schema (or a single spec)
+   and returns a flat seq of `{:path :type :default :required :description}`
+   maps, one per field, using the `c3kit.apron.schema.path` grammar for
+   `:path`. Covers nested `:map`s, `:seq` entries, and dynamic keys; `:one-of`
+   is reported as a single entry (the path grammar has no segment for "which
+   alternative"). Works on plain data (EDN) schemas.
+
 ### 3.1.0
 
  * **Hand-rolled `c3kit.apron.log`.** Same macros and level controls; no Timbre.
