@@ -28,7 +28,7 @@
            :cljs-cst {:main-opts ["-m" "cljs"] :jvm-opts ["-Dc3.env=cst"]}
            :cljs-mst {:main-opts ["-m" "cljs"] :jvm-opts ["-Dc3.env=mst"]}
            :build    {:extra-deps {io.github.cleancoders/github-actions
-                                   {:git/sha "c910fe34d006b34b2629e9108a486d7bacf43357" :deps/root "clj"}}
+                                   {:git/sha "7a69c83b05002efce96652493a84513c68f30260" :deps/root "clj"}}
                       :ns-default cleancoders.build.api
                       :exec-args  {:group        "com.cleancoders.c3kit"
                                    :lib-name     "apron"
