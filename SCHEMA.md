@@ -11,14 +11,14 @@
 - [Validation](#validation)
   - [`:required`](#required)
 - [Reusable Refs](#reusable-refs)
-  - [The standard catalog — `c3kit.apron.schema.refs`](#the-standard-catalog--c3kitapronschemarefs)
-  - [Factory refs](#factory-refs)
+  - [The standard catalog](#the-standard-catalog)
+  - [Factory lexes](#factory-lexes)
   - [Combinator factories](#combinator-factories)
   - [Map entries with overrides](#map-entries-with-overrides)
-  - [Defining your own refs](#defining-your-own-refs)
-  - [Entity-scoped refs](#entity-scoped-refs)
-  - [Verifying refs early](#verifying-refs-early)
-  - [Bindable registry](#bindable-registry)
+  - [Defining your own lexes](#defining-your-own-lexes)
+  - [Entity-scoped lexes](#entity-scoped-lexes)
+  - [Verifying lexes early](#verifying-lexes-early)
+  - [Scoping the lexicon](#scoping-the-lexicon)
 - [Conform](#conform)
 - [Present](#present)
 - [Entity Level Specs](#entity-level-specs)
@@ -157,7 +157,7 @@ Notice `:y`'s default is the string `"0"` — it still goes through **type-coerc
 
 **Only coercion applies defaults** — `coerce`, and `conform` through its coerce step.  Plain `validate` never does (see [`:required`](#required) below); it reads exactly the map it was given.  There is also no "missing" for a bare value (`coerce-value!`) or for an entry inside a `:seq` — both are always some concrete value, present or `nil`, never absent — so `:default` on a `:seq`'s entry `:spec` is never applied during processing, only on the seq *field* itself when that field's key is absent.
 
-`:default` works on a top-level field, a nested `:map` field (recursively — a present nested map defaults its own absent keys the same way), and shorthands.  In `{:type [:int] :default []}` the default describes the *seq field* (an empty list of ints if the field is absent), not its entries — see [Shorthands](#shorthands).  The `[:default v]` coercion factory (a `:coercions` entry, see [Factory refs](#factory-refs)) is unrelated and still works exactly as before; `:default` is the spec-level annotation, `[:default v]` is one coercion step among others.
+`:default` works on a top-level field, a nested `:map` field (recursively — a present nested map defaults its own absent keys the same way), and shorthands.  In `{:type [:int] :default []}` the default describes the *seq field* (an empty list of ints if the field is absent), not its entries — see [Shorthands](#shorthands).  The `[:default v]` coercion factory (a `:coercions` entry, see [Factory lexes](#factory-lexes)) is unrelated and still works exactly as before; `:default` is the spec-level annotation, `[:default v]` is one coercion step among others.
 
 ## Validation
 
@@ -308,38 +308,34 @@ If you want `validate` to see a filled-in value, `conform` (or `coerce` first, t
 
 ## Reusable Refs
 
-Up to this point every `:validate`, `:coerce`, `:validations`, and `:coercions` entry has been a Clojure function written inline. That works for application code but breaks down when you need schemas as **data** — loaded from EDN or JSON, shipped between systems, or carried by plugins that the host doesn't load code from.
+Up to this point every `:validate`, `:coerce`, `:validations`, `:coercions`, and `:presentations` entry has been a Clojure value written inline. That works for application code but breaks down when you need schemas as **data** — loaded from EDN or JSON, shipped between systems, or carried by plugins that the host doesn't load code from.
 
-`schema` solves this with a **ref registry**: named operations (predicates, coercers, or factories) registered ahead of time and referenced from inside `:validations` and `:coercions` by their key. The original `:validate` and `:coerce` keys keep their function-only behavior — refs only appear under `:validations` and `:coercions`.
+`schema` solves this with the **lexicon**: `c3kit.apron.schema/*lexicon*`, a dynamic var holding four slots — `:types`, `:validations`, `:coercions`, `:presentations` — each a `{name → lex}` map. A **lex** is a small map (`{:validate ...}`, `{:coerce ...}`, or `{:present ...}`, each with an optional `:message`), or a **factory** function that returns one. `:validations`, `:coercions`, and `:presentations` entries reference a lex by name; the original `:validate`, `:coerce`, and `:present` keys stay function-only — lex names only resolve inside those three plural slots.
 
 ```clojure
 (require '[c3kit.apron.schema :as s])
 
-(s/register-ref! :positive? {:validate pos? :message "must be positive"})
-
-(s/validate-value! {:type :int :validations [:positive?]} -1)
+(s/validate-value! {:type :int :validations [:pos?]} -1)
 ;; => throws ExceptionInfo "must be positive"
 ```
 
-A registered value is always a map containing some subset of `:validate`, `:coerce`, and `:message`. The slot the ref appears in determines which key is pulled:
+Unlike the pre-3.0 ref registry, the lexicon isn't empty by default — requiring `c3kit.apron.schema` also loads the standard catalog (below), so `:pos?` above resolves with no install step.
 
-| Slot | Pulls from the registered map |
+A lex is a map containing some subset of `:validate`, `:coerce`, `:present`, and `:message`. Which slot an entry appears in determines which key gets pulled from it:
+
+| Slot | Pulls from the lex |
 | --- | --- |
 | `:validations [:foo?]` | `:validate` |
 | `:coercions [:trim]` | `:coerce` |
+| `:presentations [:trim]` | `:present` |
 
-If a ref doesn't carry the key its slot needs, you get a clear error — `ref :trim has no :validate` (or vice versa). And if a referenced key isn't registered at all, the failure surfaces as a regular field error with the message `"missing ref :X"` rather than blowing up the whole `coerce` / `validate` call.
+If a lex doesn't carry the key its slot needs, you get a clear error — e.g. `lex :coerce-only has no :validate`. And if a name isn't registered in that slot at all, the failure doesn't blow up the whole `coerce` / `validate` / `conform` call — it surfaces as an ordinary field-level error with the message `"missing lex :X in :slot"`, alongside whatever other fields did resolve.
 
-### The standard catalog — `c3kit.apron.schema.refs`
+### The standard catalog
 
-The registry is **empty by default**. To load the standard catalog of validators and coercers, require `c3kit.apron.schema.refs` and call `install!`:
+Requiring `c3kit.apron.schema` transitively requires four bundle namespaces — `c3kit.apron.schema.types`, `.validations`, `.coercions`, `.presentations` — and merges their catalogs into `*lexicon*` at load time. There's no separate install step:
 
 ```clojure
-(require '[c3kit.apron.schema     :as s]
-         '[c3kit.apron.schema.refs :as refs])
-
-(refs/install!)
-
 (s/validate-value! {:type :string :validations [:string?]} 42)
 ;; => throws "must be a string"
 
@@ -347,29 +343,33 @@ The registry is **empty by default**. To load the standard catalog of validators
 ;; => "hi"
 ```
 
-Categories shipped:
+Categories shipped (see each namespace's source for the exhaustive list):
 
-- **Type predicates** — `:string?`, `:integer?`, `:keyword?`, `:number?`, `:boolean?`, `:map?`
+- **Type predicates** — `:string?`, `:integer?`, `:keyword?`, `:number?`, `:boolean?`, `:map?`, `:uuid?`, `:ifn?`, `:float?`
 - **Numeric predicates** — `:pos?`, `:neg?`, `:zero?`, `:pos-int?`, `:neg-int?`, `:nat-int?`
-- **Apron predicates** — `:present?`, `:email?`, `:bigdec?`, `:uri?`
+- **Apron predicates** — `:present?` (alias `:required`), `:email?`, `:bigdec?`, `:uri?`, `:multiple?`, `:date?`, `:instant?`, `:timestamp?`
 - **Comparison factories** — `:>`, `:<`, `:>=`, `:<=`, `:=`, `:not=`, `:between`
 - **Shape factories** — `:min-length`, `:max-length`, `:length`, `:matches`, `:one-of`, `:not-one-of`
-- **Combinator factories** — `:nil-or?`, `:not?`, `:and?`, `:or?` (compose other refs or fns)
+- **Combinator factories** — `:nil-or?`, `:maybe?`, `:not?`, `:and?`, `:or?` (compose other lexes or fns)
 - **String coercers** — `:trim`, `:upper-case`, `:lower-case`, `:capitalize`
-- **Type coercers** — `:->string`, `:->int`, `:->float`, `:->bigdec`, `:->boolean`, `:->keyword`, `:->date`, `:->sql-date`, `:->timestamp`, `:->uri`, `:->uuid`
-- **Coercion factories** — `:default`
+- **Type coercers** — `:->string`, `:->int`, `:->float`, `:->bigdec`, `:->boolean`, `:->keyword`, `:->date`, `:->sql-date`, `:->timestamp`, `:->uri`, `:->uuid`, `:->map`
+- **Coercion factory** — `:default` (substitutes a value whenever the *value* is `nil`; not to be confused with the `:default` **spec key** from [above](#default), which fills in the *key* when it's absent)
+- **String/type presentations** — `:trim`, `:upper-case`, `:lower-case`, `:capitalize`, `:->string`, `:omit` (drops the field from output), and a `:default` factory (substitutes a display value when the field is `nil`)
 
-Each ref is also exported as its own var for à-la-carte use without going through the registry:
+Each lex is also exported as its own var for à-la-carte use without going through the lexicon:
 
 ```clojure
+(require '[c3kit.apron.schema.validations :as v]
+         '[c3kit.apron.schema.coercions :as c])
+
 {:type :string
- :validations [refs/string? (refs/min-length 3)]
- :coercions   [refs/trim]}
+ :validations [v/string? (v/min-length 3)]
+ :coercions   [c/trim]}
 ```
 
-### Factory refs
+### Factory lexes
 
-Some refs take parameters. They register as a **function** that returns a validation/coercion map; you call them through the registry as a vector:
+Some lexes take parameters. They register as a **function** that returns a validation/coercion map; you invoke them through the lexicon as a vector:
 
 ```clojure
 (s/validate-value! {:type :int :validations [[:> 5]]}        3)   ;; throws "must be > 5"
@@ -377,16 +377,21 @@ Some refs take parameters. They register as a **function** that returns a valida
 (s/coerce-value!   {:type :any :coercions   [[:default 99]]} nil) ;; => 99
 ```
 
-The first element of the vector is the ref key; the rest are the factory's arguments.
+The first element of the vector is the lex name; the rest are the factory's arguments.
 
 ### Combinator factories
 
-The standard catalog includes four combinators — `:nil-or?`, `:not?`, `:and?`, `:or?` — that take other predicates as arguments. The argument may be a registered ref name, a factory invocation, or an inline function:
+The standard catalog includes five combinators — `:nil-or?`, `:maybe?`, `:not?`, `:and?`, `:or?` — that take other predicates as arguments. The argument may be a lex name, a factory invocation, or an inline function:
 
 ```clojure
 ;; nil-tolerant version of any predicate
-(s/validate-value! {:type :any :validations [[:nil-or? :pos?]]} nil)   ;; => nil
+(s/validate-value! {:type :any :validations [[:nil-or? :pos?]]} nil)         ;; => nil
 (s/validate-value! {:type :any :validations [[:nil-or? [:between 0 10]]]} 5) ;; => 5
+
+;; like nil-or?, but keeps the inner predicate's own message (no "may be nil or " prefix)
+(s/validate-value! {:type :any :validations [[:maybe? :pos?]]} nil) ;; => nil
+(s/validate-value! {:type :any :validations [[:maybe? :pos?]]} -1)
+;; => throws "must be positive"
 
 ;; compose multiple constraints
 (s/validate-value! {:type :any :validations [[:and? :integer? :pos?]]} 4)
@@ -399,11 +404,11 @@ The standard catalog includes four combinators — `:nil-or?`, `:not?`, `:and?`,
 Combinator factories use `s/->validate-fn` to resolve their arguments. Custom combinators do the same:
 
 ```clojure
-(s/register-ref! :every-of?
-                 (fn [pred-ref]
-                   (let [pred (s/->validate-fn pred-ref)]
-                     {:validate (fn [coll] (every? pred coll))
-                      :message  "every element must satisfy predicate"})))
+(s/update-lexicon! :validations assoc :every-of?
+  (fn [pred-ref]
+    (let [pred (s/->validate-fn pred-ref)]
+      {:validate (fn [coll] (every? pred coll))
+       :message  "every element must satisfy predicate"})))
 
 (s/validate-value! {:type :any :validations [[:every-of? :pos?]]} [1 2 3])
 ```
@@ -412,50 +417,54 @@ The companion `s/->coerce-fn` handles the same job for combinator coercers.
 
 ### Map entries with overrides
 
-A `:validations` or `:coercions` entry can also be a full map, which lets you reuse a registered predicate but override the message at the call site:
+A `:validations` or `:coercions` entry can also be a full map, which lets you reuse a lex's predicate but override the message at the call site:
 
 ```clojure
 {:type :string
  :validations [{:validate :present? :message "Name is mandatory"}]}
 ```
 
-When the message is omitted, the registered ref's `:message` is used; the spec-level `:message` fills in if neither is present.
+When the message is omitted, the lex's `:message` is used; the spec-level `:message` fills in if neither is present.
 
-### Defining your own refs
+### Defining your own lexes
 
-Plugin or application code registers refs with `register-ref!`:
-
-```clojure
-(s/register-ref! :app/non-empty-vec
-                 {:validate (every-pred vector? seq)
-                  :message  "must be a non-empty vector"})
-```
-
-Factories register as plain functions that return a validation/coercion map:
+Application or plugin code extends the lexicon with `update-lexicon!`, which mutates the root binding — so the addition is visible everywhere, the same way requiring a library is:
 
 ```clojure
-(s/register-ref! :app/clamp
-                 (fn [lo hi]
-                   {:coerce  #(max lo (min hi %))
-                    :message (str "clamped to [" lo ", " hi "]")}))
+(s/update-lexicon! :validations assoc :app/non-empty-vec
+  {:validate (every-pred vector? seq)
+   :message  "must be a non-empty vector"})
 ```
 
-Re-registering an existing key is allowed and emits a warning via `*warn-fn*` (default writes to `*err*` / `console.warn`); rebind it for tests or to route through your own logger.
+Factories are plain functions that return a validation/coercion map:
 
-### Entity-scoped refs
+```clojure
+(s/update-lexicon! :coercions assoc :app/clamp
+  (fn [lo hi]
+    {:coerce  #(max lo (min hi %))
+     :message (str "clamped to [" lo ", " hi "]")}))
+
+(s/coerce-value! {:type :int :coercions [[:app/clamp 0 10]]} 99) ;; => 10
+```
+
+`update-lexicon!` takes a slot, an update fn, and args — the same shape as `clojure.core/update` — so re-registering an existing name is just `assoc` again; it silently replaces the old lex, with no warning.
+
+For scoped overrides — a test, a single request, a plugin sandbox — bind rather than mutate; see [Scoping the lexicon](#scoping-the-lexicon) below.
+
+### Entity-scoped lexes
 
 Sometimes a field's validity depends on other fields in the entity — e.g. `:tail-length` is only required when `:species` is `"dog"`. `:*` (see [Entity Level Specs](#entity-level-specs)) handles this, but it pulls the rule away from the field it belongs to.
 
-A registered ref can opt into **entity scope** by setting `:scope :entity`. Its `:validate`/`:coerce` fn then receives `(entity field-key)` instead of `(value)`, and runs after the field-level pass:
+A lex can opt into **entity scope** by setting `:scope :entity`. Its `:validate`/`:coerce` fn then receives `(entity field-key)` instead of `(value)`, and runs after the field-level pass:
 
 ```clojure
-(s/register-ref! :required-when
-                 (fn [other-key expected]
-                   {:validate (fn [entity field-key]
-                                (or (not= expected (get entity other-key))
-                                    (s/present? (get entity field-key))))
-                    :scope    :entity
-                    :message  (str "is required when " other-key " is " expected)}))
+(s/update-lexicon! :validations assoc :required-when
+  (fn [other-key expected]
+    {:validate (fn [entity field-key]
+                 (or (not= expected (get entity other-key))
+                     (s/present? (get entity field-key))))
+     :scope    :entity
+     :message  (str "is required when " other-key " is " expected)}))
 
 (def pet
   {:species     {:type :string}
@@ -468,13 +477,13 @@ A registered ref can opt into **entity scope** by setting `:scope :entity`. Its 
 ;; => nil
 ```
 
-The same `:scope :entity` flag works inside `:coercions`, letting a ref derive a value from sibling fields:
+The same `:scope :entity` flag works inside `:coercions`, letting a lex derive a value from sibling fields:
 
 ```clojure
-(s/register-ref! :full-name-from-parts
-                 {:coerce (fn [entity _field-key]
-                           (str (:first-name entity) " " (:last-name entity)))
-                  :scope  :entity})
+(s/update-lexicon! :coercions assoc :full-name-from-parts
+  {:coerce (fn [entity _field-key]
+             (str (:first-name entity) " " (:last-name entity)))
+   :scope  :entity})
 
 (s/coerce {:first-name {:type :string}
            :last-name  {:type :string}
@@ -491,26 +500,39 @@ Pipeline order for an entity:
 
 `validate-value!`, `coerce-value!`, and `conform-value!` operate on a single value with no entity context, so entity-scoped entries are silently bypassed in those calls — only the full-entity APIs (`validate`/`coerce`/`conform`) run them.
 
-### Verifying refs early
+### Verifying lexes early
 
-`verify-schema-refs` walks a schema and throws on the first ref that is unregistered or used in the wrong slot. Plugin hosts call it once after registering, to fail fast before any data flows:
-
-```clojure
-(s/verify-schema-refs my-plugin-schema)   ;; => true, or throws
-```
-
-### Bindable registry
-
-`*ref-registry*` is a dynamic var. Tests and plugin sandboxes can isolate their registrations by binding it to a fresh atom:
+`verify-schema-lexes` walks a schema and throws on the first `:validations`, `:coercions`, or `:presentations` entry whose lex is unregistered or missing the key its slot needs. Plugin hosts call it once after extending the lexicon, to fail fast before any data flows:
 
 ```clojure
-(binding [s/*ref-registry* (atom {})]
-  (refs/install!)                       ;; populate this isolated copy
-  (s/validate my-schema my-data))
-;; outside the binding, the global registry is untouched
+(s/verify-schema-lexes my-plugin-schema)   ;; => true, or throws
 ```
 
-`reset-ref-registry!` empties the currently-bound registry.
+### Scoping the lexicon
+
+`*lexicon*` is an ordinary dynamic var, so tests, plugin sandboxes, and request-scoped overrides isolate their additions with `with-lexicon` instead of touching the root. It merges a partial lexicon map over the current binding for the duration of a body:
+
+```clojure
+(def my-schema {:n {:type :int :validations [:app/pos2?]}})
+
+(s/with-lexicon {:validations {:app/pos2? {:validate pos? :message "must be positive"}}}
+  (s/validate-message-map my-schema {:n -1}))
+;; => {:n "must be positive"}
+
+;; outside the binding, the lex is gone again — surfaces as a field error, not a crash
+(s/validate-message-map my-schema {:n -1})
+;; => {:n "missing lex :app/pos2? in :validations"}
+```
+
+`with-lexicon` never touches the root, so there's nothing to reset afterward — this is what replaces binding a fresh registry atom in the pre-3.0 API.
+
+For per-call overrides instead of a whole body, use the `-with` variants — `coerce-with`, `validate-with`, `conform-with`, `present-with` — each takes a partial lexicon map, scopes it, and runs the corresponding `!` fn (so, like `validate!`, `validate-with` throws on invalid data rather than returning a message map):
+
+```clojure
+(s/validate-with {:validations {:app/pos2? {:validate pos? :message "must be positive"}}}
+                  my-schema {:n 5})
+;; => {:n 5}
+```
 
 ## Conform
 

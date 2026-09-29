@@ -42,6 +42,8 @@
    `:path`. Covers nested `:map`s, `:seq` entries, and dynamic keys; `:one-of`
    is reported as a single entry (the path grammar has no segment for "which
    alternative"). Works on plain data (EDN) schemas.
+ * **SCHEMA.md: Reusable Refs section rewritten for the lexicon API** (it
+   still documented the pre-3.0 `register-ref!` registry).
 
 ### 3.1.0
 
