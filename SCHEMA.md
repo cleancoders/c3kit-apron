@@ -280,7 +280,7 @@ The `:validations` entry in the spec allows us to have any number of validations
 => {:x "is required"}
 ```
 
-`:required` works with nested `:map` fields, `:seq` entries, and shorthands the same way `:description` and `:default` do — it describes whichever spec it's attached to.
+`:required` works with nested `:map` fields, `:seq` entries, and shorthands the same way `:description`, `:default`, and `:validations` do — it describes whichever spec it's attached to.  On the `[:type]` seq shorthand in particular, that means `:required` and `:validations` describe the seq field itself, not its entries — see [Shorthands](#shorthands).
 
 For doc/OpenAPI purposes (`doc/required?`, `doc/required-fields`, and `describe` below), a field also counts as required when it says so the "manual" way — `:validate schema/present?`, `:validations [{:validate schema/present?}]` — or via the keyword refs `:validations [:present?]` / `:validations [:required]`, which is how a data-only (EDN) schema with no functions in it expresses the same rule. `doc/required?` resolves those refs through the schema lexicon rather than only recognizing the raw `present?` fn.
 
@@ -1059,6 +1059,18 @@ Using these shorthands we could define `line` and `polygon` like so:
 ```
 
 This is smaller.  But, as mentioned, it is not valid schema data, and its intent is less clear.  `schema` will accept these shorthands and expand them on the fly. 
+
+**Seq shorthand key placement.**  `{:type [:int] ...}` normalizes to `{:type :seq :spec {:type :int} ...}`, and where each key in `...` ends up depends on what it means:
+
+- `:validate`, `:coerce`, `:present`, and `:message` move down onto the synthesized element `:spec` — they describe each *entry* in the seq.  `{:type [:int] :validate even?}` means "each int must be even," not "the seq as a whole passes `even?`."
+- `:validations`, `:description`, `:default`, and `:required` stay on the outer `:seq` spec — they describe the *field* itself.  `{:type [:keyword] :validations [:required]}` means the `:permissions` list must be present, the same as `{:type :seq :spec {:type :keyword} :validations [:required]}` — not "each keyword must be present."
+
+If you want an element-level check with `:validations` instead of a bare `:validate` fn, or a field-level check with `:validate`, use the long `:type :seq` / `:spec` form and put the key exactly where it belongs.
+
+```clojure
+(schema/normalize-spec {:type [:keyword] :validations [:required]})
+=> {:type :seq, :spec {:type :keyword}, :validations [:required]}
+```
 
 ### Types
 

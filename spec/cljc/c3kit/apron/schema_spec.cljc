@@ -330,6 +330,41 @@
       (let [spec (schema/normalize-spec {:type [:int] :required true})]
         (should= {:type :seq :spec {:type :int} :required true} spec))))
 
+  (context "field-level :validations on seq shorthand (issue #7)"
+
+    (it "fires on an absent key, same as the long :type :seq / :spec form"
+      (should= {:permissions "is required"}
+               (schema/validate-message-map {:permissions {:type [:keyword] :validations [:required]}} {})))
+
+    (it "passes when the key is present"
+      (should-be-nil
+        (schema/validate-message-map {:permissions {:type [:keyword] :validations [:required]}}
+                                     {:permissions [:admin]})))
+
+    (it "is equivalent to the long form, absent and present alike"
+      (let [shorthand {:permissions {:type [:keyword] :validations [:required]}}
+            long-form  {:permissions {:type :seq :spec {:type :keyword} :validations [:required]}}]
+        (should= (schema/validate-message-map long-form {})
+                 (schema/validate-message-map shorthand {}))
+        (should= (schema/validate-message-map long-form {:permissions [:admin]})
+                 (schema/validate-message-map shorthand {:permissions [:admin]}))))
+
+    (it "a field-level validation sees the whole seq, not a single element"
+      (should= {:permissions "must not be empty"}
+               (schema/validate-message-map
+                 {:permissions {:type [:keyword] :validations [{:validate seq :message "must not be empty"}]}}
+                 {:permissions []}))
+      (should-be-nil
+        (schema/validate-message-map
+          {:permissions {:type [:keyword] :validations [{:validate seq :message "must not be empty"}]}}
+          {:permissions [:admin]})))
+
+    (it ":validate (unlike :validations) still applies per element, unchanged"
+      (should= {:evens {0 "must be even"}}
+               (schema/validate-message-map
+                 {:evens {:type [:int] :validate even? :message "must be even"}}
+                 {:evens [1 2]}))))
+
   (context "default and required"
 
     ;; Default satisfies required ONLY in conform, because conform coerces
@@ -724,6 +759,12 @@
       (it ":description, :default, and :required describe the seq, not its entries"
         (let [result (schema/normalize-spec {:type [:int] :description "some ints" :default [] :required true})]
           (should= {:type :seq :spec {:type :int} :description "some ints" :default [] :required true} result)))
+
+      (it ":validations describes the seq, not its entries (issue #7)"
+        (let [result (schema/normalize-spec {:type [:int] :validations [:required]})]
+          (should= {:type :seq :spec {:type :int} :validations [:required]} result))
+        (let [result (schema/normalize-spec {:type [{:foo "bar"}] :validations [:required]})]
+          (should= {:type :seq :spec {:type :map :schema {:foo "bar"}} :validations [:required]} result)))
 
       (it "with spec"
         (let [result (schema/normalize-spec {:type [{:type :int}] :message "foo"})]

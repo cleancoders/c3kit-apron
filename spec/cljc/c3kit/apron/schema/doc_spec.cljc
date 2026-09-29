@@ -34,7 +34,10 @@
       (should= false (sut/required? {:type :string :validations [:not-a-real-ref]})))
 
     (it "false otherwise"
-      (should= false (sut/required? {:type :string}))))
+      (should= false (sut/required? {:type :string})))
+
+    (it "true for field-level :validations [:required] on a seq shorthand (issue #7)"
+      (should (sut/required? (schema/normalize-spec {:type [:keyword] :validations [:required]})))))
 
   (context "describe"
 
@@ -79,6 +82,11 @@
       (should= [{:path "colors" :type :seq :required false}
                 {:path "colors.value" :type :string :required false}]
                (sut/describe {:colors {:type [:string]}})))
+
+    (it "reports field-level :validations [:required] on a seq shorthand as required (issue #7)"
+      (should= [{:path "permissions" :type :seq :required true}
+                {:path "permissions.value" :type :keyword :required false}]
+               (sut/describe {:permissions {:type [:keyword] :validations [:required]}})))
 
     (it "reports a :map's dynamic :key-spec / :value-spec at .key / .value"
       (should= [{:path "crew" :type :map :required false}

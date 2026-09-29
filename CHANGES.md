@@ -36,6 +36,16 @@
  * **`:description` confirmed to survive shorthand normalization**, describing
    the right spec (e.g. `{:type [:int] :description "d"}` describes the seq,
    not its entries) — same placement rule as the new `:default`/`:required`.
+ * **Seq shorthand keeps field-level `:validations` on the seq (fixes #7).**
+   `{:type [:keyword] :validations [:required]}` used to push `:validations`
+   down onto the synthesized element spec along with `:validate`/`:coerce`/
+   `:present`/`:message`, so a field-level validation never ran when the key
+   was absent, and ran per-element (index-keyed messages) when it was
+   present. `:validations` now stays on the outer `:seq` spec, matching the
+   long `:type :seq` / `:spec` form and the treatment `:default`/`:required`/
+   `:description` already get; `:validate`/`:coerce`/`:present`/`:message`
+   are unchanged and still move to elements. `doc/required?`/`describe` pick
+   this up automatically.
  * **`c3kit.apron.schema.doc/describe`** — walks a schema (or a single spec)
    and returns a flat seq of `{:path :type :default :required :description}`
    maps, one per field, using the `c3kit.apron.schema.path` grammar for

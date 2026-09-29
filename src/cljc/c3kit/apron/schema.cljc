@@ -178,7 +178,7 @@
 (defn- normalize-seq-shorthand [{:keys [type] :as spec}]
   (when (not= 1 (count type)) (throw (ex-info "seq shorthand type must contain 1 type" spec)))
   (let [spec-type      (first type)
-        base-spec-keys #{:type :validate :coerce :present :message :validations}]
+        base-spec-keys #{:type :validate :coerce :present :message}]
     (cond (keyword? spec-type) (let [entry-spec (assoc (select-keys spec base-spec-keys) :type spec-type)]
                                  (-> (apply dissoc spec base-spec-keys)
                                      (assoc :type :seq :spec entry-spec)))
