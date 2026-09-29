@@ -27,13 +27,13 @@ Apron consists of necessities that almost any clojure app would find useful.
 Add to your `deps.edn`:
 
 ```clojure
-com.cleancoders.c3kit/apron {:mvn/version "3.1.0"}
+com.cleancoders.c3kit/apron {:mvn/version "3.2.1"}
 ```
 
 Or to your `project.clj`:
 
 ```clojure
-[com.cleancoders.c3kit/apron "3.1.0"]
+[com.cleancoders.c3kit/apron "3.2.1"]
 ```
 
 Released artifacts: [Clojars](https://clojars.org/com.cleancoders.c3kit/apron). Changelog: [CHANGES.md](CHANGES.md).
